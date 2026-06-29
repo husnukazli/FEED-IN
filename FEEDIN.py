@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import json
+import datetime
 
 st.set_page_config(layout="wide", page_title="Consolation Milli Takım Belirleme")
 st.title("🎾 Consolation Milli Takım Belirleme")
@@ -10,10 +11,11 @@ if 'players' not in st.session_state:
     st.session_state.players = [f"Oyuncu {i}" for i in range(1, 17)]
 if 'res' not in st.session_state: st.session_state.res = {}
 if 'scores' not in st.session_state: st.session_state.scores = {}
+if 'schedule_data' not in st.session_state: st.session_state.schedule_data = {} # Saat/Kort verisi için
 
-# --- OYUNCU GİRİŞİ (DOĞRUDAN SAYFANIN EN ÜSTÜNDE) ---
+# --- OYUNCU GİRİŞİ ---
 st.subheader("👥 Oyuncu Listesini Düzenle")
-txt = st.text_area("16 Oyuncu girin (Her satıra bir isim):", value="\n".join(st.session_state.players), height=150)
+txt = st.text_area("16 Oyuncu girin (Her satıra bir isim):", value="\n".join(st.session_state.players), height=100)
 if st.button("Listeyi Güncelle"):
     st.session_state.players = [p.strip() for p in txt.splitlines() if p.strip()]
     st.rerun()
@@ -23,8 +25,15 @@ st.divider()
 # --- KAYDET / YÜKLE ---
 with st.expander("⚙️ Veri Yönetimi (Kaydet / Yükle / Dışa Aktar)"):
     col_save, col_load = st.columns(2)
-    data_to_save = json.dumps({"res": st.session_state.res, "scores": st.session_state.scores, "players": st.session_state.players})
+    # Schedule verisini de JSON içine dahil ediyoruz
+    data_to_save = json.dumps({
+        "res": st.session_state.res, 
+        "scores": st.session_state.scores, 
+        "players": st.session_state.players,
+        "schedule_data": st.session_state.schedule_data
+    })
     col_save.download_button("Dosyayı Kaydet (JSON)", data=data_to_save, file_name="turnuva_verisi.json")
+    
     uploaded_file = col_load.file_uploader("Dosyayı Geri Yükle", type="json")
     if uploaded_file is not None:
         if col_load.button("Yüklenen Veriyi Sisteme Uygula"):
@@ -32,16 +41,14 @@ with st.expander("⚙️ Veri Yönetimi (Kaydet / Yükle / Dışa Aktar)"):
             st.session_state.res = data.get('res', {})
             st.session_state.scores = data.get('scores', {})
             st.session_state.players = data.get('players', [])
+            st.session_state.schedule_data = data.get('schedule_data', {})
             st.rerun()
 
 def match_card(m_id, p1, p2, label):
-    # Eşleşmeleri Maç Programı sekmesi için hafızada tutalım
     st.session_state[f"match_players_{m_id}"] = (p1, p2)
-    
     st.markdown(f"**{label}**")
     name1 = p1 if p1 else "⏳ Bekleniyor"
     name2 = p2 if p2 else "⏳ Bekleniyor"
-    
     st.markdown(f"""<div style="border: 1px solid #ccc; padding: 5px; border-radius: 5px; margin-bottom: 5px; font-size: 14px;">{name1} vs {name2}</div>""", unsafe_allow_html=True)
     
     if p1 and p2:
@@ -101,18 +108,38 @@ with tab_siralama:
             st.write(f"{rank} {name}")
             rows.append({"Derece": rank, "Oyuncu": name})
 
-# MAÇ PROGRAMI
+# MAÇ PROGRAMI (İnteraktif Giriş)
 with tab_program:
     st.header("📅 Gün Bazlı Maç Programı")
-    def show_day_table(matches, day_name):
+    
+    def edit_day_schedule(matches, day_name):
         st.subheader(f"🗓️ {day_name}")
-        data = []
+        # Başlıklar
+        cols = st.columns([2, 2, 2, 1, 1])
+        cols[0].write("**Maç**")
+        cols[1].write("**Oyuncu 1**")
+        cols[2].write("**Oyuncu 2**")
+        cols[3].write("**Saat**")
+        cols[4].write("**Kort**")
+        
         for m_id, label in matches:
             p1, p2 = st.session_state.get(f"match_players_{m_id}", ("⏳", "⏳"))
-            data.append({"Maç/Aşama": label, "Oyuncu 1": p1, "Oyuncu 2": p2, "Kort/Not": "---"})
-        df = pd.DataFrame(data)
-        st.table(df)
+            
+            # Verileri çek
+            data = st.session_state.schedule_data.get(m_id, {"saat": "", "kort": ""})
+            
+            c1, c2, c3, c4, c5 = st.columns([2, 2, 2, 1, 1])
+            c1.write(label)
+            c2.write(p1)
+            c3.write(p2)
+            
+            # Giriş alanları
+            new_saat = c4.text_input("Saat", value=data["saat"], key=f"time_{m_id}", label_visibility="collapsed")
+            new_kort = c5.text_input("Kort", value=data["kort"], key=f"court_{m_id}", label_visibility="collapsed")
+            
+            # Veriyi güncelle
+            st.session_state.schedule_data[m_id] = {"saat": new_saat, "kort": new_kort}
 
-    show_day_table([(f"CR1_{i}", f"T-R1 M{i+1}") for i in range(4)] + [(f"CR2_{i}", f"T-R2 M{i+1}") for i in range(4)], "1. GÜN")
-    show_day_table([(f"CR3_{i}", f"T-R3 M{i+1}") for i in range(2)] + [("MATCH_7_8", "7.-8.'lik Maçı")] + [(f"CR4_{i}", f"T-YF M{i+1}") for i in range(2)], "2. GÜN")
-    show_day_table([("FINAL_TESELLI", "Teselli Finali"), ("MATCH_5_6", "5.-6.'lık Maçı")], "3. GÜN")
+    edit_day_schedule([(f"CR1_{i}", f"T-R1 M{i+1}") for i in range(4)] + [(f"CR2_{i}", f"T-R2 M{i+1}") for i in range(4)], "1. GÜN")
+    edit_day_schedule([(f"CR3_{i}", f"T-R3 M{i+1}") for i in range(2)] + [("MATCH_7_8", "7.-8.'lik Maçı")] + [(f"CR4_{i}", f"T-YF M{i+1}") for i in range(2)], "2. GÜN")
+    edit_day_schedule([("FINAL_TESELLI", "Teselli Finali"), ("MATCH_5_6", "5.-6.'lık Maçı")], "3. GÜN")
