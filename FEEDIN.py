@@ -1,94 +1,83 @@
 import streamlit as st
 
-st.set_page_config(layout="wide", page_title="Turnuva Fikstürü")
-st.title("🎾 Şeffaf Eşleşmeli 16'lı Fikstür")
+st.set_page_config(layout="wide", page_title="Turnuva Sistemi")
+st.title("🎾 Profesyonel 16'lı Kademeli (Cascading) Turnuva")
 
-# --- DURUM YÖNETİMİ ---
+# Durum yönetimi
 if 'players' not in st.session_state:
     st.session_state.players = [f"Oyuncu {i}" for i in range(1, 17)]
-if 'results' not in st.session_state:
-    st.session_state.results = {} # {match_id: {"w": winner, "l": loser}}
+if 'res' not in st.session_state: st.session_state.res = {}
 
-# Görünürlük odaklı maç kartı fonksiyonu
+def get_match_res(m_id):
+    return st.session_state.res.get(m_id, {"w": None, "l": None})
+
 def match_card(m_id, p1, p2, label):
-    # Dış çerçeve
+    st.markdown(f"**{label}**")
+    name1 = p1 if p1 else "⏳ Bekleniyor"
+    name2 = p2 if p2 else "⏳ Bekleniyor"
+    
+    # Görsel Kart
     st.markdown(f"""
-    <div style="border: 2px solid #ddd; padding: 10px; border-radius: 5px; margin-bottom: 10px; background-color: #f9f9f9;">
-        <h5 style="margin:0; font-size: 14px;">{label}</h5>
-        <hr style="margin: 5px 0;">
-        <div style="font-weight: bold; font-size: 16px;">
-            {p1 if p1 else "⏳ Bekleniyor..."} <br>
-            <span style="font-size: 12px; font-weight: normal;">vs</span> <br>
-            {p2 if p2 else "⏳ Bekleniyor..."}
-        </div>
+    <div style="border: 1px solid #ccc; padding: 8px; border-radius: 5px; margin-bottom: 10px;">
+        {name1} vs {name2}
     </div>
     """, unsafe_allow_html=True)
     
-    # Seçim alanı (Eğer oyuncular belli ise aktif olur)
     if p1 and p2:
-        winner = st.selectbox(f"Kazananı Seç ({label})", ["-", p1, p2], key=f"sel_{m_id}", label_visibility="collapsed")
+        winner = st.selectbox(f"Kazanan ({m_id})", ["-", p1, p2], key=f"sel_{m_id}", label_visibility="collapsed")
         if winner != "-":
             loser = p2 if winner == p1 else p1
-            st.session_state.results[m_id] = {"w": winner, "l": loser}
+            st.session_state.res[m_id] = {"w": winner, "l": loser}
             return winner, loser
-    
     return None, None
 
-# --- TABLAR ---
-tab_p, tab_main, tab_cons = st.tabs(["👥 Oyuncular", "🏆 Ana Tablo", "🔄 Teselli & Feed-In"])
-
-with tab_p:
-    txt = st.text_area("16 Oyuncu girin:", value="\n".join(st.session_state.players), height=350)
-    if st.button("Oyuncuları Kaydet"):
-        st.session_state.players = [p.strip() for p in txt.splitlines() if p.strip()][:16]
+# 1. Oyuncu Girişi
+with st.expander("👥 16 Oyuncu Listesi"):
+    txt = st.text_area("Oyuncuları girin:", value="\n".join(st.session_state.players), height=150)
+    if st.button("Kaydet"):
+        st.session_state.players = [p.strip() for p in txt.splitlines() if p.strip()]
         st.rerun()
-
 p = st.session_state.players
 
-# --- ANA TABLO ---
-with tab_main:
-    col1, col2, col3, col4 = st.columns(4)
-    # R1 (8 maç)
-    mr1 = {i: match_card(f"MR1_{i}", p[i*2], p[i*2+1], f"Maç {i+1}") for i in range(8)}
-    
-    with col2:
-        st.subheader("Çeyrek Final")
-        mqf = {i: match_card(f"MQF_{i}", mr1[i*2][0], mr1[i*2+1][0], f"ÇF {i+1}") for i in range(4)}
-    
-    with col3:
-        st.subheader("Yarı Final")
-        msf = {i: match_card(f"MSF_{i}", mqf[i*2][0], mqf[i*2+1][0], f"YF {i+1}") for i in range(2)}
-        
-    with col4:
-        st.subheader("Final")
-        match_card("MF", msf[0][0], msf[1][0], "BÜYÜK FİNAL")
+# 2. ANA TABLO
+st.subheader("🏆 Ana Tablo")
+col1, col2, col3 = st.columns(3)
+with col1:
+    m_r1 = {i: match_card(f"MR1_{i}", p[i*2], p[i*2+1], f"Ana R1-M{i+1}") for i in range(8)}
+with col2:
+    m_qf = {i: match_card(f"MQF_{i}", m_r1[i*2][0], m_r1[i*2+1][0], f"Ana ÇF-M{i+1}") for i in range(4)}
+with col3:
+    m_sf = {i: match_card(f"MSF_{i}", m_qf[i*2][0], m_qf[i*2+1][0], f"Ana YF-M{i+1}") for i in range(2)}
 
-# --- CONSOLATION (KADEMELİ) ---
-with tab_cons:
-    st.info("Ana tablodan elenenler buraya otomatik gelir.")
-    c1, c2, c3, c4 = st.columns(4)
+# 3. CONSOLATION (TESELLİ)
+st.divider()
+st.subheader("🔄 Teselli (Consolation) Akışı")
+
+# R1 ve R2
+c_col1, c_col2, c_col3, c_col4 = st.columns(4)
+
+with c_col1:
+    st.write("### T-R1")
+    c_r1 = {i: match_card(f"CR1_{i}", m_r1[i*2][1], m_r1[i*2+1][1], f"R1 Kayb. {i+1}") for i in range(4)}
+
+with c_col2:
+    st.write("### T-R2")
+    c_r2 = {i: match_card(f"CR2_{i}", c_r1[i][0], m_qf[i][1], f"ÇF Kayb. ile {i+1}") for i in range(4)}
+
+# R3 (7.-8. lik belirlenir)
+with c_col3:
+    st.write("### T-R3")
+    c_r3 = {i: match_card(f"CR3_{i}", c_r2[i*2][0], c_r2[i*2+1][0], f"Yarı Final {i+1}") for i in range(2)}
+    st.write("**7.-8.'lik Maçı:**")
+    match_card("MATCH_7_8", c_r3[0][1], c_r3[1][1], "Maç")
+
+# R4 (Final ve 5.-6. lık belirlenir)
+with c_col4:
+    st.write("### T-R4 (Yarı Final)")
+    c_r4 = {i: match_card(f"CR4_{i}", c_r3[i][0], m_sf[i][1], f"YF Kayb. ile {i+1}") for i in range(2)}
     
-    # R1 Kaybedenleri -> Teselli R1
-    with c1:
-        st.subheader("Teselli R1")
-        cr1 = {i: match_card(f"CR1_{i}", mr1[i*2][1], mr1[i*2+1][1], f"T-R1 {i+1}") for i in range(4)}
+    st.write("**Teselli Finali (3.-4.):**")
+    match_card("FINAL_TESELLI", c_r4[0][0], c_r4[1][0], "Final")
     
-    # QF Kaybedenleri -> Teselli QF (TERSTEN SIRALAMA)
-    with c2:
-        st.subheader("Teselli ÇF")
-        qf_losers_reversed = [mqf[i][1] for i in range(3, -1, -1)]
-        c_qf = {i: match_card(f"CQF_{i}", cr1[i][0], qf_losers_reversed[i], f"T-ÇF {i+1}") for i in range(4)}
-        
-    # SF Kaybedenleri -> Teselli YF (Kritik Ekleme)
-    with c3:
-        st.subheader("Teselli YF")
-        sf_losers = [msf[0][1], msf[1][1]]
-        c_sf = {
-            0: match_card("CSF_0", c_qf[0][0], sf_losers[0], "T-YF 1"),
-            1: match_card("CSF_1", c_qf[1][0], sf_losers[1], "T-YF 2")
-        }
-    
-    # Final
-    with c4:
-        st.subheader("Teselli Finali")
-        match_card("CF", c_sf[0][0], c_sf[1][0], "Teselli Şampiyonu")
+    st.write("**5.-6.'lık Maçı:**")
+    match_card("MATCH_5_6", c_r4[0][1], c_r4[1][1], "Maç")
