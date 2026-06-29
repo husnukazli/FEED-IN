@@ -11,12 +11,14 @@ if 'players' not in st.session_state:
 if 'res' not in st.session_state: st.session_state.res = {}
 if 'scores' not in st.session_state: st.session_state.scores = {}
 
-# --- OYUNCU GİRİŞİ (EKLEDİM) ---
-with st.expander("👥 Oyuncu Listesini Düzenle"):
-    txt = st.text_area("16 Oyuncu girin (Her satıra bir isim):", value="\n".join(st.session_state.players), height=200)
-    if st.button("Listeyi Kaydet"):
-        st.session_state.players = [p.strip() for p in txt.splitlines() if p.strip()]
-        st.rerun()
+# --- OYUNCU GİRİŞİ (DOĞRUDAN SAYFANIN EN ÜSTÜNDE) ---
+st.subheader("👥 Oyuncu Listesini Düzenle")
+txt = st.text_area("16 Oyuncu girin (Her satıra bir isim):", value="\n".join(st.session_state.players), height=150)
+if st.button("Listeyi Güncelle"):
+    st.session_state.players = [p.strip() for p in txt.splitlines() if p.strip()]
+    st.rerun()
+
+st.divider()
 
 # --- KAYDET / YÜKLE ---
 with st.expander("⚙️ Veri Yönetimi (Kaydet / Yükle / Dışa Aktar)"):
@@ -33,13 +35,14 @@ with st.expander("⚙️ Veri Yönetimi (Kaydet / Yükle / Dışa Aktar)"):
             st.rerun()
 
 def match_card(m_id, p1, p2, label):
+    # Eşleşmeleri Maç Programı sekmesi için hafızada tutalım
+    st.session_state[f"match_players_{m_id}"] = (p1, p2)
+    
     st.markdown(f"**{label}**")
     name1 = p1 if p1 else "⏳ Bekleniyor"
     name2 = p2 if p2 else "⏳ Bekleniyor"
     
     st.markdown(f"""<div style="border: 1px solid #ccc; padding: 5px; border-radius: 5px; margin-bottom: 5px; font-size: 14px;">{name1} vs {name2}</div>""", unsafe_allow_html=True)
-    
-    st.session_state[f"match_players_{m_id}"] = (name1, name2)
     
     if p1 and p2:
         current_winner = st.session_state.res.get(m_id, {}).get("w", "-")
