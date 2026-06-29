@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import json
-import io
 
 st.set_page_config(layout="wide", page_title="Consolation Milli Takım Belirleme")
 st.title("🎾 Consolation Milli Takım Belirleme")
@@ -12,38 +11,45 @@ if 'players' not in st.session_state:
 if 'res' not in st.session_state: st.session_state.res = {}
 if 'scores' not in st.session_state: st.session_state.scores = {}
 
-# --- KAYDET / YÜKLE / EXPORT ---
+# --- KAYDET / YÜKLE ---
 with st.expander("⚙️ Veri Yönetimi (Kaydet / Yükle / Dışa Aktar)"):
     col_save, col_load = st.columns(2)
-    # Kaydet
-    data_to_save = json.dumps({"res": st.session_state.res, "scores": st.session_state.scores, "players": st.session_state.players})
+    
+    # 1. Kaydetme
+    data_to_save = json.dumps({
+        "res": st.session_state.res, 
+        "scores": st.session_state.scores, 
+        "players": st.session_state.players
+    })
     col_save.download_button("Dosyayı Kaydet (JSON)", data=data_to_save, file_name="turnuva_verisi.json")
     
-    # Yükle
+    # 2. Yükleme (İstediğiniz "Uygula" butonu burada)
     uploaded_file = col_load.file_uploader("Dosyayı Geri Yükle", type="json")
-    if uploaded_file:
-        data = json.load(uploaded_file)
-        st.session_state.res = data['res']
-        st.session_state.scores = data['scores']
-        st.session_state.players = data['players']
-        st.rerun()
+    if uploaded_file is not None:
+        if col_load.button("Yüklenen Veriyi Sisteme Uygula"):
+            data = json.load(uploaded_file)
+            st.session_state.res = data.get('res', {})
+            st.session_state.scores = data.get('scores', {})
+            st.session_state.players = data.get('players', [])
+            st.rerun()
 
 def match_card(m_id, p1, p2, label):
     st.markdown(f"**{label}**")
     name1 = p1 if p1 else "⏳ Bekleniyor"
     name2 = p2 if p2 else "⏳ Bekleniyor"
     
-    # Görsel Kart
     st.markdown(f"""<div style="border: 1px solid #ccc; padding: 5px; border-radius: 5px; margin-bottom: 5px; font-size: 14px;">{name1} vs {name2}</div>""", unsafe_allow_html=True)
     
-    winner, loser = None, None
     if p1 and p2:
-        # Kazanan seçimi
-        winner = st.selectbox(f"Kazanan ({m_id})", ["-", p1, p2], key=f"sel_{m_id}", label_visibility="collapsed")
-        # Skor girişi
-        score = st.text_input(f"Skor ({m_id})", value=st.session_state.scores.get(m_id, ""), key=f"score_{m_id}", label_visibility="collapsed")
-        st.session_state.scores[m_id] = score
+        # Mevcut seçimi koru
+        current_winner = st.session_state.res.get(m_id, {}).get("w", "-")
+        options = ["-", p1, p2]
+        idx = options.index(current_winner) if current_winner in options else 0
         
+        winner = st.selectbox(f"Kazanan ({m_id})", options, index=idx, key=f"sel_{m_id}", label_visibility="collapsed")
+        score = st.text_input(f"Skor ({m_id})", value=st.session_state.scores.get(m_id, ""), key=f"score_{m_id}", label_visibility="collapsed")
+        
+        st.session_state.scores[m_id] = score
         if winner != "-":
             loser = p2 if winner == p1 else p1
             st.session_state.res[m_id] = {"w": winner, "l": loser}
@@ -53,7 +59,6 @@ def match_card(m_id, p1, p2, label):
 # --- TAB'LAR ---
 tab_ana, tab_teselli, tab_siralama = st.tabs(["🏆 Ana Tablo", "🔄 Teselli", "📊 Milli Takım Belirleme Sıralaması"])
 
-# OYUNCU GİRİŞİ (Sadece Ana Tablo sekmesinde kalsın)
 p = st.session_state.players
 
 with tab_ana:
