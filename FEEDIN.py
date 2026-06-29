@@ -15,7 +15,6 @@ if 'scores' not in st.session_state: st.session_state.scores = {}
 with st.expander("⚙️ Veri Yönetimi (Kaydet / Yükle / Dışa Aktar)"):
     col_save, col_load = st.columns(2)
     
-    # 1. Kaydetme
     data_to_save = json.dumps({
         "res": st.session_state.res, 
         "scores": st.session_state.scores, 
@@ -23,7 +22,6 @@ with st.expander("⚙️ Veri Yönetimi (Kaydet / Yükle / Dışa Aktar)"):
     })
     col_save.download_button("Dosyayı Kaydet (JSON)", data=data_to_save, file_name="turnuva_verisi.json")
     
-    # 2. Yükleme (İstediğiniz "Uygula" butonu burada)
     uploaded_file = col_load.file_uploader("Dosyayı Geri Yükle", type="json")
     if uploaded_file is not None:
         if col_load.button("Yüklenen Veriyi Sisteme Uygula"):
@@ -41,7 +39,6 @@ def match_card(m_id, p1, p2, label):
     st.markdown(f"""<div style="border: 1px solid #ccc; padding: 5px; border-radius: 5px; margin-bottom: 5px; font-size: 14px;">{name1} vs {name2}</div>""", unsafe_allow_html=True)
     
     if p1 and p2:
-        # Mevcut seçimi koru
         current_winner = st.session_state.res.get(m_id, {}).get("w", "-")
         options = ["-", p1, p2]
         idx = options.index(current_winner) if current_winner in options else 0
@@ -57,7 +54,7 @@ def match_card(m_id, p1, p2, label):
     return None, None
 
 # --- TAB'LAR ---
-tab_ana, tab_teselli, tab_siralama = st.tabs(["🏆 Ana Tablo", "🔄 Teselli", "📊 Milli Takım Belirleme Sıralaması"])
+tab_ana, tab_teselli, tab_siralama, tab_program = st.tabs(["🏆 Ana Tablo", "🔄 Teselli", "📊 Milli Takım Belirleme Sıralaması", "📅 Maç Programı"])
 
 p = st.session_state.players
 
@@ -94,21 +91,29 @@ with tab_siralama:
     st.header("Milli Takım Belirleme Sıralaması")
     res = st.session_state.res
     rows = []
-    
-    rankings = [
-        ("1.", "FINAL_MAIN", "w"), ("2.", "FINAL_MAIN", "l"),
-        ("3.", "FINAL_TESELLI", "w"), ("4.", "FINAL_TESELLI", "l"),
-        ("5.", "MATCH_5_6", "w"), ("6.", "MATCH_5_6", "l"),
-        ("7.", "MATCH_7_8", "w"), ("8.", "MATCH_7_8", "l")
-    ]
-    
+    rankings = [("1.", "FINAL_MAIN", "w"), ("2.", "FINAL_MAIN", "l"), ("3.", "FINAL_TESELLI", "w"), ("4.", "FINAL_TESELLI", "l"), ("5.", "MATCH_5_6", "w"), ("6.", "MATCH_5_6", "l"), ("7.", "MATCH_7_8", "w"), ("8.", "MATCH_7_8", "l")]
     for rank, m_id, key in rankings:
         if m_id in res:
             name = res[m_id][key]
             st.write(f"{rank} {name}")
             rows.append({"Derece": rank, "Oyuncu": name})
-    
     if rows:
         df = pd.DataFrame(rows)
         csv = df.to_csv(index=False).encode('utf-8')
         st.download_button("Sıralamayı Excel (.csv) İndir", data=csv, file_name="siralama.csv", mime="text/csv")
+
+with tab_program:
+    st.header("📅 Gün Bazlı Maç Programı")
+    
+    st.subheader("🗓️ 1. GÜN")
+    st.write("• Teselli R1 (4 Maç)")
+    st.write("• Teselli R2 (4 Maç)")
+    
+    st.subheader("🗓️ 2. GÜN")
+    st.write("• Teselli R3 (2 Maç)")
+    st.write("• 7.-8.'lik Maçı (1 Maç)")
+    st.write("• Teselli Yarı Final / T-R4 (2 Maç)")
+    
+    st.subheader("🗓️ 3. GÜN")
+    st.write("• Teselli Finali / 3.-4.'lük Maçı (1 Maç)")
+    st.write("• 5.-6.'lık Maçı (1 Maç)")
