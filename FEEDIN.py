@@ -11,6 +11,13 @@ if 'players' not in st.session_state:
 if 'res' not in st.session_state: st.session_state.res = {}
 if 'scores' not in st.session_state: st.session_state.scores = {}
 
+# --- OYUNCU GİRİŞİ (EKLEDİM) ---
+with st.expander("👥 Oyuncu Listesini Düzenle"):
+    txt = st.text_area("16 Oyuncu girin (Her satıra bir isim):", value="\n".join(st.session_state.players), height=200)
+    if st.button("Listeyi Kaydet"):
+        st.session_state.players = [p.strip() for p in txt.splitlines() if p.strip()]
+        st.rerun()
+
 # --- KAYDET / YÜKLE ---
 with st.expander("⚙️ Veri Yönetimi (Kaydet / Yükle / Dışa Aktar)"):
     col_save, col_load = st.columns(2)
@@ -26,14 +33,12 @@ with st.expander("⚙️ Veri Yönetimi (Kaydet / Yükle / Dışa Aktar)"):
             st.rerun()
 
 def match_card(m_id, p1, p2, label):
-    # Bu fonksiyon sadece görseli değil, maçın kimler arasında olduğunu da session_state'de tutar
     st.markdown(f"**{label}**")
     name1 = p1 if p1 else "⏳ Bekleniyor"
     name2 = p2 if p2 else "⏳ Bekleniyor"
     
     st.markdown(f"""<div style="border: 1px solid #ccc; padding: 5px; border-radius: 5px; margin-bottom: 5px; font-size: 14px;">{name1} vs {name2}</div>""", unsafe_allow_html=True)
     
-    # Eşleşmeyi program sekmesi için hafızada tutalım
     st.session_state[f"match_players_{m_id}"] = (name1, name2)
     
     if p1 and p2:
@@ -93,30 +98,18 @@ with tab_siralama:
             st.write(f"{rank} {name}")
             rows.append({"Derece": rank, "Oyuncu": name})
 
-# MAÇ PROGRAMI (Dinamik Tablo)
+# MAÇ PROGRAMI
 with tab_program:
     st.header("📅 Gün Bazlı Maç Programı")
-    
-    # Yardımcı tablo fonksiyonu
     def show_day_table(matches, day_name):
         st.subheader(f"🗓️ {day_name}")
         data = []
         for m_id, label in matches:
-            # Eşleşmeleri 'match_card'dan çekiyoruz
             p1, p2 = st.session_state.get(f"match_players_{m_id}", ("⏳", "⏳"))
             data.append({"Maç/Aşama": label, "Oyuncu 1": p1, "Oyuncu 2": p2, "Kort/Not": "---"})
-        
         df = pd.DataFrame(data)
         st.table(df)
 
-    # 1. GÜN
-    day1_matches = [(f"CR1_{i}", f"T-R1 M{i+1}") for i in range(4)] + [(f"CR2_{i}", f"T-R2 M{i+1}") for i in range(4)]
-    show_day_table(day1_matches, "1. GÜN")
-
-    # 2. GÜN
-    day2_matches = [(f"CR3_{i}", f"T-R3 M{i+1}") for i in range(2)] + [("MATCH_7_8", "7.-8.'lik Maçı")] + [(f"CR4_{i}", f"T-YF M{i+1}") for i in range(2)]
-    show_day_table(day2_matches, "2. GÜN")
-
-    # 3. GÜN
-    day3_matches = [("FINAL_TESELLI", "Teselli Finali"), ("MATCH_5_6", "5.-6.'lık Maçı")]
-    show_day_table(day3_matches, "3. GÜN")
+    show_day_table([(f"CR1_{i}", f"T-R1 M{i+1}") for i in range(4)] + [(f"CR2_{i}", f"T-R2 M{i+1}") for i in range(4)], "1. GÜN")
+    show_day_table([(f"CR3_{i}", f"T-R3 M{i+1}") for i in range(2)] + [("MATCH_7_8", "7.-8.'lik Maçı")] + [(f"CR4_{i}", f"T-YF M{i+1}") for i in range(2)], "2. GÜN")
+    show_day_table([("FINAL_TESELLI", "Teselli Finali"), ("MATCH_5_6", "5.-6.'lık Maçı")], "3. GÜN")
