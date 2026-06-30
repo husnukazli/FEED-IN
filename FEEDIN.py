@@ -32,7 +32,7 @@ with st.expander("⚙️ Veri Yönetimi"):
 
 # --- FONKSİYON ---
 def match_card(m_id, p1, p2, label):
-    st.session_state[f"match_players_{m_id}"] = (p1, p2)
+    st.session_state[f"match_players_{active_cat}_{m_id}"] = (p1, p2)
     st.markdown(f"**{label}**")
     name1 = p1 if p1 else "⏳ Bekleniyor"
     name2 = p2 if p2 else "⏳ Bekleniyor"
@@ -98,19 +98,30 @@ with tab_siralama:
 # MAÇ PROGRAMI (Ortak Görüntüleme)
 with tab_program:
     st.header("📅 Ortak Maç Programı")
+    
+    # YENİ EKLENEN GÜN SEÇİCİ
+    secilen_gun = st.radio(
+        "🗓️ Görüntülemek İstediğiniz Günü Seçin:", 
+        ["Tüm Günler", "1. GÜN", "2. GÜN", "3. GÜN"], 
+        horizontal=True
+    )
+    st.divider()
+
     for cat in ['Erkekler', 'Kadınlar']:
         st.subheader(f"--- {cat} Turnuvası ---")
         def edit_day_schedule(matches, day_name):
-            st.markdown(f"**{day_name}**")
-            for m_id, label in matches:
-                p1, p2 = st.session_state.get(f"match_players_{m_id}", ("⏳", "⏳"))
-                data = st.session_state.data[cat]['schedule_data'].get(m_id, {"saat": "", "kort": ""})
-                c1, c2, c3, c4, c5 = st.columns([2, 2, 2, 1, 1])
-                c1.write(label); c2.write(p1); c3.write(p2)
-                # Buradaki key'lere 'cat' ekleyerek çakışmayı önledik
-                new_saat = c4.text_input("Saat", value=data["saat"], key=f"time_{cat}_{m_id}", label_visibility="collapsed")
-                new_kort = c5.text_input("Kort", value=data["kort"], key=f"court_{cat}_{m_id}", label_visibility="collapsed")
-                st.session_state.data[cat]['schedule_data'][m_id] = {"saat": new_saat, "kort": new_kort}
+            # Sadece seçili gün veya "Tüm Günler" seçiliyse o günü ekrana çiz
+            if secilen_gun in ["Tüm Günler", day_name]:
+                st.markdown(f"**{day_name}**")
+                for m_id, label in matches:
+                    p1, p2 = st.session_state.get(f"match_players_{cat}_{m_id}", ("⏳", "⏳"))
+                    data = st.session_state.data[cat]['schedule_data'].get(m_id, {"saat": "", "kort": ""})
+                    c1, c2, c3, c4, c5 = st.columns([2, 2, 2, 1, 1])
+                    c1.write(label); c2.write(p1); c3.write(p2)
+                    
+                    new_saat = c4.text_input("Saat", value=data["saat"], key=f"time_{cat}_{m_id}", label_visibility="collapsed")
+                    new_kort = c5.text_input("Kort", value=data["kort"], key=f"court_{cat}_{m_id}", label_visibility="collapsed")
+                    st.session_state.data[cat]['schedule_data'][m_id] = {"saat": new_saat, "kort": new_kort}
 
         edit_day_schedule([(f"CR1_{i}", f"T-R1 M{i+1}") for i in range(4)] + [(f"CR2_{i}", f"T-R2 M{i+1}") for i in range(4)], "1. GÜN")
         edit_day_schedule([(f"CR3_{i}", f"T-R3 M{i+1}") for i in range(2)] + [("MATCH_7_8", "7.-8.'lik Maçı")] + [(f"CR4_{i}", f"T-YF M{i+1}") for i in range(2)], "2. GÜN")
