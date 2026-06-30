@@ -6,17 +6,16 @@ st.set_page_config(layout="wide", page_title="Consolation Milli Takım Belirleme
 st.title("🎾 Consolation Milli Takım Belirleme")
 
 # --- KATEGORİ VE DURUM YÖNETİMİ ---
-# Verileri iki kategori altında tutuyoruz
 if 'data' not in st.session_state:
     st.session_state.data = {
         'Erkekler': {'players': [f"Oyuncu {i}" for i in range(1, 17)], 'res': {}, 'scores': {}, 'schedule_data': {}},
         'Kadınlar': {'players': [f"Oyuncu {i}" for i in range(1, 17)], 'res': {}, 'scores': {}, 'schedule_data': {}}
     }
 
-# Kategori Seçimi (Sistemin anahtarı)
+# Kategori Seçimi
 active_cat = st.radio("Turnuva Kategorisi Seçiniz:", ["Erkekler", "Kadınlar"], horizontal=True)
 
-# Kısa yollar (Kodun geri kalanı için)
+# Kısa yollar
 cat_data = st.session_state.data[active_cat]
 
 # --- VERİ YÖNETİMİ (KAYDET/YÜKLE) ---
@@ -99,7 +98,6 @@ with tab_siralama:
 with tab_program:
     st.header("📅 Ortak Maç Programı")
     
-    # YENİ EKLENEN GÜN SEÇİCİ
     secilen_gun = st.radio(
         "🗓️ Görüntülemek İstediğiniz Günü Seçin:", 
         ["Tüm Günler", "1. GÜN", "2. GÜN", "3. GÜN"], 
@@ -109,19 +107,49 @@ with tab_program:
 
     for cat in ['Erkekler', 'Kadınlar']:
         st.subheader(f"--- {cat} Turnuvası ---")
+        
         def edit_day_schedule(matches, day_name):
-            # Sadece seçili gün veya "Tüm Günler" seçiliyse o günü ekrana çiz
             if secilen_gun in ["Tüm Günler", day_name]:
-                st.markdown(f"**{day_name}**")
+                st.markdown(f"#### 🗓️ {day_name}")
+                
+                # --- GÜVENLİ BAŞLIK SATIRI ---
+                h1, h2, h3, h4, h5, h6 = st.columns([1.5, 2, 2, 1, 1, 1])
+                h1.markdown("**Maç**")
+                h2.markdown("**Oyuncu 1**")
+                h3.markdown("**Oyuncu 2**")
+                h4.markdown("**Maç Saati**")
+                h5.markdown("**Kort**")
+                h6.markdown("**Skor**")
+                st.markdown("<div style='margin-top:-10px; margin-bottom:10px; border-bottom:1px solid #ddd;'></div>", unsafe_allow_html=True)
+                
                 for m_id, label in matches:
                     p1, p2 = st.session_state.get(f"match_players_{cat}_{m_id}", ("⏳", "⏳"))
-                    data = st.session_state.data[cat]['schedule_data'].get(m_id, {"saat": "", "kort": ""})
-                    c1, c2, c3, c4, c5 = st.columns([2, 2, 2, 1, 1])
-                    c1.write(label); c2.write(p1); c3.write(p2)
                     
-                    new_saat = c4.text_input("Saat", value=data["saat"], key=f"time_{cat}_{m_id}", label_visibility="collapsed")
-                    new_kort = c5.text_input("Kort", value=data["kort"], key=f"court_{cat}_{m_id}", label_visibility="collapsed")
-                    st.session_state.data[cat]['schedule_data'][m_id] = {"saat": new_saat, "kort": new_kort}
+                    # Dinamik Kazanan Kontrolü (Ana/Teselli tablosundan veriyi otomatik okur)
+                    winner = st.session_state.data[cat]['res'].get(m_id, {}).get("w", None)
+                    p1_display = f"🏆 **{p1}**" if winner and p1 == winner else p1
+                    p2_display = f"🏆 **{p2}**" if winner and p2 == winner else p2
+                    
+                    # Eski verilerle uyumlu veri çekme kurgusu
+                    data = st.session_state.data[cat]['schedule_data'].get(m_id, {"saat": "", "kort": "", "skor": ""})
+                    
+                    c1, c2, c3, c4, c5, c6 = st.columns([1.5, 2, 2, 1, 1, 1])
+                    c1.write(label)
+                    c2.write(p1_display)
+                    c3.write(p2_display)
+                    
+                    # Giriş Alanları (Saat, Kort ve Yeni Eklenen Skor)
+                    new_saat = c4.text_input("Saat", value=data.get("saat", ""), key=f"time_{cat}_{m_id}", label_visibility="collapsed")
+                    new_kort = c5.text_input("Kort", value=data.get("kort", ""), key=f"court_{cat}_{m_id}", label_visibility="collapsed")
+                    new_skor = c6.text_input("Skor", value=data.get("skor", ""), key=f"prog_score_{cat}_{m_id}", label_visibility="collapsed")
+                    
+                    # Durumu kaydetme
+                    st.session_state.data[cat]['schedule_data'][m_id] = {
+                        "saat": new_saat, 
+                        "kort": new_kort, 
+                        "skor": new_skor
+                    }
+                st.write("") # Günler arası boşluk
 
         edit_day_schedule([(f"CR1_{i}", f"T-R1 M{i+1}") for i in range(4)] + [(f"CR2_{i}", f"T-R2 M{i+1}") for i in range(4)], "1. GÜN")
         edit_day_schedule([(f"CR3_{i}", f"T-R3 M{i+1}") for i in range(2)] + [("MATCH_7_8", "7.-8.'lik Maçı")] + [(f"CR4_{i}", f"T-YF M{i+1}") for i in range(2)], "2. GÜN")
