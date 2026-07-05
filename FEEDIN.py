@@ -14,7 +14,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- PDF GENERATOR CLASS ---
+# --- PDF GENERATOR ---
 class PDF(FPDF):
     def header(self):
         self.set_font('Arial', 'B', 12)
@@ -32,7 +32,8 @@ def generate_pdf_bytes(title, data_dict):
     pdf.ln(10)
     for k, v in data_dict.items():
         pdf.cell(200, 10, txt=f"{k}: {v}", ln=True)
-    return pdf.output(dest='S').encode('latin-1')
+    # Modern fpdf2 sürümleri için output() doğrudan bytes döndürür
+    return pdf.output()
 
 # --- VERİ BAŞLATMA ---
 if 'data' not in st.session_state:
@@ -69,7 +70,9 @@ def match_card(m_id, p1, p2, label):
 
 # --- PDF WIDGET ---
 def pdf_export(title, data):
-    if st.download_button(f"📄 {title} PDF İndir", data=generate_pdf_bytes(title, data), file_name=f"{title}.pdf"):
+    # generate_pdf_bytes fonksiyonu çağrısı düzeltildi
+    pdf_bytes = generate_pdf_bytes(title, data)
+    if st.download_button(f"📄 {title} PDF İndir", data=pdf_bytes, file_name=f"{title}.pdf"):
         st.success("PDF Hazır!")
 
 # --- TABS ---
