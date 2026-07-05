@@ -32,8 +32,8 @@ def generate_pdf_bytes(title, data_dict):
     pdf.ln(10)
     for k, v in data_dict.items():
         pdf.cell(200, 10, txt=f"{k}: {v}", ln=True)
-    # Modern fpdf2 sürümleri için output() doğrudan bytes döndürür
-    return pdf.output()
+    # output() sonucunu zorunlu olarak bytes formatına çeviriyoruz
+    return bytes(pdf.output())
 
 # --- VERİ BAŞLATMA ---
 if 'data' not in st.session_state:
@@ -68,12 +68,16 @@ def match_card(m_id, p1, p2, label):
             return winner, loser
     return None, None
 
-# --- PDF WIDGET ---
+# --- PDF İNDİRME FONKSİYONU ---
 def pdf_export(title, data):
-    # generate_pdf_bytes fonksiyonu çağrısı düzeltildi
     pdf_bytes = generate_pdf_bytes(title, data)
-    if st.download_button(f"📄 {title} PDF İndir", data=pdf_bytes, file_name=f"{title}.pdf"):
-        st.success("PDF Hazır!")
+    # mime="application/pdf" eklenmesi hatayı çözecektir
+    st.download_button(
+        label=f"📄 {title} PDF İndir",
+        data=pdf_bytes,
+        file_name=f"{title}.pdf",
+        mime="application/pdf" 
+    )
 
 # --- TABS ---
 tab1, tab2, tab3, tab4 = st.tabs(["🏆 Ana Tablo", "🔄 Teselli", "📊 Sıralama", "📅 Maç Programı"])
