@@ -3,58 +3,15 @@ import json
 import os
 import pandas as pd
 from fpdf import FPDF
-import base64
-import re
 
 st.set_page_config(layout="wide", page_title="Consolation Milli Takım Belirleme", initial_sidebar_state="expanded")
 
 # ==============================================================================
-# 1. DOSYA VE FPDF YARDIMCI FONKSİYONLARI
+# 1. DOSYA VE FPDF YARDIMCI FONKSİYONLARI (Sadece Sıralama İçin Kullanılacak)
 # ==============================================================================
 DB_FILE = "turnuva_db.json"
 FONT_YUKLENDI = os.path.exists("arial.ttf")
 
-def to_pdf_text(text):
-    if FONT_YUKLENDI: return str(text)
-    return str(text).encode('latin-1', 'replace').decode('latin-1')
-
-def generate_pdf(df, baslik):
-    pdf = FPDF(orientation='P', unit='mm', format='A4')
-    pdf.add_page()
-    
-    if FONT_YUKLENDI:
-        try:
-            pdf.add_font("ArialTR", "", "arial.ttf", uni=True)
-            pdf.set_font("ArialTR", "", 14)
-        except: pdf.set_font("Arial", 'B', 14)
-    else: pdf.set_font("Arial", 'B', 14)
-        
-    pdf.cell(0, 10, to_pdf_text(baslik), ln=True, align='C')
-    pdf.ln(5)
-    
-    if FONT_YUKLENDI: pdf.set_font("ArialTR", "", 10)
-    else: pdf.set_font("Arial", '', 10)
-
-    if not df.empty:
-        col_width = 190 / len(df.columns)
-        # Sütun başlıkları
-        for col in df.columns:
-            pdf.cell(col_width, 10, to_pdf_text(col), border=1, align='C')
-        pdf.ln()
-        
-        if FONT_YUKLENDI: pdf.set_font("ArialTR", "", 9)
-        else: pdf.set_font("Arial", '', 9)
-            
-        # Satırlar
-        for _, row in df.iterrows():
-            for item in row:
-                pdf.cell(col_width, 8, to_pdf_text(str(item)), border=1, align='C')
-            pdf.ln()
-    return bytes(pdf.output())
-
-# ==============================================================================
-# 2. VERİ YÖNETİMİ
-# ==============================================================================
 def load_data():
     if os.path.exists(DB_FILE):
         try:
@@ -62,8 +19,8 @@ def load_data():
                 return json.load(f)
         except: pass
     return {
-        'Erkekler': {'players': [f"Oyuncu {i}" for i in range(1, 17)], 'res': {}, 'scores': {}, 'schedule_data': {}},
-        'Kadınlar': {'players': [f"Oyuncu {i}" for i in range(1, 17)], 'res': {}, 'scores': {}, 'schedule_data': {}}
+        'Erkekler': {'players': [f"Oyuncu {i}" for i in range(1, 17)], 'res': {}, 'scores': {}, 'schedule_data': {}, 'publish': {'gun': 'Tüm Günler', 'filtre': 'Tümü'}},
+        'Kadınlar': {'players': [f"Oyuncu {i}" for i in range(1, 17)], 'res': {}, 'scores': {}, 'schedule_data': {}, 'publish': {'gun': 'Tüm Günler', 'filtre': 'Tümü'}}
     }
 
 def save_data():
@@ -72,9 +29,13 @@ def save_data():
 
 if 'data' not in st.session_state:
     st.session_state.data = load_data()
+    # Eski verilerde publish ayarı yoksa ekle
+    for c in ['Erkekler', 'Kadınlar']:
+        if 'publish' not in st.session_state.data[c]:
+            st.session_state.data[c]['publish'] = {'gun': 'Tüm Günler', 'filtre': 'Tümü'}
 
 # ==============================================================================
-# 3. ŞİFRELİ GİRİŞ / MİSAFİR MODU (SİDEBAR)
+# 2. ŞİFRELİ GİRİŞ / MİSAFİR MODU (SİDEBAR)
 # ==============================================================================
 if "admin_mi" not in st.session_state:
     st.session_state.admin_mi = False
@@ -85,7 +46,7 @@ with st.sidebar:
         st.info("👁️ Şu an **Misafir Modunda** izliyorsunuz.")
         girilen_sifre = st.text_input("Hakem Şifresi:", type="password")
         if st.button("🔒 Giriş Yap"):
-            if girilen_sifre == "zonguldak2026": # Şifreyi buradan değiştirebilirsin
+            if girilen_sifre == "zonguldak2026":
                 st.session_state.admin_mi = True
                 st.success("✅ Başhakem Yetkisi Aktif!")
                 st.rerun()
@@ -98,16 +59,19 @@ with st.sidebar:
             st.rerun()
             
     st.divider()
-    active_cat = st.radio("🎾 Kategori:", ["Erkekler", "Kadınlar"])
+    if not st.session_state.admin_mi:
+        active_cat = st.selectbox("🎾 Turnuva Kategorisi:", ["Erkekler", "Kadınlar"])
+    else:
+        active_cat = st.radio("🎾 Kategori:", ["Erkekler", "Kadınlar"])
 
 cat_data = st.session_state.data[active_cat]
 
 # ==============================================================================
-# 4. ÖZEL CSS VE SİMETRİ YARDIMCILARI
+# 3. ÖZEL CSS VE SİMETRİ YARDIMCILARI (Agresif PDF Baskı Gizlemesi)
 # ==============================================================================
 st.markdown("""
 <style>
-/* Kart yüksekliğini sabitliyoruz ki simetri kaymasın */
+/* Kart yüksekliği ve Görsel Ağaç */
 .match-wrapper { height: 105px; margin-bottom: 5px; }
 .match-card {
     border: 1px solid #1f77b4; border-radius: 6px; padding: 6px; 
@@ -116,14 +80,27 @@ st.markdown("""
 .match-label { font-size: 11px; font-weight: bold; color: #1f77b4; border-bottom: 1px solid #ddd; margin-bottom: 4px; padding-bottom: 2px; }
 .player-name { font-size: 13px; font-weight: 500; color: #333; padding: 2px 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;}
 .player-separator { border-top: 1px dashed #ccc; margin: 2px 0; }
+
+/* KUSURSUZ PDF BASKISI İÇİN - Sadece AĞAÇ görünecek */
+@media print {
+    header, footer, [data-testid="stSidebar"], .stTabs [data-baseweb="tab-list"], 
+    .stSelectbox, .stRadio, .stTextInput, button, .stExpander, .no-print { 
+        display: none !important; 
+    }
+    .stTabs { margin-top: -60px !important; }
+    [data-testid="stHorizontalBlock"] { display: flex !important; flex-wrap: nowrap !important; }
+    [data-testid="column"] { flex: 1 1 0% !important; min-width: 0 !important; display: block !important; }
+    * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; }
+    .match-wrapper { page-break-inside: avoid; }
+    .match-card { border: 1px solid #000; background-color: #eee !important; margin-bottom: 2px !important; }
+}
 </style>
 """, unsafe_allow_html=True)
 
 def spacer(height_px):
     st.markdown(f'<div style="height:{height_px}px;"></div>', unsafe_allow_html=True)
 
-# Simetri için Matematiksel Boşluklar (1 Kart = ~110px)
-# R1: 0, R2: 55, R3: 165, Final: 385
+# Simetri Eksen Boşlukları
 S_R2_TOP = 55
 S_R2_GAP = 110
 S_R3_TOP = 165
@@ -150,10 +127,9 @@ def match_card(m_id, p1, p2, label):
     
     if not st.session_state.admin_mi:
         if current_winner != "-":
-            st.markdown(f"<div style='text-align:center; font-size:12px; color:green; margin-top:-5px;'><b>K:</b> {current_winner} <br> {current_score}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='text-align:center; font-size:12px; color:green; margin-top:-5px;' class='no-print'><b>K:</b> {current_winner} <br> {current_score}</div>", unsafe_allow_html=True)
         return current_winner if current_winner != "-" else None, p2 if current_winner == p1 else (p1 if current_winner == p2 else None)
     
-    # Admin Skor Girişi
     if p1 and p2:
         options = ["-", p1, p2]
         idx = options.index(current_winner) if current_winner in options else 0
@@ -182,30 +158,19 @@ tab_ana, tab_teselli, tab_program, tab_dosya = st.tabs(["Ana Tablo", "Teselli Ta
 p = cat_data['players']
 
 # ==========================================
-# TAB 1: ANA TABLO (Mükemmel Simetri)
+# TAB 1: ANA TABLO (Görsel Ağaç)
 # ==========================================
 with tab_ana:
-    c_pdf, _ = st.columns([1, 3])
-    if c_pdf.button("📄 Ana Tabloyu PDF İndir (Liste)", key="pdf_main"):
-        # FPDF Tablo Verisi Hazırlama
-        pdf_data = []
-        for m_id, label in [(f"MR1_{i}", f"Son 16 M{i+1}") for i in range(8)] + [(f"MQF_{i}", f"Çeyrek Final M{i+1}") for i in range(4)] + [(f"MSF_{i}", f"Yarı Final M{i+1}") for i in range(2)] + [("FINAL_MAIN", "FİNAL")]:
-            p1, p2 = st.session_state.get(f"match_players_{active_cat}_{m_id}", ("-", "-"))
-            w = cat_data['res'].get(m_id, {}).get("w", "Oynanmadı")
-            s = cat_data['scores'].get(m_id, "-")
-            pdf_data.append({"Tur": label, "Oyuncu 1": p1, "Oyuncu 2": p2, "Skor": s, "Kazanan": w})
-        
-        pdf_bytes = generate_pdf(pd.DataFrame(pdf_data), f"{active_cat} Ana Tablo Fikstürü")
-        st.download_button("📥 PDF İndir", data=pdf_bytes, file_name=f"{active_cat}_Anatablo.pdf", mime="application/pdf")
-
+    st.markdown("<div class='no-print' style='text-align: right;'><button onclick='window.print()' style='padding:5px 10px; cursor:pointer;'>🖨️ Fikstürü Yazdır / PDF Al (Ctrl+P)</button></div>", unsafe_allow_html=True)
     st.divider()
+    
     c1, c2, c3, c4 = st.columns(4)
     m_r1, m_qf, m_sf = {}, {}, {}
     
     with c1: 
         st.markdown("<h5 style='text-align: center;'>Son 16</h5>", unsafe_allow_html=True)
         for i in range(4): m_r1[i] = match_card(f"MR1_{i}", p[i*2], p[i*2+1], f"R1-M{i+1}")
-        spacer(60) # Merkez Eksen Boşluğu
+        spacer(60)
         for i in range(4, 8): m_r1[i] = match_card(f"MR1_{i}", p[i*2], p[i*2+1], f"R1-M{i+1}")
             
     with c2: 
@@ -214,7 +179,7 @@ with tab_ana:
         m_qf[0] = match_card(f"MQF_0", m_r1[0][0], m_r1[1][0], "ÇF-M1")
         spacer(S_R2_GAP)
         m_qf[1] = match_card(f"MQF_1", m_r1[2][0], m_r1[3][0], "ÇF-M2")
-        spacer(S_R2_GAP + 60) # Eksen geçişi
+        spacer(S_R2_GAP + 60)
         m_qf[2] = match_card(f"MQF_2", m_r1[4][0], m_r1[5][0], "ÇF-M3")
         spacer(S_R2_GAP)
         m_qf[3] = match_card(f"MQF_3", m_r1[6][0], m_r1[7][0], "ÇF-M4")
@@ -232,19 +197,12 @@ with tab_ana:
         res_main = match_card("FINAL_MAIN", m_sf[0][0], m_sf[1][0], "🏆 ŞAMPİYON")
 
 # ==========================================
-# TAB 2: TESELLİ TABLOSU
+# TAB 2: TESELLİ TABLOSU (Görsel Ağaç)
 # ==========================================
 with tab_teselli:
-    c_pdf2, _ = st.columns([1, 3])
-    if c_pdf2.button("📄 Teselli Tablosunu PDF İndir", key="pdf_teselli"):
-        pdf_data2 = []
-        for m_id, label in [(f"CR1_{i}", f"T-Son16 M{i+1}") for i in range(4)] + [(f"CR2_{i}", f"T-ÇF M{i+1}") for i in range(4)] + [("FINAL_TESELLI", "Teselli Finali"), ("MATCH_5_6", "5. ve 6. Maçı"), ("MATCH_7_8", "7. ve 8. Maçı")]:
-            p1, p2 = st.session_state.get(f"match_players_{active_cat}_{m_id}", ("-", "-"))
-            w = cat_data['res'].get(m_id, {}).get("w", "Oynanmadı")
-            pdf_data2.append({"Tur": label, "Oyuncu 1": p1, "Oyuncu 2": p2, "Kazanan": w})
-        st.download_button("📥 PDF İndir", data=generate_pdf(pd.DataFrame(pdf_data2), f"{active_cat} Teselli Fikstürü"), file_name=f"{active_cat}_Teselli.pdf", mime="application/pdf")
-
+    st.markdown("<div class='no-print' style='text-align: right;'><button onclick='window.print()' style='padding:5px 10px; cursor:pointer;'>🖨️ Teselli Ağacını Yazdır / PDF Al (Ctrl+P)</button></div>", unsafe_allow_html=True)
     st.divider()
+    
     tc1, tc2, tc3, tc4, tc5 = st.columns(5)
     c_r1, c_r2, c_r3, c_r4 = {}, {}, {}, {}
 
@@ -285,57 +243,96 @@ with tab_teselli:
         match_card("MATCH_7_8", c_r3[0][1], c_r3[1][1], "7. VE 8. MAÇI")
 
 # ==========================================
-# TAB 3: PROGRAM VE SIRALAMA
+# TAB 3: PROGRAM VE SIRALAMA (Eski Yapı + Admin Yayın Kontrolü)
 # ==========================================
 with tab_program:
-    col_p1, col_p2 = st.columns(2)
-    with col_p1:
-        st.subheader("📅 Maç Programı")
-        df_program_data = []
+    st.subheader("📅 Ortak Maç Programı")
+    
+    # YAYIN FİLTRELERİ (Admin Seçer, Misafir Sadece Seçileni Görür)
+    if st.session_state.admin_mi:
+        st.info("💡 **Yayın Ayarı:** Aşağıdaki seçimleriniz, Misafir modunda programın nasıl görüneceğini belirler.")
+        col_gun, col_filtre = st.columns(2)
+        secilen_gun = col_gun.radio("🗓️ Günü Seçin:", ["Tüm Günler", "1. GÜN", "2. GÜN", "3. GÜN"], horizontal=True, index=["Tüm Günler", "1. GÜN", "2. GÜN", "3. GÜN"].index(cat_data['publish'].get('gun', 'Tüm Günler')))
+        tablo_filtresi = col_filtre.radio("🔍 Fikstür Filtresi:", ["Tümü", "Sadece Ana Tablo", "Sadece Teselli"], horizontal=True, index=["Tümü", "Sadece Ana Tablo", "Sadece Teselli"].index(cat_data['publish'].get('filtre', 'Tümü')))
         
-        # Sadece günlere ayrılmış maç verilerini çekiyoruz
-        gun1 = [(f"MR1_{i}", f"R1 M{i+1}") for i in range(8)] + [(f"CR1_{i}", f"T-R1 M{i+1}") for i in range(4)]
-        gun2 = [(f"MQF_{i}", f"ÇF M{i+1}") for i in range(4)] + [(f"CR2_{i}", f"T-ÇF M{i+1}") for i in range(4)] + [(f"MSF_{i}", f"YF M{i+1}") for i in range(2)] + [("MATCH_7_8", "7.-8.'lik")]
-        gun3 = [("FINAL_MAIN", "FİNAL"), ("FINAL_TESELLI", "3.-4.'lük"), ("MATCH_5_6", "5.-6.'lık")]
-        
-        for idx, (gun_adi, maclar) in enumerate([("1. GÜN", gun1), ("2. GÜN", gun2), ("3. GÜN", gun3)]):
-            st.markdown(f"**🗓️ {gun_adi}**")
-            for m_id, label in maclar:
-                p1, p2 = st.session_state.get(f"match_players_{active_cat}_{m_id}", ("-", "-"))
-                if p1 != "-" and p2 != "-":
-                    skor = cat_data['scores'].get(m_id, "")
-                    df_program_data.append({"Gün": gun_adi, "Tur": label, "Oyuncu 1": p1, "Oyuncu 2": p2, "Skor": skor})
-                    st.write(f"▪️ {label}: {p1} - {p2} *(Skor: {skor if skor else 'Oynanmadı'})*")
-        
-        if st.button("📄 Programı PDF İndir"):
-            pdf_bytes_prog = generate_pdf(pd.DataFrame(df_program_data), f"{active_cat} Maç Programı")
-            st.download_button("📥 İndir", data=pdf_bytes_prog, file_name="Mac_Programi.pdf", mime="application/pdf")
+        if secilen_gun != cat_data['publish'].get('gun') or tablo_filtresi != cat_data['publish'].get('filtre'):
+            cat_data['publish'] = {'gun': secilen_gun, 'filtre': tablo_filtresi}
+            save_data()
+    else:
+        # Misafir sadece adminin seçtiği yayını görür
+        secilen_gun = cat_data['publish'].get('gun', 'Tüm Günler')
+        tablo_filtresi = cat_data['publish'].get('filtre', 'Tümü')
+        st.warning(f"👁️ Yayındaki Görünüm: **{secilen_gun} | {tablo_filtresi}**")
+    
+    st.divider()
 
-    with col_p2:
-        st.subheader("🇹🇷 Milli Takım Sıralaması")
-        res = cat_data['res']
-        rankings = [("1.", "FINAL_MAIN", "w"), ("2.", "FINAL_MAIN", "l"), ("3.", "FINAL_TESELLI", "w"), ("4.", "FINAL_TESELLI", "l"), 
-                    ("5.", "MATCH_5_6", "w"), ("6.", "MATCH_5_6", "l"), ("7.", "MATCH_7_8", "w"), ("8.", "MATCH_7_8", "l")]
+    def edit_day_schedule(matches, day_name):
+        filtered_matches = []
+        for m_id, label in matches:
+            is_consolation = m_id.startswith("CR") or "TESELLI" in m_id or "5_6" in m_id or "7_8" in m_id
+            if tablo_filtresi == "Sadece Ana Tablo" and is_consolation: continue
+            if tablo_filtresi == "Sadece Teselli" and not is_consolation: continue
+            filtered_matches.append((m_id, label))
         
-        siralama_data = []
-        for rank, m_id, key in rankings:
-            player_name = res[m_id][key] if m_id in res and key in res[m_id] else "Belli Değil"
-            siralama_data.append({"Sıra": rank, "Oyuncu Adı": player_name})
-            st.markdown(f"**{rank}** {player_name}")
+        if not filtered_matches: return
+
+        if secilen_gun in ["Tüm Günler", day_name]:
+            st.markdown(f"<h4 style='color:#1f77b4;'>🗓️ {day_name}</h4>", unsafe_allow_html=True)
+            h1, h2, h3, h4, h5, h6 = st.columns([1.5, 2, 2, 1, 1, 1])
+            h1.markdown("**Maç Türü**"); h2.markdown("**Oyuncu 1**"); h3.markdown("**Oyuncu 2**"); h4.markdown("**Saat**"); h5.markdown("**Kort**"); h6.markdown("**Skor**")
+            st.markdown("<div style='margin-top:-10px; margin-bottom:10px; border-bottom:1px solid #ddd;'></div>", unsafe_allow_html=True)
             
-        if st.button("📄 Sıralamayı PDF İndir"):
-            pdf_bytes_sir = generate_pdf(pd.DataFrame(siralama_data), f"{active_cat} Sıralama Listesi")
-            st.download_button("📥 İndir", data=pdf_bytes_sir, file_name="Siralama.pdf", mime="application/pdf")
+            for m_id, label in filtered_matches:
+                p1, p2 = st.session_state.get(f"match_players_{active_cat}_{m_id}", ("⏳", "⏳"))
+                winner = cat_data['res'].get(m_id, {}).get("w", None)
+                p1_display = f"🏆 **{p1}**" if winner and p1 == winner else p1
+                p2_display = f"🏆 **{p2}**" if winner and p2 == winner else p2
+                data = cat_data['schedule_data'].get(m_id, {"saat": "", "kort": "", "skor": ""})
+                
+                c1, c2, c3, c4, c5, c6 = st.columns([1.5, 2, 2, 1, 1, 1])
+                c1.write(label); c2.write(p1_display); c3.write(p2_display)
+                
+                if not st.session_state.admin_mi:
+                    c4.write(data.get("saat", "-"))
+                    c5.write(data.get("kort", "-"))
+                    c6.write(data.get("skor", "-"))
+                else:
+                    new_saat = c4.text_input("Saat", value=data.get("saat", ""), key=f"time_{active_cat}_{m_id}", label_visibility="collapsed", placeholder="10:00")
+                    new_kort = c5.text_input("Kort", value=data.get("kort", ""), key=f"court_{active_cat}_{m_id}", label_visibility="collapsed", placeholder="Kort 1")
+                    new_skor = c6.text_input("Skor", value=data.get("skor", ""), key=f"prog_score_{active_cat}_{m_id}", label_visibility="collapsed")
+                    
+                    if new_saat != data.get("saat") or new_kort != data.get("kort") or new_skor != data.get("skor"):
+                        cat_data['schedule_data'][m_id] = {"saat": new_saat, "kort": new_kort, "skor": new_skor}
+                        save_data()
+            st.markdown("<br>", unsafe_allow_html=True)
+
+    gun1_maclari = [(f"MR1_{i}", f"Ana Tablo R1 M{i+1}") for i in range(8)] + [(f"CR1_{i}", f"T-R1 M{i+1}") for i in range(4)]
+    gun2_maclari = [(f"MQF_{i}", f"Ana Tablo ÇF M{i+1}") for i in range(4)] + [(f"MSF_{i}", f"Ana Tablo YF M{i+1}") for i in range(2)] + [(f"CR2_{i}", f"T-R2 M{i+1}") for i in range(4)] + [(f"CR3_{i}", f"T-R3 M{i+1}") for i in range(2)] + [("MATCH_7_8", "7.-8.'lik Maçı")]
+    gun3_maclari = [("FINAL_MAIN", "Ana Tablo FİNAL"), ("FINAL_TESELLI", "3.-4.'lük (Teselli Finali)"), ("MATCH_5_6", "5.-6.'lık Maçı"),] + [(f"CR4_{i}", f"T-YF M{i+1}") for i in range(2)]
+
+    edit_day_schedule(gun1_maclari, "1. GÜN")
+    edit_day_schedule(gun2_maclari, "2. GÜN")
+    edit_day_schedule(gun3_maclari, "3. GÜN")
+    
+    st.divider()
+    st.subheader("🇹🇷 Milli Takım Sıralaması")
+    res = cat_data['res']
+    rankings = [("1.", "FINAL_MAIN", "w"), ("2.", "FINAL_MAIN", "l"), ("3.", "FINAL_TESELLI", "w"), ("4.", "FINAL_TESELLI", "l"), 
+                ("5.", "MATCH_5_6", "w"), ("6.", "MATCH_5_6", "l"), ("7.", "MATCH_7_8", "w"), ("8.", "MATCH_7_8", "l")]
+    
+    for rank, m_id, key in rankings:
+        player_name = res[m_id][key] if m_id in res and key in res[m_id] else "Belli Değil"
+        st.markdown(f"**{rank}** {player_name}")
 
 # ==========================================
 # TAB 4: YEDEKLEME VE DOSYA (Sadece Admin)
 # ==========================================
 with tab_dosya:
     if st.session_state.admin_mi:
-        st.subheader("📥 Yedekleme ve Oyuncu Listesi")
+        st.subheader("📥 Veri Yönetimi ve Oyuncu Listesi")
         
         st.markdown("**1. Esame Listesini Güncelle**")
-        txt = st.text_area(f"{active_cat} 16 Oyuncu girin (1. Seribaşı en üstte):", value="\n".join(p), height=150)
+        txt = st.text_area(f"{active_cat} Kategorisi 16 Oyuncu girin:", value="\n".join(p), height=150)
         if st.button("👥 Listeyi Kaydet"):
             cat_data['players'] = [name.strip() for name in txt.splitlines() if name.strip()]
             save_data()
