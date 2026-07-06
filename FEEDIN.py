@@ -7,7 +7,7 @@ from fpdf import FPDF
 st.set_page_config(layout="wide", page_title="Consolation Milli Takım Belirleme", initial_sidebar_state="expanded")
 
 # ==============================================================================
-# 1. DOSYA VE FPDF YARDIMCI FONKSİYONLARI (Sadece Sıralama İçin Kullanılacak)
+# 1. DOSYA VE FPDF YARDIMCI FONKSİYONLARI
 # ==============================================================================
 DB_FILE = "turnuva_db.json"
 FONT_YUKLENDI = os.path.exists("arial.ttf")
@@ -29,7 +29,6 @@ def save_data():
 
 if 'data' not in st.session_state:
     st.session_state.data = load_data()
-    # Eski verilerde publish ayarı yoksa ekle
     for c in ['Erkekler', 'Kadınlar']:
         if 'publish' not in st.session_state.data[c]:
             st.session_state.data[c]['publish'] = {'gun': 'Tüm Günler', 'filtre': 'Tümü'}
@@ -71,7 +70,6 @@ cat_data = st.session_state.data[active_cat]
 # ==============================================================================
 st.markdown("""
 <style>
-/* Kart yüksekliği ve Görsel Ağaç */
 .match-wrapper { height: 105px; margin-bottom: 5px; }
 .match-card {
     border: 1px solid #1f77b4; border-radius: 6px; padding: 6px; 
@@ -81,7 +79,6 @@ st.markdown("""
 .player-name { font-size: 13px; font-weight: 500; color: #333; padding: 2px 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;}
 .player-separator { border-top: 1px dashed #ccc; margin: 2px 0; }
 
-/* KUSURSUZ PDF BASKISI İÇİN - Sadece AĞAÇ görünecek */
 @media print {
     header, footer, [data-testid="stSidebar"], .stTabs [data-baseweb="tab-list"], 
     .stSelectbox, .stRadio, .stTextInput, button, .stExpander, .no-print { 
@@ -100,7 +97,6 @@ st.markdown("""
 def spacer(height_px):
     st.markdown(f'<div style="height:{height_px}px;"></div>', unsafe_allow_html=True)
 
-# Simetri Eksen Boşlukları
 S_R2_TOP = 55
 S_R2_GAP = 110
 S_R3_TOP = 165
@@ -158,7 +154,7 @@ tab_ana, tab_teselli, tab_program, tab_dosya = st.tabs(["Ana Tablo", "Teselli Ta
 p = cat_data['players']
 
 # ==========================================
-# TAB 1: ANA TABLO (Görsel Ağaç)
+# TAB 1: ANA TABLO
 # ==========================================
 with tab_ana:
     st.markdown("<div class='no-print' style='text-align: right;'><button onclick='window.print()' style='padding:5px 10px; cursor:pointer;'>🖨️ Fikstürü Yazdır / PDF Al (Ctrl+P)</button></div>", unsafe_allow_html=True)
@@ -197,7 +193,7 @@ with tab_ana:
         res_main = match_card("FINAL_MAIN", m_sf[0][0], m_sf[1][0], "🏆 ŞAMPİYON")
 
 # ==========================================
-# TAB 2: TESELLİ TABLOSU (Görsel Ağaç)
+# TAB 2: TESELLİ TABLOSU
 # ==========================================
 with tab_teselli:
     st.markdown("<div class='no-print' style='text-align: right;'><button onclick='window.print()' style='padding:5px 10px; cursor:pointer;'>🖨️ Teselli Ağacını Yazdır / PDF Al (Ctrl+P)</button></div>", unsafe_allow_html=True)
@@ -222,16 +218,16 @@ with tab_teselli:
     with tc3: 
         st.markdown("<h6 style='text-align: center;'>T-YF 1</h6>", unsafe_allow_html=True)
         spacer(S_R2_TOP)
-        c_r3[0] = match_card("CR3_0", c_r2[0][0], c_r2[1][0], "T-R3 M1")
+        c_r3[0] = match_card("CR3_0", c_r2[0][0], c_r2[1][0], "T-YF1 M1")
         spacer(S_R2_GAP + 100)
-        c_r3[1] = match_card("CR3_1", c_r2[2][0], c_r2[3][0], "T-R3 M2")
+        c_r3[1] = match_card("CR3_1", c_r2[2][0], c_r2[3][0], "T-YF1 M2")
 
     with tc4: 
         st.markdown("<h6 style='text-align: center;'>T-YF 2</h6>", unsafe_allow_html=True)
         spacer(S_R2_TOP + 30)
-        c_r4[0] = match_card("CR4_0", c_r3[0][0], m_sf[0][1], "T-YF M1")
+        c_r4[0] = match_card("CR4_0", c_r3[0][0], m_sf[0][1], "T-YF2 M1")
         spacer(S_R2_GAP + 130)
-        c_r4[1] = match_card("CR4_1", c_r3[1][0], m_sf[1][1], "T-YF M2")
+        c_r4[1] = match_card("CR4_1", c_r3[1][0], m_sf[1][1], "T-YF2 M2")
 
     with tc5: 
         st.markdown("<h6 style='text-align: center;'>Finaller</h6>", unsafe_allow_html=True)
@@ -243,23 +239,30 @@ with tab_teselli:
         match_card("MATCH_7_8", c_r3[0][1], c_r3[1][1], "7. VE 8. MAÇI")
 
 # ==========================================
-# TAB 3: PROGRAM VE SIRALAMA (Eski Yapı + Admin Yayın Kontrolü)
+# TAB 3: PROGRAM VE SIRALAMA 
 # ==========================================
 with tab_program:
     st.subheader("📅 Ortak Maç Programı")
     
-    # YAYIN FİLTRELERİ (Admin Seçer, Misafir Sadece Seçileni Görür)
     if st.session_state.admin_mi:
         st.info("💡 **Yayın Ayarı:** Aşağıdaki seçimleriniz, Misafir modunda programın nasıl görüneceğini belirler.")
         col_gun, col_filtre = st.columns(2)
-        secilen_gun = col_gun.radio("🗓️ Günü Seçin:", ["Tüm Günler", "1. GÜN", "2. GÜN", "3. GÜN"], horizontal=True, index=["Tüm Günler", "1. GÜN", "2. GÜN", "3. GÜN"].index(cat_data['publish'].get('gun', 'Tüm Günler')))
-        tablo_filtresi = col_filtre.radio("🔍 Fikstür Filtresi:", ["Tümü", "Sadece Ana Tablo", "Sadece Teselli"], horizontal=True, index=["Tümü", "Sadece Ana Tablo", "Sadece Teselli"].index(cat_data['publish'].get('filtre', 'Tümü')))
         
-        if secilen_gun != cat_data['publish'].get('gun') or tablo_filtresi != cat_data['publish'].get('filtre'):
+        gun_secenekleri = ["Tüm Günler", "1. GÜN", "2. GÜN", "3. GÜN", "4. GÜN"]
+        mevcut_gun = cat_data['publish'].get('gun', 'Tüm Günler')
+        gun_idx = gun_secenekleri.index(mevcut_gun) if mevcut_gun in gun_secenekleri else 0
+        
+        filtre_secenekleri = ["Tümü", "Sadece Ana Tablo", "Sadece Teselli"]
+        mevcut_filtre = cat_data['publish'].get('filtre', 'Tümü')
+        filtre_idx = filtre_secenekleri.index(mevcut_filtre) if mevcut_filtre in filtre_secenekleri else 0
+        
+        secilen_gun = col_gun.radio("🗓️ Günü Seçin:", gun_secenekleri, horizontal=True, index=gun_idx)
+        tablo_filtresi = col_filtre.radio("🔍 Fikstür Filtresi:", filtre_secenekleri, horizontal=True, index=filtre_idx)
+        
+        if secilen_gun != mevcut_gun or tablo_filtresi != mevcut_filtre:
             cat_data['publish'] = {'gun': secilen_gun, 'filtre': tablo_filtresi}
             save_data()
     else:
-        # Misafir sadece adminin seçtiği yayını görür
         secilen_gun = cat_data['publish'].get('gun', 'Tüm Günler')
         tablo_filtresi = cat_data['publish'].get('filtre', 'Tümü')
         st.warning(f"👁️ Yayındaki Görünüm: **{secilen_gun} | {tablo_filtresi}**")
@@ -306,13 +309,26 @@ with tab_program:
                         save_data()
             st.markdown("<br>", unsafe_allow_html=True)
 
-    gun1_maclari = [(f"MR1_{i}", f"Ana Tablo R1 M{i+1}") for i in range(8)] + [(f"CR1_{i}", f"T-R1 M{i+1}") for i in range(4)]
-    gun2_maclari = [(f"MQF_{i}", f"Ana Tablo ÇF M{i+1}") for i in range(4)] + [(f"MSF_{i}", f"Ana Tablo YF M{i+1}") for i in range(2)] + [(f"CR2_{i}", f"T-R2 M{i+1}") for i in range(4)] + [(f"CR3_{i}", f"T-R3 M{i+1}") for i in range(2)] + [("MATCH_7_8", "7.-8.'lik Maçı")]
-    gun3_maclari = [("FINAL_MAIN", "Ana Tablo FİNAL"), ("FINAL_TESELLI", "3.-4.'lük (Teselli Finali)"), ("MATCH_5_6", "5.-6.'lık Maçı"),] + [(f"CR4_{i}", f"T-YF M{i+1}") for i in range(2)]
+    # GÜNLERE GÖRE MAÇ DAĞILIMI (Güncellendi)
+    gun1_maclari = [(f"MR1_{i}", f"Ana Tablo R1 M{i+1}") for i in range(8)]
+    
+    gun2_maclari = [(f"MQF_{i}", f"Ana Tablo ÇF M{i+1}") for i in range(4)] + \
+                   [(f"CR1_{i}", f"T-R1 M{i+1}") for i in range(4)] + \
+                   [(f"CR2_{i}", f"T-ÇF M{i+1}") for i in range(4)]
+                   
+    gun3_maclari = [(f"MSF_{i}", f"Ana Tablo YF M{i+1}") for i in range(2)] + \
+                   [(f"CR3_{i}", f"T-YF1 M{i+1}") for i in range(2)] + \
+                   [(f"CR4_{i}", f"T-YF2 M{i+1}") for i in range(2)] + \
+                   [("MATCH_7_8", "7.-8.'lik Maçı")]
+                   
+    gun4_maclari = [("FINAL_MAIN", "Ana Tablo FİNAL"), 
+                    ("FINAL_TESELLI", "3.-4.'lük (Teselli Finali)"), 
+                    ("MATCH_5_6", "5.-6.'lık Maçı")]
 
     edit_day_schedule(gun1_maclari, "1. GÜN")
     edit_day_schedule(gun2_maclari, "2. GÜN")
     edit_day_schedule(gun3_maclari, "3. GÜN")
+    edit_day_schedule(gun4_maclari, "4. GÜN")
     
     st.divider()
     st.subheader("🇹🇷 Milli Takım Sıralaması")
