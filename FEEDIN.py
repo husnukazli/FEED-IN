@@ -182,8 +182,9 @@ with tab_teselli:
     tc1, tc2, tc3, tc4, tc5 = st.columns([1, 1, 1, 1, 1])
     c_r1, c_r2, c_r3, c_r4 = {}, {}, {}, {}
 
-    with tc1: # T-R1
+with tc1: # T-R1
         st.markdown("<h6 style='text-align: center;'>T-Son 16</h6>", unsafe_allow_html=True)
         for i in range(2): c_r1[i] = match_card(f"CR1_{i}", m_r1[i*2][1], m_r1[i*2+1][1], f"T-R1 M{i+1}")
         spacer(axis_gap) # Simetri ekseni
+        for i in range(2, 4): c_r1[i] = match_card(f"CR1_{i}", m_r1[i*2][1], m_r1[i*2+1][1], f"T-R1 M{i+1}")
         for i in range(2, 4): c_r1[i] = match_card(f"CR1_{
