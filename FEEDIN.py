@@ -12,7 +12,7 @@ def spacer(height_px):
 if 'data' not in st.session_state:
     st.session_state.data = {
         'Erkekler': {'players': [f"Oyuncu {i}" for i in range(1, 17)], 'res': {}, 'scores': {}, 'schedule_data': {}},
-        'Kadınlar': {'players': [f"Oyuncu {i}" for i in range(1, 17)], 'res': {}, 'scores': {}, 'schedule_data': {}}
+        'Kadınlar': {'players': [f"Oyuncu {i}" for i in range(1, 17)], 'res': {}, 'scores': {}, 'scores_str': {}, 'schedule_data': {}}
     }
 
 active_cat = st.radio("Turnuva Kategorisi Seçiniz:", ["Erkekler", "Kadınlar"], horizontal=True)
@@ -34,7 +34,8 @@ def match_card(m_id, p1, p2, label):
     st.markdown(f"<small><b>{label}</b></small>", unsafe_allow_html=True)
     name1 = p1 if p1 else "..."
     name2 = p2 if p2 else "..."
-    st.markdown(f"""<div style="border: 1px solid #aaa; padding: 2px; border-radius: 3px; margin-bottom: 5px; font-size: 11px; background-color: #f9f9f9;">{name1}<br>{name2}</div>""", unsafe_allow_html=True)
+    # Daha kompakt tasarım için padding azaldı
+    st.markdown(f"""<div style="border: 1px solid #aaa; padding: 1px; border-radius: 3px; margin-bottom: 5px; font-size: 10px; background-color: #f9f9f9; width: 100px;">{name1}<br>{name2}</div>""", unsafe_allow_html=True)
     
     if p1 and p2:
         current_winner = cat_data['res'].get(m_id, {}).get("w", "-")
@@ -55,9 +56,9 @@ tab_ana, tab_teselli, tab_siralama, tab_program = st.tabs(["🏆 Ana Tablo", "�
 
 p = cat_data['players']
 
-# --- ANA TABLO ---
+# --- ANA TABLO (PİRAMİT YAPISI) ---
 with tab_ana:
-    st.subheader(f"👥 {active_cat} - Oyuncu Listesi")
+    st.subheader(f"👥 {active_cat} - Ana Tablo")
     txt = st.text_area("16 Oyuncu girin:", value="\n".join(p), height=70)
     if st.button("Listeyi Güncelle"):
         cat_data['players'] = [name.strip() for name in txt.splitlines() if name.strip()]
@@ -68,35 +69,45 @@ with tab_ana:
     with c1: 
         m_r1 = {i: match_card(f"MR1_{i}", p[i*2], p[i*2+1], f"R1-M{i+1}") for i in range(8)}
     with c2: 
-        spacer(45) 
+        spacer(30) 
         m_qf = {}
         for i in range(4):
             m_qf[i] = match_card(f"MQF_{i}", m_r1[i*2][0], m_r1[i*2+1][0], f"ÇF-M{i+1}")
-            spacer(185) 
+            spacer(110) 
     with c3: 
-        spacer(230)
+        spacer(140)
         m_sf = {}
         for i in range(2):
             m_sf[i] = match_card(f"MSF_{i}", m_qf[i*2][0], m_qf[i*2+1][0], f"YF-M{i+1}")
-            spacer(560)
+            spacer(330)
     with c4: 
-        spacer(505)
+        spacer(290)
         match_card("FINAL_MAIN", m_sf[0][0], m_sf[1][0], "FİNAL")
 
-# --- TESELLİ ---
+# --- TESELLİ (SİMETRİK PİRAMİT) ---
 with tab_teselli:
+    st.subheader("🔄 Teselli Fikstürü")
     c_col1, c_col2, c_col3, c_col4 = st.columns(4)
-    with c_col1: c_r1 = {i: match_card(f"CR1_{i}", m_r1[i*2][1], m_r1[i*2+1][1], f"T-R1 M{i+1}") for i in range(4)}
+    with c_col1: 
+        c_r1 = {i: match_card(f"CR1_{i}", m_r1[i*2][1], m_r1[i*2+1][1], f"T-R1 M{i+1}") for i in range(4)}
     with c_col2:
+        spacer(30)
         qf_losers_reversed = [m_qf[3][1], m_qf[2][1], m_qf[1][1], m_qf[0][1]]
         c_r2 = {i: match_card(f"CR2_{i}", c_r1[i][0], qf_losers_reversed[i], f"T-R2 M{i+1}") for i in range(4)}
+        spacer(30)
     with c_col3:
+        spacer(140)
         c_r3 = {i: match_card(f"CR3_{i}", c_r2[i*2][0], c_r2[i*2+1][0], f"T-R3 M{i+1}") for i in range(2)}
-        match_card("MATCH_7_8", c_r3[0][1], c_r3[1][1], "7.-8.'lik Maçı")
     with c_col4:
+        spacer(290)
         c_r4 = {i: match_card(f"CR4_{i}", c_r3[i][0], m_sf[i][1], f"T-YF M{i+1}") for i in range(2)}
         match_card("FINAL_TESELLI", c_r4[0][0], c_r4[1][0], "Teselli Finali")
-        match_card("MATCH_5_6", c_r4[0][1], c_r4[1][1], "5.-6.'lık Maçı")
+
+    st.divider()
+    st.markdown("##### 🥉 Klasman Maçları (Piramit Dışı)")
+    k1, k2 = st.columns(2)
+    with k1: match_card("MATCH_7_8", c_r3[0][1] if c_r3[0] else None, c_r3[1][1] if c_r3[1] else None, "7.-8.'lik Maçı")
+    with k2: match_card("MATCH_5_6", c_r4[0][1] if c_r4[0] else None, c_r4[1][1] if c_r4[1] else None, "5.-6.'lık Maçı")
 
 # --- SIRALAMA ---
 with tab_siralama:
@@ -116,8 +127,7 @@ with tab_program:
         if secilen_gun in ["Tüm Günler", day_name]:
             st.markdown(f"#### 🗓️ {day_name}")
             h1, h2, h3, h4, h5, h6 = st.columns([1.5, 2, 2, 1, 1, 1])
-            h1.markdown("**Maç**"); h2.markdown("**Oyuncu 1**"); h3.markdown("**Oyuncu 2**"); h4.markdown("**Maç Saati**"); h5.markdown("**Kort**"); h6.markdown("**Skor**")
-            st.markdown("<div style='margin-top:-10px; margin-bottom:10px; border-bottom:1px solid #ddd;'></div>", unsafe_allow_html=True)
+            h1.markdown("**Maç**"); h2.markdown("**Oyuncu 1**"); h3.markdown("**Oyuncu 2**"); h4.markdown("**Saat**"); h5.markdown("**Kort**"); h6.markdown("**Skor**")
             for m_id, label in matches:
                 p1, p2 = st.session_state.get(f"match_players_{active_cat}_{m_id}", ("⏳", "⏳"))
                 winner = st.session_state.data[active_cat]['res'].get(m_id, {}).get("w", None)
