@@ -133,15 +133,17 @@ cat_data = st.session_state.data[active_cat]
 # ==============================================================================
 st.markdown("""
 <style>
-.match-wrapper { height: 105px; margin-bottom: 5px; }
+/* Kart yüksekliği kaynak metinleri için artırıldı (105px -> 125px) */
+.match-wrapper { height: 125px; margin-bottom: 5px; }
 .match-card {
     border: 1px solid #1f77b4; border-radius: 6px; padding: 6px; 
     background-color: #f8f9fa; box-shadow: 2px 2px 5px rgba(0,0,0,0.05); height: 100%;
 }
 .match-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; margin-bottom: 4px; padding-bottom: 2px; }
 .match-label { font-size: 11px; font-weight: bold; color: #1f77b4; }
-.match-number { font-size: 10px; font-weight: bold; color: #555; background-color: #e9ecef; padding: 1px 5px; border-radius: 4px; }
+.match-number { font-size: 11px; font-weight: bold; color: #fff; background-color: #1f77b4; padding: 1px 5px; border-radius: 4px; }
 .player-name { font-size: 13px; font-weight: 500; color: #333; padding: 2px 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;}
+.player-src { font-size: 9px; color: #7f8c8d; font-style: italic; margin-top: -3px; margin-bottom: 2px; }
 .player-separator { border-top: 1px dashed #ccc; margin: 2px 0; }
 
 @media print {
@@ -160,11 +162,12 @@ st.markdown("""
 def spacer(height_px):
     st.markdown(f'<div style="height:{height_px}px;"></div>', unsafe_allow_html=True)
 
-S_R2_TOP = 55; S_R2_GAP = 110
-S_R3_TOP = 165; S_R3_GAP = 330
-S_FIN_TOP = 385
+# Yükseklik 125px olduğu için simetri boşlukları güncellendi
+S_R2_TOP = 65; S_R2_GAP = 130
+S_R3_TOP = 195; S_R3_GAP = 390
+S_FIN_TOP = 455
 
-def match_card(m_id, p1, p2, label, match_no=""):
+def match_card(m_id, p1, p2, label, match_no="", src1="", src2=""):
     st.session_state[f"match_players_{active_cat}_{m_id}"] = (p1, p2)
     name1 = p1 if p1 else "Bekleniyor..."
     name2 = p2 if p2 else "Bekleniyor..."
@@ -176,11 +179,13 @@ def match_card(m_id, p1, p2, label, match_no=""):
     <div class="match-wrapper"><div class="match-card">
         <div class="match-header">
             <div class="match-label">{label}</div>
-            <div class="match-number">#{match_no}</div>
+            <div class="match-number">M{match_no}</div>
         </div>
         <div class="player-name" style="font-weight: {'bold' if current_winner == p1 and p1 else 'normal'};">{name1}</div>
+        {f'<div class="player-src">{src1}</div>' if src1 else ''}
         <div class="player-separator"></div>
         <div class="player-name" style="font-weight: {'bold' if current_winner == p2 and p2 else 'normal'};">{name2}</div>
+        {f'<div class="player-src">{src2}</div>' if src2 else ''}
     </div></div>
     """
     st.markdown(html, unsafe_allow_html=True)
@@ -229,32 +234,32 @@ with tab_ana:
     
     with c1: 
         st.markdown("<h5 style='text-align: center;'>Son 16</h5>", unsafe_allow_html=True)
-        for i in range(4): m_r1[i] = match_card(f"MR1_{i}", p[i*2], p[i*2+1], f"R1-M{i+1}", i+1)
-        spacer(60)
-        for i in range(4, 8): m_r1[i] = match_card(f"MR1_{i}", p[i*2], p[i*2+1], f"R1-M{i+1}", i+1)
+        for i in range(4): m_r1[i] = match_card(f"MR1_{i}", p[i*2], p[i*2+1], "R1", i+1)
+        spacer(70)
+        for i in range(4, 8): m_r1[i] = match_card(f"MR1_{i}", p[i*2], p[i*2+1], "R1", i+1)
             
     with c2: 
         st.markdown("<h5 style='text-align: center;'>Çeyrek Final</h5>", unsafe_allow_html=True)
         spacer(S_R2_TOP)
-        m_qf[0] = match_card(f"MQF_0", m_r1[0][0], m_r1[1][0], "ÇF-M1", 9)
+        m_qf[0] = match_card(f"MQF_0", m_r1[0][0], m_r1[1][0], "ÇF", 9, "M1 Kazananı", "M2 Kazananı")
         spacer(S_R2_GAP)
-        m_qf[1] = match_card(f"MQF_1", m_r1[2][0], m_r1[3][0], "ÇF-M2", 10)
-        spacer(S_R2_GAP + 60)
-        m_qf[2] = match_card(f"MQF_2", m_r1[4][0], m_r1[5][0], "ÇF-M3", 11)
+        m_qf[1] = match_card(f"MQF_1", m_r1[2][0], m_r1[3][0], "ÇF", 10, "M3 Kazananı", "M4 Kazananı")
+        spacer(S_R2_GAP + 70)
+        m_qf[2] = match_card(f"MQF_2", m_r1[4][0], m_r1[5][0], "ÇF", 11, "M5 Kazananı", "M6 Kazananı")
         spacer(S_R2_GAP)
-        m_qf[3] = match_card(f"MQF_3", m_r1[6][0], m_r1[7][0], "ÇF-M4", 12)
+        m_qf[3] = match_card(f"MQF_3", m_r1[6][0], m_r1[7][0], "ÇF", 12, "M7 Kazananı", "M8 Kazananı")
             
     with c3: 
         st.markdown("<h5 style='text-align: center;'>Yarı Final</h5>", unsafe_allow_html=True)
         spacer(S_R3_TOP)
-        m_sf[0] = match_card("MSF_0", m_qf[0][0], m_qf[1][0], "YF-M1", 13)
-        spacer(S_R3_GAP + 60)
-        m_sf[1] = match_card("MSF_1", m_qf[2][0], m_qf[3][0], "YF-M2", 14)
+        m_sf[0] = match_card("MSF_0", m_qf[0][0], m_qf[1][0], "YF", 13, "M9 Kazananı", "M10 Kazananı")
+        spacer(S_R3_GAP + 70)
+        m_sf[1] = match_card("MSF_1", m_qf[2][0], m_qf[3][0], "YF", 14, "M11 Kazananı", "M12 Kazananı")
             
     with c4: 
         st.markdown("<h5 style='text-align: center;'>Final</h5>", unsafe_allow_html=True)
-        spacer(S_FIN_TOP + 30)
-        res_main = match_card("FINAL_MAIN", m_sf[0][0], m_sf[1][0], "🏆 ŞAMPİYON", 15)
+        spacer(S_FIN_TOP + 35)
+        res_main = match_card("FINAL_MAIN", m_sf[0][0], m_sf[1][0], "FİNAL", 15, "M13 Kazananı", "M14 Kazananı")
 
     if st.session_state.admin_mi:
         st.markdown("<br><br>", unsafe_allow_html=True)
@@ -274,39 +279,40 @@ with tab_teselli:
 
     with tc1: 
         st.markdown("<h6 style='text-align: center;'>T-R1</h6>", unsafe_allow_html=True)
-        for i in range(2): c_r1[i] = match_card(f"CR1_{i}", m_r1[i*2][1], m_r1[i*2+1][1], f"T-R1 M{i+1}", i+1)
-        spacer(100)
-        for i in range(2, 4): c_r1[i] = match_card(f"CR1_{i}", m_r1[i*2][1], m_r1[i*2+1][1], f"T-R1 M{i+1}", i+1)
+        for i in range(2): c_r1[i] = match_card(f"CR1_{i}", m_r1[i*2][1], m_r1[i*2+1][1], "T-R1", i+16, f"M{(i*2)+1} Kaybedeni", f"M{(i*2)+2} Kaybedeni")
+        spacer(110)
+        for i in range(2, 4): c_r1[i] = match_card(f"CR1_{i}", m_r1[i*2][1], m_r1[i*2+1][1], "T-R1", i+16, f"M{(i*2)+1} Kaybedeni", f"M{(i*2)+2} Kaybedeni")
         
     with tc2: 
         st.markdown("<h6 style='text-align: center;'>T-ÇF</h6>", unsafe_allow_html=True)
         qf_losers_reversed = [m_qf[3][1], m_qf[2][1], m_qf[1][1], m_qf[0][1]]
-        for i in range(2): c_r2[i] = match_card(f"CR2_{i}", c_r1[i][0], qf_losers_reversed[i], f"T-R2 M{i+1}", i+5)
-        spacer(100)
-        for i in range(2, 4): c_r2[i] = match_card(f"CR2_{i}", c_r1[i][0], qf_losers_reversed[i], f"T-R2 M{i+1}", i+5)
+        qf_src_reversed = [12, 11, 10, 9] # Ters eşleşmenin kaynakları
+        for i in range(2): c_r2[i] = match_card(f"CR2_{i}", c_r1[i][0], qf_losers_reversed[i], "T-ÇF", i+20, f"M{i+16} Kazananı", f"M{qf_src_reversed[i]} Kaybedeni")
+        spacer(110)
+        for i in range(2, 4): c_r2[i] = match_card(f"CR2_{i}", c_r1[i][0], qf_losers_reversed[i], "T-ÇF", i+20, f"M{i+16} Kazananı", f"M{qf_src_reversed[i]} Kaybedeni")
 
     with tc3: 
         st.markdown("<h6 style='text-align: center;'>T-YF 1</h6>", unsafe_allow_html=True)
         spacer(S_R2_TOP)
-        c_r3[0] = match_card("CR3_0", c_r2[0][0], c_r2[1][0], "T-YF1 M1", 9)
-        spacer(S_R2_GAP + 100)
-        c_r3[1] = match_card("CR3_1", c_r2[2][0], c_r2[3][0], "T-YF1 M2", 10)
+        c_r3[0] = match_card("CR3_0", c_r2[0][0], c_r2[1][0], "T-YF1", 24, "M20 Kazananı", "M21 Kazananı")
+        spacer(S_R2_GAP + 110)
+        c_r3[1] = match_card("CR3_1", c_r2[2][0], c_r2[3][0], "T-YF1", 25, "M22 Kazananı", "M23 Kazananı")
 
     with tc4: 
         st.markdown("<h6 style='text-align: center;'>T-YF 2</h6>", unsafe_allow_html=True)
-        spacer(S_R2_TOP + 30)
-        c_r4[0] = match_card("CR4_0", c_r3[0][0], m_sf[0][1], "T-YF2 M1", 11)
-        spacer(S_R2_GAP + 130)
-        c_r4[1] = match_card("CR4_1", c_r3[1][0], m_sf[1][1], "T-YF2 M2", 12)
+        spacer(S_R2_TOP + 35)
+        c_r4[0] = match_card("CR4_0", c_r3[0][0], m_sf[0][1], "T-YF2", 26, "M24 Kazananı", "M13 Kaybedeni")
+        spacer(S_R2_GAP + 145)
+        c_r4[1] = match_card("CR4_1", c_r3[1][0], m_sf[1][1], "T-YF2", 27, "M25 Kazananı", "M14 Kaybedeni")
 
     with tc5: 
         st.markdown("<h6 style='text-align: center;'>Finaller</h6>", unsafe_allow_html=True)
         spacer(S_R3_TOP)
-        match_card("FINAL_TESELLI", c_r4[0][0], c_r4[1][0], "🥉 3.-4.'LÜK", 13)
-        spacer(50)
-        match_card("MATCH_5_6", c_r4[0][1], c_r4[1][1], "5. VE 6. MAÇI", 14)
-        spacer(50)
-        match_card("MATCH_7_8", c_r3[0][1], c_r3[1][1], "7. VE 8. MAÇI", 15)
+        match_card("FINAL_TESELLI", c_r4[0][0], c_r4[1][0], "3.-4.'LÜK", 28, "M26 Kazananı", "M27 Kazananı")
+        spacer(60)
+        match_card("MATCH_5_6", c_r4[0][1], c_r4[1][1], "5.-6.'LIK", 29, "M26 Kaybedeni", "M27 Kaybedeni")
+        spacer(60)
+        match_card("MATCH_7_8", c_r3[0][1], c_r3[1][1], "7.-8.'LİK", 30, "M24 Kaybedeni", "M25 Kaybedeni")
 
     if st.session_state.admin_mi:
         st.markdown("<br><br>", unsafe_allow_html=True)
@@ -406,8 +412,9 @@ with tab_program:
             bracket_score = cat_d['scores'].get(m_id, "")
             data = cat_d['schedule_data'].get(m_id, {"saat": "", "kort": ""}) 
             
+            # PDF kısaltmaları M numaraları ile zenginleştirildi
             pdf_tur = label.replace("Ana Tablo", "AT").replace("T-", "FC ")
-            pdf_tur = pdf_tur.replace("3.-4.'lük (Teselli)", "FC 3-4").replace("5.-6.'lık Maçı", "FC 5-6").replace("7.-8.'lik Maçı", "FC 7-8")
+            pdf_tur = pdf_tur.replace("3.-4.'lük Maçı", "FC 3-4").replace("5.-6.'lık Maçı", "FC 5-6").replace("7.-8.'lik Maçı", "FC 7-8")
 
             pdf_program_data.append({
                 "Tarih/Gün": pdf_tarih, "Kat.": pdf_kategori, "Tur": pdf_tur, "Saat": data.get("saat", "-"), "Kort": data.get("kort", "-"),
@@ -432,10 +439,10 @@ with tab_program:
                     cat_d['scores'][m_id] = new_skor
 
     g_maclar = {
-        "1. GÜN": [(f"MR1_{i}", f"Ana Tablo R1 M{i+1}") for i in range(8)],
-        "2. GÜN": [(f"MQF_{i}", f"Ana Tablo ÇF M{i+1}") for i in range(4)] + [(f"CR1_{i}", f"T-R1 M{i+1}") for i in range(4)] + [(f"CR2_{i}", f"T-ÇF M{i+1}") for i in range(4)],
-        "3. GÜN": [(f"MSF_{i}", f"Ana Tablo YF M{i+1}") for i in range(2)] + [(f"CR3_{i}", f"T-YF1 M{i+1}") for i in range(2)] + [(f"CR4_{i}", f"T-YF2 M{i+1}") for i in range(2)] + [("MATCH_7_8", "7.-8.'lik Maçı")],
-        "4. GÜN": [("FINAL_MAIN", "Ana Tablo FİNAL"), ("FINAL_TESELLI", "3.-4.'lük (Teselli)"), ("MATCH_5_6", "5.-6.'lık Maçı")]
+        "1. GÜN": [(f"MR1_{i}", f"Ana Tablo R1 (M{i+1})") for i in range(8)],
+        "2. GÜN": [(f"MQF_{i}", f"Ana Tablo ÇF (M{i+9})") for i in range(4)] + [(f"CR1_{i}", f"T-R1 (M{i+16})") for i in range(4)] + [(f"CR2_{i}", f"T-ÇF (M{i+20})") for i in range(4)],
+        "3. GÜN": [(f"MSF_{i}", f"Ana Tablo YF (M{i+13})") for i in range(2)] + [(f"CR3_{i}", f"T-YF1 (M{i+24})") for i in range(2)] + [(f"CR4_{i}", f"T-YF2 (M{i+26})") for i in range(2)] + [("MATCH_7_8", "7.-8.'lik Maçı (M30)")],
+        "4. GÜN": [("FINAL_MAIN", "Ana Tablo FİNAL (M15)"), ("FINAL_TESELLI", "3.-4.'lük Maçı (M28)"), ("MATCH_5_6", "5.-6.'lık Maçı (M29)")]
     }
 
     kategoriler_to_show = ["Erkekler", "Kadınlar"] if secilen_kategori == "Tümü" else [secilen_kategori]
