@@ -3,15 +3,21 @@ import json
 import os
 import pandas as pd
 import datetime
+import re
 from fpdf import FPDF
 
 st.set_page_config(layout="wide", page_title="Consolation Milli Takım Belirleme", initial_sidebar_state="expanded")
 
 # ==============================================================================
-# 1. DOSYA VE FPDF YARDIMCI FONKSİYONLARI
+# 1. DOSYA, HTML TEMİZLEYİCİ VE FPDF YARDIMCI FONKSİYONLARI
 # ==============================================================================
 DB_FILE = "turnuva_db.json"
 FONT_YUKLENDI = os.path.exists("arial.ttf")
+
+# Kopyala-Yapıştır ile gelen gizli HTML kodlarını tamamen siler
+def clean_html(text):
+    if not isinstance(text, str): return str(text)
+    return re.sub(r'<[^>]+>', '', text).strip()
 
 def load_data():
     if os.path.exists(DB_FILE):
@@ -55,6 +61,7 @@ def generate_pdf(df, baslik, col_widths=None):
     pdf.add_page()
     
     font_family = "ArialTR" if FONT_YUKLENDI else "Arial"
+    
     if FONT_YUKLENDI:
         try: pdf.add_font("ArialTR", "", "arial.ttf", uni=True)
         except: font_family = "Arial"
@@ -144,16 +151,23 @@ st.markdown("""
 .player-src { font-size: 11px; color: #444; font-weight: bold; font-style: italic; margin-top: -2px; margin-bottom: 2px; }
 .player-separator { border-top: 1px dashed #ccc; margin: 2px 0; }
 
+/* KESİNTİSİZ PDF BASKISI İÇİN AGRESİF OVERRIDE'LAR */
 @media print {
+    html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], [data-testid="stMainView"], section {
+        overflow: visible !important;
+        height: auto !important;
+        max-height: none !important;
+        display: block !important;
+    }
     header, footer, [data-testid="stSidebar"], .stTabs [data-baseweb="tab-list"], 
     .stSelectbox, .stRadio, .stTextInput, button, .stExpander, .no-print { display: none !important; }
-    .stTabs { margin-top: -60px !important; }
+    .stTabs { margin-top: 0 !important; }
     [data-testid="stHorizontalBlock"] { display: flex !important; flex-wrap: nowrap !important; }
     [data-testid="column"] { flex: 1 1 0% !important; min-width: 0 !important; display: block !important; }
     * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; }
     .match-wrapper { page-break-inside: avoid; }
     .match-card { border: 1px solid #000; background-color: #eee !important; margin-bottom: 2px !important; }
-    .page-break { page-break-before: always; } /* PDF Baskısında sayfaları ayırmak için */
+    .page-break { page-break-before: always !important; display: block !important; margin-top: 20px !important;} 
 }
 </style>
 """, unsafe_allow_html=True)
@@ -165,14 +179,12 @@ S_R2_TOP = 70; S_R2_GAP = 140
 S_R3_TOP = 210; S_R3_GAP = 420
 S_FIN_TOP = 490
 
-# show=False ile kart çizilmez, sadece arkada matematik hesaplanır.
 def match_card(m_id, p1, p2, label, match_no="", src1="", src2="", show=True):
     st.session_state[f"match_players_{active_cat}_{m_id}"] = (p1, p2)
-    name1 = p1 if p1 else "Bekleniyor..."
-    name2 = p2 if p2 else "Bekleniyor..."
     
-    name1_safe = str(name1).replace("<", "&lt;").replace(">", "&gt;")
-    name2_safe = str(name2).replace("<", "&lt;").replace(">", "&gt;")
+    # HTML etiketlerini tamamen sil
+    name1_safe = clean_html(p1) if p1 else "Bekleniyor..."
+    name2_safe = clean_html(p2) if p2 else "Bekleniyor..."
     
     current_winner = cat_data['res'].get(m_id, {}).get("w", "-")
     current_score = cat_data['scores'].get(m_id, "")
@@ -185,17 +197,17 @@ def match_card(m_id, p1, p2, label, match_no="", src1="", src2="", show=True):
                 <div class="match-number">M{match_no}</div>
             </div>
             <div class="player-name" style="font-weight: {'bold' if current_winner == p1 and p1 else 'normal'};">{name1_safe}</div>
-            {f'<div class="player-src">↳ {src1}</div>' if src1 else ''}
+            {f'<div class="player-src">{src1}</div>' if src1 else ''}
             <div class="player-separator"></div>
             <div class="player-name" style="font-weight: {'bold' if current_winner == p2 and p2 else 'normal'};">{name2_safe}</div>
-            {f'<div class="player-src">↳ {src2}</div>' if src2 else ''}
+            {f'<div class="player-src">{src2}</div>' if src2 else ''}
         </div></div>
         """
         st.markdown(html, unsafe_allow_html=True)
         
         if not st.session_state.admin_mi:
             if current_winner != "-":
-                st.markdown(f"<div style='text-align:center; font-size:12px; color:green; margin-top:-5px;' class='no-print'><b>K:</b> {current_winner} <br> {current_score}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align:center; font-size:12px; color:green; margin-top:-5px;' class='no-print'><b>K:</b> {clean_html(current_winner)} <br> {clean_html(current_score)}</div>", unsafe_allow_html=True)
             return current_winner if current_winner != "-" else None, p2 if current_winner == p1 else (p1 if current_winner == p2 else None)
         
         if p1 and p2:
@@ -207,14 +219,13 @@ def match_card(m_id, p1, p2, label, match_no="", src1="", src2="", show=True):
             score = c_score.text_input("Sk", value=current_score, key=f"score_{active_cat}_{m_id}", label_visibility="collapsed", placeholder="Skor")
             
             if score != current_score or winner != current_winner:
-                cat_data['scores'][m_id] = score
+                cat_data['scores'][m_id] = clean_html(score)
                 if winner != "-":
                     loser = p2 if winner == p1 else p1
                     cat_data['res'][m_id] = {"w": winner, "l": loser}
                 elif winner == "-" and m_id in cat_data['res']:
                     del cat_data['res'][m_id]
                 
-    # show=False olsa bile arkadaki eşleşme (Routing) matematiği devam eder
     if current_winner != "-":
         return current_winner, p2 if current_winner == p1 else (p1 if current_winner == p2 else None)
     return None, None
@@ -223,9 +234,9 @@ def match_card(m_id, p1, p2, label, match_no="", src1="", src2="", show=True):
 # SEKME YÖNETİMİ
 # ==========================================
 st.title("🎾 Turnuva Yönetim Sistemi")
-# Ana Tablo ve Teselli Sekmeleri Tek Bir Sekmede (Fikstürler) Birleştirildi.
 tab_fikstur, tab_program, tab_siralama, tab_dosya = st.tabs(["🏆 Fikstürler", "📅 Maç Programı", "🇹🇷 Sıralama", "⚙️ Veri Yönetimi"])
-p = cat_data['players']
+# Oyuncu isimlerini okurken de HTML kodlarından arındırıyoruz
+p = [clean_html(player) for player in cat_data['players']]
 
 # ==========================================
 # TAB 1: BİRLEŞTİRİLMİŞ FİKSTÜR EKRANI
@@ -242,7 +253,7 @@ with tab_fikstur:
     show_tes = gorunum in ["İkisini de Göster", "Sadece Teselli"]
 
     m_r1, m_qf, m_sf = {}, {}, {}
-    c_r1, c_r2, c_r3, c_r4 = {}, {}, {}, {}
+    c_r1, c_r2, c_r3, c_r4 = {}, {}, {}
 
     # --- ANA TABLO ---
     if show_ana:
@@ -274,7 +285,6 @@ with tab_fikstur:
             spacer(S_FIN_TOP + 40)
             res_main = match_card("FINAL_MAIN", m_sf[0][0], m_sf[1][0], "FİNAL", 15, "M13 Kazananı", "M14 Kazananı", show=True)
     else:
-        # Sadece Teselli gösteriliyorsa Ana Tabloyu arka planda sessizce (show=False) hesapla
         for i in range(8): m_r1[i] = match_card(f"MR1_{i}", p[i*2], p[i*2+1], "R1", i+1, show=False)
         m_qf[0] = match_card(f"MQF_0", m_r1[0][0], m_r1[1][0], "ÇF", 9, "", "", show=False)
         m_qf[1] = match_card(f"MQF_1", m_r1[2][0], m_r1[3][0], "ÇF", 10, "", "", show=False)
@@ -284,10 +294,9 @@ with tab_fikstur:
         m_sf[1] = match_card("MSF_1", m_qf[2][0], m_qf[3][0], "YF", 14, "", "", show=False)
         res_main = match_card("FINAL_MAIN", m_sf[0][0], m_sf[1][0], "FİNAL", 15, "", "", show=False)
 
-    # --- AYIRICI ÇİZGİ ---
+    # --- AYIRICI ÇİZGİ (Ve PDF için Sayfa Kırılımı) ---
     if show_ana and show_tes:
-        # CSS page-break sayesinde PDF'e alınırken 2. sayfaya bölünecektir.
-        st.markdown("<div class='page-break'></div><br><hr style='border: 2px dashed #1f77b4; margin: 20px 0;'><br>", unsafe_allow_html=True)
+        st.markdown("<div class='page-break'></div><br class='no-print'><hr class='no-print' style='border: 2px dashed #1f77b4; margin: 20px 0;'><br class='no-print'>", unsafe_allow_html=True)
 
     # --- TESELLİ TABLOSU ---
     if show_tes:
@@ -326,7 +335,6 @@ with tab_fikstur:
             spacer(65)
             match_card("MATCH_7_8", c_r3[0][1], c_r3[1][1], "7.-8.'LİK", 30, "M24 Kaybedeni", "M25 Kaybedeni", show=True)
     else:
-        # Arka planda sessizce hesapla
         for i in range(4): c_r1[i] = match_card(f"CR1_{i}", m_r1[i*2][1], m_r1[i*2+1][1], "T-R1", i+16, show=False)
         qf_losers_reversed = [m_qf[3][1], m_qf[2][1], m_qf[1][1], m_qf[0][1]]
         for i in range(4): c_r2[i] = match_card(f"CR2_{i}", c_r1[i][0], qf_losers_reversed[i], "T-ÇF", i+20, show=False)
@@ -338,9 +346,8 @@ with tab_fikstur:
         match_card("MATCH_5_6", c_r4[0][1], c_r4[1][1], "5.-6.'LIK", 29, show=False)
         match_card("MATCH_7_8", c_r3[0][1], c_r3[1][1], "7.-8.'LİK", 30, show=False)
 
-    # --- ORTAK KAYDET BUTONU ---
     if st.session_state.admin_mi:
-        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<br><br>", unsafe_allow_html=True)
         if st.button(f"💾 {active_cat} Fikstür Skorlarını Kaydet", use_container_width=True, key="btn_save_all"):
             save_data()
             st.success("Tüm fikstür değişiklikleri başarıyla kaydedildi!")
@@ -431,8 +438,13 @@ with tab_program:
         for m_id, label in filtered_matches:
             p1, p2 = st.session_state.get(f"match_players_{cat_name}_{m_id}", ("⏳", "⏳"))
             winner = cat_d['res'].get(m_id, {}).get("w", None)
-            p1_display = f"🏆 **{p1}**" if winner and p1 == winner else p1
-            p2_display = f"🏆 **{p2}**" if winner and p2 == winner else p2
+            
+            # HTML temizleme program ekranı için
+            p1_display = clean_html(p1)
+            p2_display = clean_html(p2)
+            
+            p1_display = f"🏆 **{p1_display}**" if winner and p1 == winner else p1_display
+            p2_display = f"🏆 **{p2_display}**" if winner and p2 == winner else p2_display
             
             bracket_score = cat_d['scores'].get(m_id, "")
             data = cat_d['schedule_data'].get(m_id, {"saat": "", "kort": ""}) 
@@ -442,7 +454,7 @@ with tab_program:
 
             pdf_program_data.append({
                 "Tarih/Gün": pdf_tarih, "Kat.": pdf_kategori, "Tur": pdf_tur, "Saat": data.get("saat", "-"), "Kort": data.get("kort", "-"),
-                "Oyuncu 1": p1, "Oyuncu 2": p2, "Skor": bracket_score if bracket_score else "-"
+                "Oyuncu 1": clean_html(p1), "Oyuncu 2": clean_html(p2), "Skor": bracket_score if bracket_score else "-"
             })
 
             c1, c2, c3, c4, c5, c6 = st.columns([1.5, 2, 2, 1, 1, 1])
@@ -451,7 +463,7 @@ with tab_program:
             if not st.session_state.admin_mi:
                 c4.write(data.get("saat", "-"))
                 c5.write(data.get("kort", "-"))
-                c6.write(bracket_score if bracket_score else "-")
+                c6.write(clean_html(bracket_score) if bracket_score else "-")
             else:
                 new_saat = c4.text_input("Saat", value=data.get("saat", ""), key=f"t_{cat_name}_{m_id}", label_visibility="collapsed")
                 new_kort = c5.text_input("Kort", value=data.get("kort", ""), key=f"c_{cat_name}_{m_id}", label_visibility="collapsed")
@@ -460,7 +472,7 @@ with tab_program:
                 if new_saat != data.get("saat") or new_kort != data.get("kort"):
                     cat_d['schedule_data'][m_id] = {"saat": new_saat, "kort": new_kort}
                 if new_skor != bracket_score:
-                    cat_d['scores'][m_id] = new_skor
+                    cat_d['scores'][m_id] = clean_html(new_skor)
 
     g_maclar = {
         "1. GÜN": [(f"MR1_{i}", f"Ana Tablo R1 (M{i+1})") for i in range(8)],
@@ -508,6 +520,7 @@ with tab_siralama:
         
         for rank, m_id, key in rankings:
             player_name = res[m_id][key] if m_id in res and key in res[m_id] else "Belli Değil"
+            player_name = clean_html(player_name)
             pdf_siralama_data.append({"Sıra": rank, "Kategori": k_adi, "Oyuncu Adı": player_name})
             
             c_no, c_isim = st.columns([0.5, 4])
@@ -530,9 +543,10 @@ with tab_dosya:
         st.subheader("📥 Veri Yönetimi ve Oyuncu Listesi")
         
         st.markdown(f"**1. Esame Listesini Güncelle ({active_cat})**")
-        txt = st.text_area("16 Oyuncu girin (1. Seribaşı en üstte):", value="\n".join(cat_data['players']), height=150)
+        # Text area'ya yazılanları doğrudan göster, kaydederken HTML temizliği yap
+        txt = st.text_area("16 Oyuncu girin (1. Seribaşı en üstte):", value="\n".join([clean_html(x) for x in cat_data['players']]), height=150)
         if st.button("👥 Listeyi Kaydet"):
-            cat_data['players'] = [name.strip() for name in txt.splitlines() if name.strip()]
+            cat_data['players'] = [clean_html(name.strip()) for name in txt.splitlines() if name.strip()]
             save_data()
             st.success("Liste güncellendi!")
             st.rerun()
