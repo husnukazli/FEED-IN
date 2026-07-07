@@ -138,7 +138,9 @@ st.markdown("""
     border: 1px solid #1f77b4; border-radius: 6px; padding: 6px; 
     background-color: #f8f9fa; box-shadow: 2px 2px 5px rgba(0,0,0,0.05); height: 100%;
 }
-.match-label { font-size: 11px; font-weight: bold; color: #1f77b4; border-bottom: 1px solid #ddd; margin-bottom: 4px; padding-bottom: 2px; }
+.match-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; margin-bottom: 4px; padding-bottom: 2px; }
+.match-label { font-size: 11px; font-weight: bold; color: #1f77b4; }
+.match-number { font-size: 10px; font-weight: bold; color: #555; background-color: #e9ecef; padding: 1px 5px; border-radius: 4px; }
 .player-name { font-size: 13px; font-weight: 500; color: #333; padding: 2px 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;}
 .player-separator { border-top: 1px dashed #ccc; margin: 2px 0; }
 
@@ -162,7 +164,7 @@ S_R2_TOP = 55; S_R2_GAP = 110
 S_R3_TOP = 165; S_R3_GAP = 330
 S_FIN_TOP = 385
 
-def match_card(m_id, p1, p2, label):
+def match_card(m_id, p1, p2, label, match_no=""):
     st.session_state[f"match_players_{active_cat}_{m_id}"] = (p1, p2)
     name1 = p1 if p1 else "Bekleniyor..."
     name2 = p2 if p2 else "Bekleniyor..."
@@ -172,7 +174,10 @@ def match_card(m_id, p1, p2, label):
     
     html = f"""
     <div class="match-wrapper"><div class="match-card">
-        <div class="match-label">{label}</div>
+        <div class="match-header">
+            <div class="match-label">{label}</div>
+            <div class="match-number">#{match_no}</div>
+        </div>
         <div class="player-name" style="font-weight: {'bold' if current_winner == p1 and p1 else 'normal'};">{name1}</div>
         <div class="player-separator"></div>
         <div class="player-name" style="font-weight: {'bold' if current_winner == p2 and p2 else 'normal'};">{name2}</div>
@@ -193,7 +198,6 @@ def match_card(m_id, p1, p2, label):
         winner = c_win.selectbox("Kz", options, index=idx, key=f"sel_{active_cat}_{m_id}", label_visibility="collapsed")
         score = c_score.text_input("Sk", value=current_score, key=f"score_{active_cat}_{m_id}", label_visibility="collapsed", placeholder="Skor")
         
-        # Sadece hafızayı (Memory) güncelliyoruz. Veritabanına sayfa sonundaki Kaydet butonu yazacak.
         if score != current_score or winner != current_winner:
             cat_data['scores'][m_id] = score
             if winner != "-":
@@ -225,34 +229,33 @@ with tab_ana:
     
     with c1: 
         st.markdown("<h5 style='text-align: center;'>Son 16</h5>", unsafe_allow_html=True)
-        for i in range(4): m_r1[i] = match_card(f"MR1_{i}", p[i*2], p[i*2+1], f"R1-M{i+1}")
+        for i in range(4): m_r1[i] = match_card(f"MR1_{i}", p[i*2], p[i*2+1], f"R1-M{i+1}", i+1)
         spacer(60)
-        for i in range(4, 8): m_r1[i] = match_card(f"MR1_{i}", p[i*2], p[i*2+1], f"R1-M{i+1}")
+        for i in range(4, 8): m_r1[i] = match_card(f"MR1_{i}", p[i*2], p[i*2+1], f"R1-M{i+1}", i+1)
             
     with c2: 
         st.markdown("<h5 style='text-align: center;'>Çeyrek Final</h5>", unsafe_allow_html=True)
         spacer(S_R2_TOP)
-        m_qf[0] = match_card(f"MQF_0", m_r1[0][0], m_r1[1][0], "ÇF-M1")
+        m_qf[0] = match_card(f"MQF_0", m_r1[0][0], m_r1[1][0], "ÇF-M1", 9)
         spacer(S_R2_GAP)
-        m_qf[1] = match_card(f"MQF_1", m_r1[2][0], m_r1[3][0], "ÇF-M2")
+        m_qf[1] = match_card(f"MQF_1", m_r1[2][0], m_r1[3][0], "ÇF-M2", 10)
         spacer(S_R2_GAP + 60)
-        m_qf[2] = match_card(f"MQF_2", m_r1[4][0], m_r1[5][0], "ÇF-M3")
+        m_qf[2] = match_card(f"MQF_2", m_r1[4][0], m_r1[5][0], "ÇF-M3", 11)
         spacer(S_R2_GAP)
-        m_qf[3] = match_card(f"MQF_3", m_r1[6][0], m_r1[7][0], "ÇF-M4")
+        m_qf[3] = match_card(f"MQF_3", m_r1[6][0], m_r1[7][0], "ÇF-M4", 12)
             
     with c3: 
         st.markdown("<h5 style='text-align: center;'>Yarı Final</h5>", unsafe_allow_html=True)
         spacer(S_R3_TOP)
-        m_sf[0] = match_card("MSF_0", m_qf[0][0], m_qf[1][0], "YF-M1")
+        m_sf[0] = match_card("MSF_0", m_qf[0][0], m_qf[1][0], "YF-M1", 13)
         spacer(S_R3_GAP + 60)
-        m_sf[1] = match_card("MSF_1", m_qf[2][0], m_qf[3][0], "YF-M2")
+        m_sf[1] = match_card("MSF_1", m_qf[2][0], m_qf[3][0], "YF-M2", 14)
             
     with c4: 
         st.markdown("<h5 style='text-align: center;'>Final</h5>", unsafe_allow_html=True)
         spacer(S_FIN_TOP + 30)
-        res_main = match_card("FINAL_MAIN", m_sf[0][0], m_sf[1][0], "🏆 ŞAMPİYON")
+        res_main = match_card("FINAL_MAIN", m_sf[0][0], m_sf[1][0], "🏆 ŞAMPİYON", 15)
 
-    # ANA TABLO TOPLU KAYDETME BUTONU
     if st.session_state.admin_mi:
         st.markdown("<br><br>", unsafe_allow_html=True)
         if st.button(f"💾 {active_cat} Ana Tablo Skorlarını Kaydet", use_container_width=True, key="btn_save_ana"):
@@ -271,41 +274,40 @@ with tab_teselli:
 
     with tc1: 
         st.markdown("<h6 style='text-align: center;'>T-R1</h6>", unsafe_allow_html=True)
-        for i in range(2): c_r1[i] = match_card(f"CR1_{i}", m_r1[i*2][1], m_r1[i*2+1][1], f"T-R1 M{i+1}")
+        for i in range(2): c_r1[i] = match_card(f"CR1_{i}", m_r1[i*2][1], m_r1[i*2+1][1], f"T-R1 M{i+1}", i+1)
         spacer(100)
-        for i in range(2, 4): c_r1[i] = match_card(f"CR1_{i}", m_r1[i*2][1], m_r1[i*2+1][1], f"T-R1 M{i+1}")
+        for i in range(2, 4): c_r1[i] = match_card(f"CR1_{i}", m_r1[i*2][1], m_r1[i*2+1][1], f"T-R1 M{i+1}", i+1)
         
     with tc2: 
         st.markdown("<h6 style='text-align: center;'>T-ÇF</h6>", unsafe_allow_html=True)
         qf_losers_reversed = [m_qf[3][1], m_qf[2][1], m_qf[1][1], m_qf[0][1]]
-        for i in range(2): c_r2[i] = match_card(f"CR2_{i}", c_r1[i][0], qf_losers_reversed[i], f"T-R2 M{i+1}")
+        for i in range(2): c_r2[i] = match_card(f"CR2_{i}", c_r1[i][0], qf_losers_reversed[i], f"T-R2 M{i+1}", i+5)
         spacer(100)
-        for i in range(2, 4): c_r2[i] = match_card(f"CR2_{i}", c_r1[i][0], qf_losers_reversed[i], f"T-R2 M{i+1}")
+        for i in range(2, 4): c_r2[i] = match_card(f"CR2_{i}", c_r1[i][0], qf_losers_reversed[i], f"T-R2 M{i+1}", i+5)
 
     with tc3: 
         st.markdown("<h6 style='text-align: center;'>T-YF 1</h6>", unsafe_allow_html=True)
         spacer(S_R2_TOP)
-        c_r3[0] = match_card("CR3_0", c_r2[0][0], c_r2[1][0], "T-YF1 M1")
+        c_r3[0] = match_card("CR3_0", c_r2[0][0], c_r2[1][0], "T-YF1 M1", 9)
         spacer(S_R2_GAP + 100)
-        c_r3[1] = match_card("CR3_1", c_r2[2][0], c_r2[3][0], "T-YF1 M2")
+        c_r3[1] = match_card("CR3_1", c_r2[2][0], c_r2[3][0], "T-YF1 M2", 10)
 
     with tc4: 
         st.markdown("<h6 style='text-align: center;'>T-YF 2</h6>", unsafe_allow_html=True)
         spacer(S_R2_TOP + 30)
-        c_r4[0] = match_card("CR4_0", c_r3[0][0], m_sf[0][1], "T-YF2 M1")
+        c_r4[0] = match_card("CR4_0", c_r3[0][0], m_sf[0][1], "T-YF2 M1", 11)
         spacer(S_R2_GAP + 130)
-        c_r4[1] = match_card("CR4_1", c_r3[1][0], m_sf[1][1], "T-YF2 M2")
+        c_r4[1] = match_card("CR4_1", c_r3[1][0], m_sf[1][1], "T-YF2 M2", 12)
 
     with tc5: 
         st.markdown("<h6 style='text-align: center;'>Finaller</h6>", unsafe_allow_html=True)
         spacer(S_R3_TOP)
-        match_card("FINAL_TESELLI", c_r4[0][0], c_r4[1][0], "🥉 3.-4.'LÜK")
+        match_card("FINAL_TESELLI", c_r4[0][0], c_r4[1][0], "🥉 3.-4.'LÜK", 13)
         spacer(50)
-        match_card("MATCH_5_6", c_r4[0][1], c_r4[1][1], "5. VE 6. MAÇI")
+        match_card("MATCH_5_6", c_r4[0][1], c_r4[1][1], "5. VE 6. MAÇI", 14)
         spacer(50)
-        match_card("MATCH_7_8", c_r3[0][1], c_r3[1][1], "7. VE 8. MAÇI")
+        match_card("MATCH_7_8", c_r3[0][1], c_r3[1][1], "7. VE 8. MAÇI", 15)
 
-    # TESELLİ TABLOSU TOPLU KAYDETME BUTONU
     if st.session_state.admin_mi:
         st.markdown("<br><br>", unsafe_allow_html=True)
         if st.button(f"💾 {active_cat} Teselli Skorlarını Kaydet", use_container_width=True, key="btn_save_teselli"):
@@ -365,7 +367,7 @@ with tab_program:
         
         dates_dict = st.session_state.data['publish'].get('dates', {})
         gosterim_gun_ismi = format_date_tr(dates_dict.get(secilen_gun)) if secilen_gun in dates_dict else secilen_gun
-        st.warning(f"👁️ Yayındaki Akış: **{gosterim_gun_ismi} | {secilen_kategori} | {tablo_filtresi}**")
+        st.warning(f"👁️ Yayındaki Akış: **{gosterim_gun_ismi} | {secilen_kategori} Kategorisi | {tablo_filtresi}**")
 
     st.divider()
 
@@ -391,8 +393,6 @@ with tab_program:
 
         baslik_gun = f"{gercek_tarih_str} ({day_name})" if gercek_tarih_str else day_name
         st.markdown(f"<h5 style='color:#1f77b4; margin-top:10px;'>🎾 {cat_name} - {baslik_gun}</h5>", unsafe_allow_html=True)
-        
-        # Sütunlar normale döndü (Buton alanı kaldırıldı)
         h1, h2, h3, h4, h5, h6 = st.columns([1.5, 2, 2, 1, 1, 1])
         h1.markdown("**Maç Türü**"); h2.markdown("**Oyuncu 1**"); h3.markdown("**Oyuncu 2**"); h4.markdown("**Saat**"); h5.markdown("**Kort**"); h6.markdown("**Skor**")
         st.markdown("<div style='margin-top:-10px; margin-bottom:10px; border-bottom:1px solid #ddd;'></div>", unsafe_allow_html=True)
@@ -426,7 +426,6 @@ with tab_program:
                 new_kort = c5.text_input("Kort", value=data.get("kort", ""), key=f"c_{cat_name}_{m_id}", label_visibility="collapsed")
                 new_skor = c6.text_input("Skor", value=bracket_score, key=f"s_{cat_name}_{m_id}", label_visibility="collapsed")
                 
-                # Hafıza güncellemeleri
                 if new_saat != data.get("saat") or new_kort != data.get("kort"):
                     cat_d['schedule_data'][m_id] = {"saat": new_saat, "kort": new_kort}
                 if new_skor != bracket_score:
@@ -446,7 +445,6 @@ with tab_program:
         for k_adi in kategoriler_to_show:
             draw_schedule(k_adi, g_maclar[g_adi], g_adi)
             
-    # MAÇ PROGRAMI TOPLU KAYDETME BUTONU
     if st.session_state.admin_mi:
         st.markdown("<br><br>", unsafe_allow_html=True)
         if st.button("💾 Maç Programını Kaydet", use_container_width=True, key="btn_save_prog"):
