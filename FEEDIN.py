@@ -55,7 +55,6 @@ def generate_pdf(df, baslik, col_widths=None):
     pdf.add_page()
     
     font_family = "ArialTR" if FONT_YUKLENDI else "Arial"
-    
     if FONT_YUKLENDI:
         try: pdf.add_font("ArialTR", "", "arial.ttf", uni=True)
         except: font_family = "Arial"
@@ -133,7 +132,6 @@ cat_data = st.session_state.data[active_cat]
 # ==============================================================================
 st.markdown("""
 <style>
-/* Kart yüksekliği ve bilgi yazıları büyütüldü */
 .match-wrapper { height: 135px; margin-bottom: 5px; }
 .match-card {
     border: 1px solid #1f77b4; border-radius: 6px; padding: 6px; 
@@ -143,7 +141,6 @@ st.markdown("""
 .match-label { font-size: 11px; font-weight: bold; color: #1f77b4; }
 .match-number { font-size: 11px; font-weight: bold; color: #fff; background-color: #1f77b4; padding: 1px 5px; border-radius: 4px; }
 .player-name { font-size: 13px; font-weight: 500; color: #333; padding: 2px 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;}
-/* GÜNCELLENEN KAZANAN/KAYBEDEN YAZI STİLİ */
 .player-src { font-size: 11px; color: #444; font-weight: bold; font-style: italic; margin-top: -2px; margin-bottom: 2px; }
 .player-separator { border-top: 1px dashed #ccc; margin: 2px 0; }
 
@@ -156,6 +153,7 @@ st.markdown("""
     * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; }
     .match-wrapper { page-break-inside: avoid; }
     .match-card { border: 1px solid #000; background-color: #eee !important; margin-bottom: 2px !important; }
+    .page-break { page-break-before: always; } /* PDF Baskısında sayfaları ayırmak için */
 }
 </style>
 """, unsafe_allow_html=True)
@@ -163,170 +161,192 @@ st.markdown("""
 def spacer(height_px):
     st.markdown(f'<div style="height:{height_px}px;"></div>', unsafe_allow_html=True)
 
-# 135px kart yüksekliğine göre güncellenen simetri boşlukları
 S_R2_TOP = 70; S_R2_GAP = 140
 S_R3_TOP = 210; S_R3_GAP = 420
 S_FIN_TOP = 490
 
-def match_card(m_id, p1, p2, label, match_no="", src1="", src2=""):
+# show=False ile kart çizilmez, sadece arkada matematik hesaplanır.
+def match_card(m_id, p1, p2, label, match_no="", src1="", src2="", show=True):
     st.session_state[f"match_players_{active_cat}_{m_id}"] = (p1, p2)
     name1 = p1 if p1 else "Bekleniyor..."
     name2 = p2 if p2 else "Bekleniyor..."
     
-    # Kopyala-Yapıştır ile gelen gizli HTML kodlarını temizleme filtresi
     name1_safe = str(name1).replace("<", "&lt;").replace(">", "&gt;")
     name2_safe = str(name2).replace("<", "&lt;").replace(">", "&gt;")
     
     current_winner = cat_data['res'].get(m_id, {}).get("w", "-")
     current_score = cat_data['scores'].get(m_id, "")
     
-    html = f"""
-    <div class="match-wrapper"><div class="match-card">
-        <div class="match-header">
-            <div class="match-label">{label}</div>
-            <div class="match-number">M{match_no}</div>
-        </div>
-        <div class="player-name" style="font-weight: {'bold' if current_winner == p1 and p1 else 'normal'};">{name1_safe}</div>
-        {f'<div class="player-src">↳ {src1}</div>' if src1 else ''}
-        <div class="player-separator"></div>
-        <div class="player-name" style="font-weight: {'bold' if current_winner == p2 and p2 else 'normal'};">{name2_safe}</div>
-        {f'<div class="player-src">↳ {src2}</div>' if src2 else ''}
-    </div></div>
-    """
-    st.markdown(html, unsafe_allow_html=True)
-    
-    if not st.session_state.admin_mi:
-        if current_winner != "-":
-            st.markdown(f"<div style='text-align:center; font-size:12px; color:green; margin-top:-5px;' class='no-print'><b>K:</b> {current_winner} <br> {current_score}</div>", unsafe_allow_html=True)
-        return current_winner if current_winner != "-" else None, p2 if current_winner == p1 else (p1 if current_winner == p2 else None)
-    
-    if p1 and p2:
-        options = ["-", p1, p2]
-        idx = options.index(current_winner) if current_winner in options else 0
+    if show:
+        html = f"""
+        <div class="match-wrapper"><div class="match-card">
+            <div class="match-header">
+                <div class="match-label">{label}</div>
+                <div class="match-number">M{match_no}</div>
+            </div>
+            <div class="player-name" style="font-weight: {'bold' if current_winner == p1 and p1 else 'normal'};">{name1_safe}</div>
+            {f'<div class="player-src">↳ {src1}</div>' if src1 else ''}
+            <div class="player-separator"></div>
+            <div class="player-name" style="font-weight: {'bold' if current_winner == p2 and p2 else 'normal'};">{name2_safe}</div>
+            {f'<div class="player-src">↳ {src2}</div>' if src2 else ''}
+        </div></div>
+        """
+        st.markdown(html, unsafe_allow_html=True)
         
-        c_win, c_score = st.columns([1.2, 1])
-        winner = c_win.selectbox("Kz", options, index=idx, key=f"sel_{active_cat}_{m_id}", label_visibility="collapsed")
-        score = c_score.text_input("Sk", value=current_score, key=f"score_{active_cat}_{m_id}", label_visibility="collapsed", placeholder="Skor")
+        if not st.session_state.admin_mi:
+            if current_winner != "-":
+                st.markdown(f"<div style='text-align:center; font-size:12px; color:green; margin-top:-5px;' class='no-print'><b>K:</b> {current_winner} <br> {current_score}</div>", unsafe_allow_html=True)
+            return current_winner if current_winner != "-" else None, p2 if current_winner == p1 else (p1 if current_winner == p2 else None)
         
-        if score != current_score or winner != current_winner:
-            cat_data['scores'][m_id] = score
-            if winner != "-":
-                loser = p2 if winner == p1 else p1
-                cat_data['res'][m_id] = {"w": winner, "l": loser}
-            elif winner == "-" and m_id in cat_data['res']:
-                del cat_data['res'][m_id]
+        if p1 and p2:
+            options = ["-", p1, p2]
+            idx = options.index(current_winner) if current_winner in options else 0
             
-        if winner != "-":
-            return winner, p2 if winner == p1 else p1
+            c_win, c_score = st.columns([1.2, 1])
+            winner = c_win.selectbox("Kz", options, index=idx, key=f"sel_{active_cat}_{m_id}", label_visibility="collapsed")
+            score = c_score.text_input("Sk", value=current_score, key=f"score_{active_cat}_{m_id}", label_visibility="collapsed", placeholder="Skor")
+            
+            if score != current_score or winner != current_winner:
+                cat_data['scores'][m_id] = score
+                if winner != "-":
+                    loser = p2 if winner == p1 else p1
+                    cat_data['res'][m_id] = {"w": winner, "l": loser}
+                elif winner == "-" and m_id in cat_data['res']:
+                    del cat_data['res'][m_id]
+                
+    # show=False olsa bile arkadaki eşleşme (Routing) matematiği devam eder
+    if current_winner != "-":
+        return current_winner, p2 if current_winner == p1 else (p1 if current_winner == p2 else None)
     return None, None
 
 # ==========================================
 # SEKME YÖNETİMİ
 # ==========================================
 st.title("🎾 Turnuva Yönetim Sistemi")
-tab_ana, tab_teselli, tab_program, tab_siralama, tab_dosya = st.tabs(["🏆 Ana Tablo", "🔄 Teselli Tablosu", "📅 Maç Programı", "🇹🇷 Sıralama", "⚙️ Veri Yönetimi"])
+# Ana Tablo ve Teselli Sekmeleri Tek Bir Sekmede (Fikstürler) Birleştirildi.
+tab_fikstur, tab_program, tab_siralama, tab_dosya = st.tabs(["🏆 Fikstürler", "📅 Maç Programı", "🇹🇷 Sıralama", "⚙️ Veri Yönetimi"])
 p = cat_data['players']
 
 # ==========================================
-# TAB 1: ANA TABLO
+# TAB 1: BİRLEŞTİRİLMİŞ FİKSTÜR EKRANI
 # ==========================================
-with tab_ana:
-    st.markdown("<div class='no-print' style='text-align: right;'><button onclick='window.print()' style='padding:5px 10px; cursor:pointer;'>🖨️ Fikstürü Yazdır / PDF Al (Ctrl+P)</button></div>", unsafe_allow_html=True)
-    st.markdown(f"#### {active_cat} Ana Tablosu")
+with tab_fikstur:
+    c_view1, c_view2 = st.columns([3, 1])
+    with c_view1:
+        gorunum = st.radio("👀 Görünüm:", ["İkisini de Göster", "Sadece Ana Tablo", "Sadece Teselli"], horizontal=True, label_visibility="collapsed")
+    with c_view2:
+        st.markdown("<div class='no-print' style='text-align: right;'><button onclick='window.print()' style='padding:5px 10px; cursor:pointer;'>🖨️ Yazdır / PDF Al (Ctrl+P)</button></div>", unsafe_allow_html=True)
     st.divider()
-    c1, c2, c3, c4 = st.columns(4)
+
+    show_ana = gorunum in ["İkisini de Göster", "Sadece Ana Tablo"]
+    show_tes = gorunum in ["İkisini de Göster", "Sadece Teselli"]
+
     m_r1, m_qf, m_sf = {}, {}, {}
-    
-    with c1: 
-        st.markdown("<h5 style='text-align: center;'>Son 16</h5>", unsafe_allow_html=True)
-        for i in range(4): m_r1[i] = match_card(f"MR1_{i}", p[i*2], p[i*2+1], "R1", i+1)
-        spacer(80)
-        for i in range(4, 8): m_r1[i] = match_card(f"MR1_{i}", p[i*2], p[i*2+1], "R1", i+1)
-            
-    with c2: 
-        st.markdown("<h5 style='text-align: center;'>Çeyrek Final</h5>", unsafe_allow_html=True)
-        spacer(S_R2_TOP)
-        m_qf[0] = match_card(f"MQF_0", m_r1[0][0], m_r1[1][0], "ÇF", 9, "M1 Kazananı", "M2 Kazananı")
-        spacer(S_R2_GAP)
-        m_qf[1] = match_card(f"MQF_1", m_r1[2][0], m_r1[3][0], "ÇF", 10, "M3 Kazananı", "M4 Kazananı")
-        spacer(S_R2_GAP + 80)
-        m_qf[2] = match_card(f"MQF_2", m_r1[4][0], m_r1[5][0], "ÇF", 11, "M5 Kazananı", "M6 Kazananı")
-        spacer(S_R2_GAP)
-        m_qf[3] = match_card(f"MQF_3", m_r1[6][0], m_r1[7][0], "ÇF", 12, "M7 Kazananı", "M8 Kazananı")
-            
-    with c3: 
-        st.markdown("<h5 style='text-align: center;'>Yarı Final</h5>", unsafe_allow_html=True)
-        spacer(S_R3_TOP)
-        m_sf[0] = match_card("MSF_0", m_qf[0][0], m_qf[1][0], "YF", 13, "M9 Kazananı", "M10 Kazananı")
-        spacer(S_R3_GAP + 80)
-        m_sf[1] = match_card("MSF_1", m_qf[2][0], m_qf[3][0], "YF", 14, "M11 Kazananı", "M12 Kazananı")
-            
-    with c4: 
-        st.markdown("<h5 style='text-align: center;'>Final</h5>", unsafe_allow_html=True)
-        spacer(S_FIN_TOP + 40)
-        res_main = match_card("FINAL_MAIN", m_sf[0][0], m_sf[1][0], "FİNAL", 15, "M13 Kazananı", "M14 Kazananı")
-
-    if st.session_state.admin_mi:
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        if st.button(f"💾 {active_cat} Ana Tablo Skorlarını Kaydet", use_container_width=True, key="btn_save_ana"):
-            save_data()
-            st.success("Ana Tablo değişiklikleri başarıyla kaydedildi!")
-
-# ==========================================
-# TAB 2: TESELLİ TABLOSU
-# ==========================================
-with tab_teselli:
-    st.markdown("<div class='no-print' style='text-align: right;'><button onclick='window.print()' style='padding:5px 10px; cursor:pointer;'>🖨️ Teselli Ağacını Yazdır / PDF Al (Ctrl+P)</button></div>", unsafe_allow_html=True)
-    st.markdown(f"#### {active_cat} Teselli Tablosu")
-    st.divider()
-    tc1, tc2, tc3, tc4, tc5 = st.columns(5)
     c_r1, c_r2, c_r3, c_r4 = {}, {}, {}, {}
 
-    with tc1: 
-        st.markdown("<h6 style='text-align: center;'>T-R1</h6>", unsafe_allow_html=True)
-        for i in range(2): c_r1[i] = match_card(f"CR1_{i}", m_r1[i*2][1], m_r1[i*2+1][1], "T-R1", i+16, f"M{(i*2)+1} Kaybedeni", f"M{(i*2)+2} Kaybedeni")
-        spacer(S_R2_GAP + 10)
-        for i in range(2, 4): c_r1[i] = match_card(f"CR1_{i}", m_r1[i*2][1], m_r1[i*2+1][1], "T-R1", i+16, f"M{(i*2)+1} Kaybedeni", f"M{(i*2)+2} Kaybedeni")
-        
-    with tc2: 
-        st.markdown("<h6 style='text-align: center;'>T-ÇF</h6>", unsafe_allow_html=True)
+    # --- ANA TABLO ---
+    if show_ana:
+        st.markdown(f"#### 🏆 {active_cat} Ana Tablosu")
+        c1, c2, c3, c4 = st.columns(4)
+        with c1: 
+            st.markdown("<h5 style='text-align: center;'>Son 16</h5>", unsafe_allow_html=True)
+            for i in range(4): m_r1[i] = match_card(f"MR1_{i}", p[i*2], p[i*2+1], "R1", i+1, show=True)
+            spacer(80)
+            for i in range(4, 8): m_r1[i] = match_card(f"MR1_{i}", p[i*2], p[i*2+1], "R1", i+1, show=True)
+        with c2: 
+            st.markdown("<h5 style='text-align: center;'>Çeyrek Final</h5>", unsafe_allow_html=True)
+            spacer(S_R2_TOP)
+            m_qf[0] = match_card(f"MQF_0", m_r1[0][0], m_r1[1][0], "ÇF", 9, "M1 Kazananı", "M2 Kazananı", show=True)
+            spacer(S_R2_GAP)
+            m_qf[1] = match_card(f"MQF_1", m_r1[2][0], m_r1[3][0], "ÇF", 10, "M3 Kazananı", "M4 Kazananı", show=True)
+            spacer(S_R2_GAP + 80)
+            m_qf[2] = match_card(f"MQF_2", m_r1[4][0], m_r1[5][0], "ÇF", 11, "M5 Kazananı", "M6 Kazananı", show=True)
+            spacer(S_R2_GAP)
+            m_qf[3] = match_card(f"MQF_3", m_r1[6][0], m_r1[7][0], "ÇF", 12, "M7 Kazananı", "M8 Kazananı", show=True)
+        with c3: 
+            st.markdown("<h5 style='text-align: center;'>Yarı Final</h5>", unsafe_allow_html=True)
+            spacer(S_R3_TOP)
+            m_sf[0] = match_card("MSF_0", m_qf[0][0], m_qf[1][0], "YF", 13, "M9 Kazananı", "M10 Kazananı", show=True)
+            spacer(S_R3_GAP + 80)
+            m_sf[1] = match_card("MSF_1", m_qf[2][0], m_qf[3][0], "YF", 14, "M11 Kazananı", "M12 Kazananı", show=True)
+        with c4: 
+            st.markdown("<h5 style='text-align: center;'>Final</h5>", unsafe_allow_html=True)
+            spacer(S_FIN_TOP + 40)
+            res_main = match_card("FINAL_MAIN", m_sf[0][0], m_sf[1][0], "FİNAL", 15, "M13 Kazananı", "M14 Kazananı", show=True)
+    else:
+        # Sadece Teselli gösteriliyorsa Ana Tabloyu arka planda sessizce (show=False) hesapla
+        for i in range(8): m_r1[i] = match_card(f"MR1_{i}", p[i*2], p[i*2+1], "R1", i+1, show=False)
+        m_qf[0] = match_card(f"MQF_0", m_r1[0][0], m_r1[1][0], "ÇF", 9, "", "", show=False)
+        m_qf[1] = match_card(f"MQF_1", m_r1[2][0], m_r1[3][0], "ÇF", 10, "", "", show=False)
+        m_qf[2] = match_card(f"MQF_2", m_r1[4][0], m_r1[5][0], "ÇF", 11, "", "", show=False)
+        m_qf[3] = match_card(f"MQF_3", m_r1[6][0], m_r1[7][0], "ÇF", 12, "", "", show=False)
+        m_sf[0] = match_card("MSF_0", m_qf[0][0], m_qf[1][0], "YF", 13, "", "", show=False)
+        m_sf[1] = match_card("MSF_1", m_qf[2][0], m_qf[3][0], "YF", 14, "", "", show=False)
+        res_main = match_card("FINAL_MAIN", m_sf[0][0], m_sf[1][0], "FİNAL", 15, "", "", show=False)
+
+    # --- AYIRICI ÇİZGİ ---
+    if show_ana and show_tes:
+        # CSS page-break sayesinde PDF'e alınırken 2. sayfaya bölünecektir.
+        st.markdown("<div class='page-break'></div><br><hr style='border: 2px dashed #1f77b4; margin: 20px 0;'><br>", unsafe_allow_html=True)
+
+    # --- TESELLİ TABLOSU ---
+    if show_tes:
+        st.markdown(f"#### 🔄 {active_cat} Teselli Tablosu")
+        tc1, tc2, tc3, tc4, tc5 = st.columns(5)
+        with tc1: 
+            st.markdown("<h6 style='text-align: center;'>T-R1</h6>", unsafe_allow_html=True)
+            for i in range(2): c_r1[i] = match_card(f"CR1_{i}", m_r1[i*2][1], m_r1[i*2+1][1], "T-R1", i+16, f"M{(i*2)+1} Kaybedeni", f"M{(i*2)+2} Kaybedeni", show=True)
+            spacer(S_R2_GAP + 10)
+            for i in range(2, 4): c_r1[i] = match_card(f"CR1_{i}", m_r1[i*2][1], m_r1[i*2+1][1], "T-R1", i+16, f"M{(i*2)+1} Kaybedeni", f"M{(i*2)+2} Kaybedeni", show=True)
+        with tc2: 
+            st.markdown("<h6 style='text-align: center;'>T-ÇF</h6>", unsafe_allow_html=True)
+            qf_losers_reversed = [m_qf[3][1], m_qf[2][1], m_qf[1][1], m_qf[0][1]]
+            qf_src_reversed = [12, 11, 10, 9] 
+            for i in range(2): c_r2[i] = match_card(f"CR2_{i}", c_r1[i][0], qf_losers_reversed[i], "T-ÇF", i+20, f"M{i+16} Kazananı", f"M{qf_src_reversed[i]} Kaybedeni", show=True)
+            spacer(S_R2_GAP + 10)
+            for i in range(2, 4): c_r2[i] = match_card(f"CR2_{i}", c_r1[i][0], qf_losers_reversed[i], "T-ÇF", i+20, f"M{i+16} Kazananı", f"M{qf_src_reversed[i]} Kaybedeni", show=True)
+        with tc3: 
+            st.markdown("<h6 style='text-align: center;'>T-YF 1</h6>", unsafe_allow_html=True)
+            spacer(S_R2_TOP)
+            c_r3[0] = match_card("CR3_0", c_r2[0][0], c_r2[1][0], "T-YF1", 24, "M20 Kazananı", "M21 Kazananı", show=True)
+            spacer(S_R2_GAP + 140)
+            c_r3[1] = match_card("CR3_1", c_r2[2][0], c_r2[3][0], "T-YF1", 25, "M22 Kazananı", "M23 Kazananı", show=True)
+        with tc4: 
+            st.markdown("<h6 style='text-align: center;'>T-YF 2</h6>", unsafe_allow_html=True)
+            spacer(S_R2_TOP + 40)
+            c_r4[0] = match_card("CR4_0", c_r3[0][0], m_sf[0][1], "T-YF2", 26, "M24 Kazananı", "M13 Kaybedeni", show=True)
+            spacer(S_R2_GAP + 180)
+            c_r4[1] = match_card("CR4_1", c_r3[1][0], m_sf[1][1], "T-YF2", 27, "M25 Kazananı", "M14 Kaybedeni", show=True)
+        with tc5: 
+            st.markdown("<h6 style='text-align: center;'>Finaller</h6>", unsafe_allow_html=True)
+            spacer(S_R3_TOP)
+            match_card("FINAL_TESELLI", c_r4[0][0], c_r4[1][0], "3.-4.'LÜK", 28, "M26 Kazananı", "M27 Kazananı", show=True)
+            spacer(65)
+            match_card("MATCH_5_6", c_r4[0][1], c_r4[1][1], "5.-6.'LIK", 29, "M26 Kaybedeni", "M27 Kaybedeni", show=True)
+            spacer(65)
+            match_card("MATCH_7_8", c_r3[0][1], c_r3[1][1], "7.-8.'LİK", 30, "M24 Kaybedeni", "M25 Kaybedeni", show=True)
+    else:
+        # Arka planda sessizce hesapla
+        for i in range(4): c_r1[i] = match_card(f"CR1_{i}", m_r1[i*2][1], m_r1[i*2+1][1], "T-R1", i+16, show=False)
         qf_losers_reversed = [m_qf[3][1], m_qf[2][1], m_qf[1][1], m_qf[0][1]]
-        qf_src_reversed = [12, 11, 10, 9] 
-        for i in range(2): c_r2[i] = match_card(f"CR2_{i}", c_r1[i][0], qf_losers_reversed[i], "T-ÇF", i+20, f"M{i+16} Kazananı", f"M{qf_src_reversed[i]} Kaybedeni")
-        spacer(S_R2_GAP + 10)
-        for i in range(2, 4): c_r2[i] = match_card(f"CR2_{i}", c_r1[i][0], qf_losers_reversed[i], "T-ÇF", i+20, f"M{i+16} Kazananı", f"M{qf_src_reversed[i]} Kaybedeni")
+        for i in range(4): c_r2[i] = match_card(f"CR2_{i}", c_r1[i][0], qf_losers_reversed[i], "T-ÇF", i+20, show=False)
+        c_r3[0] = match_card("CR3_0", c_r2[0][0], c_r2[1][0], "T-YF1", 24, show=False)
+        c_r3[1] = match_card("CR3_1", c_r2[2][0], c_r2[3][0], "T-YF1", 25, show=False)
+        c_r4[0] = match_card("CR4_0", c_r3[0][0], m_sf[0][1], "T-YF2", 26, show=False)
+        c_r4[1] = match_card("CR4_1", c_r3[1][0], m_sf[1][1], "T-YF2", 27, show=False)
+        match_card("FINAL_TESELLI", c_r4[0][0], c_r4[1][0], "3.-4.'LÜK", 28, show=False)
+        match_card("MATCH_5_6", c_r4[0][1], c_r4[1][1], "5.-6.'LIK", 29, show=False)
+        match_card("MATCH_7_8", c_r3[0][1], c_r3[1][1], "7.-8.'LİK", 30, show=False)
 
-    with tc3: 
-        st.markdown("<h6 style='text-align: center;'>T-YF 1</h6>", unsafe_allow_html=True)
-        spacer(S_R2_TOP)
-        c_r3[0] = match_card("CR3_0", c_r2[0][0], c_r2[1][0], "T-YF1", 24, "M20 Kazananı", "M21 Kazananı")
-        spacer(S_R2_GAP + 140)
-        c_r3[1] = match_card("CR3_1", c_r2[2][0], c_r2[3][0], "T-YF1", 25, "M22 Kazananı", "M23 Kazananı")
-
-    with tc4: 
-        st.markdown("<h6 style='text-align: center;'>T-YF 2</h6>", unsafe_allow_html=True)
-        spacer(S_R2_TOP + 40)
-        c_r4[0] = match_card("CR4_0", c_r3[0][0], m_sf[0][1], "T-YF2", 26, "M24 Kazananı", "M13 Kaybedeni")
-        spacer(S_R2_GAP + 180)
-        c_r4[1] = match_card("CR4_1", c_r3[1][0], m_sf[1][1], "T-YF2", 27, "M25 Kazananı", "M14 Kaybedeni")
-
-    with tc5: 
-        st.markdown("<h6 style='text-align: center;'>Finaller</h6>", unsafe_allow_html=True)
-        spacer(S_R3_TOP)
-        match_card("FINAL_TESELLI", c_r4[0][0], c_r4[1][0], "3.-4.'LÜK", 28, "M26 Kazananı", "M27 Kazananı")
-        spacer(65)
-        match_card("MATCH_5_6", c_r4[0][1], c_r4[1][1], "5.-6.'LIK", 29, "M26 Kaybedeni", "M27 Kaybedeni")
-        spacer(65)
-        match_card("MATCH_7_8", c_r3[0][1], c_r3[1][1], "7.-8.'LİK", 30, "M24 Kaybedeni", "M25 Kaybedeni")
-
+    # --- ORTAK KAYDET BUTONU ---
     if st.session_state.admin_mi:
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        if st.button(f"💾 {active_cat} Teselli Skorlarını Kaydet", use_container_width=True, key="btn_save_teselli"):
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button(f"💾 {active_cat} Fikstür Skorlarını Kaydet", use_container_width=True, key="btn_save_all"):
             save_data()
-            st.success("Teselli değişiklikleri başarıyla kaydedildi!")
+            st.success("Tüm fikstür değişiklikleri başarıyla kaydedildi!")
 
 # ==========================================
-# TAB 3: ORTAK MAÇ PROGRAMI
+# TAB 2: ORTAK MAÇ PROGRAMI
 # ==========================================
 with tab_program:
     st.subheader("📅 Ortak Maç Programı")
@@ -470,7 +490,7 @@ with tab_program:
         st.download_button("📥 Ekrandaki Maç Programını PDF Olarak İndir (Auto-Fit Destekli)", data=btn_pdf_prog, file_name="Mac_Programi.pdf", mime="application/pdf")
 
 # ==========================================
-# TAB 4: SIRALAMA
+# TAB 3: SIRALAMA
 # ==========================================
 with tab_siralama:
     st.subheader("🇹🇷 Milli Takım Kesin Sıralama")
@@ -503,7 +523,7 @@ with tab_siralama:
         st.download_button("📥 Sıralamayı PDF Olarak İndir", data=btn_pdf_sir, file_name="Siralama.pdf", mime="application/pdf")
 
 # ==========================================
-# TAB 5: YEDEKLEME VE DOSYA (Sadece Admin)
+# TAB 4: YEDEKLEME VE DOSYA (Sadece Admin)
 # ==========================================
 with tab_dosya:
     if st.session_state.admin_mi:
