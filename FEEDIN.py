@@ -154,6 +154,9 @@ st.markdown("""
 .player-src { font-size: 11px; color: #444; font-weight: bold; font-style: italic; margin-top: -2px; margin-bottom: 2px; }
 .player-separator { border-top: 1px dashed #ccc; margin: 2px 0; }
 
+/* SADECE YAZDIRILDIĞINDA GÖRÜNEN SKOR ALANI (YENİ EKLENDİ) */
+.print-only-score { display: none; font-size: 10px; font-weight: bold; text-align: center; color: #1f77b4; margin-top: 3px; border-top: 1px dashed #bbb; padding-top: 3px; }
+
 @media print {
     html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], [data-testid="stMainView"], section {
         overflow: visible !important;
@@ -170,6 +173,9 @@ st.markdown("""
     .match-wrapper { page-break-inside: avoid; }
     .match-card { border: 1px solid #000; background-color: #eee !important; margin-bottom: 2px !important; }
     .page-break { page-break-before: always !important; display: block !important; margin-top: 20px !important;} 
+    
+    /* Yazdırıldığında kutular gidince skor yazısı görünür olsun */
+    .print-only-score { display: block !important; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -191,10 +197,11 @@ def match_card(m_id, p1, p2, label, match_no="", src1="", src2="", show=True):
     current_score = cat_data['scores'].get(m_id, "")
     
     if show:
-        # BOŞ SATIR (HTML KANAMASI) HATASININ ÇÖZÜMÜ BURADA:
-        # src1 ve src2 değişkenlerini direkt kod bloğu içine değil, tek satırda oluşturup bağlıyoruz.
         html_src1 = f'<div class="player-src">↳ {src1}</div>' if src1 else ""
         html_src2 = f'<div class="player-src">↳ {src2}</div>' if src2 else ""
+        
+        # Skor varsa sadece yazdırıldığında görünen CSS sınıfıyla HTML'e ekle
+        html_score_print = f'<div class="print-only-score">Skor: {clean_html_text(current_score)}</div>' if current_score else ''
         
         html = f"""
         <div class="match-wrapper"><div class="match-card">
@@ -205,6 +212,7 @@ def match_card(m_id, p1, p2, label, match_no="", src1="", src2="", show=True):
             <div class="player-name" style="font-weight: {'bold' if current_winner == p1 and p1 else 'normal'};">{name1_safe}</div>{html_src1}
             <div class="player-separator"></div>
             <div class="player-name" style="font-weight: {'bold' if current_winner == p2 and p2 else 'normal'};">{name2_safe}</div>{html_src2}
+            {html_score_print}
         </div></div>
         """
         st.markdown(html, unsafe_allow_html=True)
@@ -318,21 +326,19 @@ with tab_fikstur:
             st.markdown("<h6 style='text-align: center;'>T-YF 1</h6>", unsafe_allow_html=True)
             spacer(S_R2_TOP)
             c_r3[0] = match_card("CR3_0", c_r2[0][0], c_r2[1][0], "T-YF1", 24, "M20 Kazananı", "M21 Kazananı", show=True)
-            
-            # --- M25 YARIM KUTU (65px) AŞAĞI HİZALAMA TALEBİ ---
             spacer(345) 
             c_r3[1] = match_card("CR3_1", c_r2[2][0], c_r2[3][0], "T-YF1", 25, "M22 Kazananı", "M23 Kazananı", show=True)
         with tc4: 
             st.markdown("<h6 style='text-align: center;'>T-YF 2</h6>", unsafe_allow_html=True)
             spacer(S_R2_TOP + 40)
             c_r4[0] = match_card("CR4_0", c_r3[0][0], m_sf[0][1], "T-YF2", 26, "M24 Kazananı", "M13 Kaybedeni", show=True)
-            
-            # --- M27 BİR TAM KUTU (135px) YUKARI HİZALAMA TALEBİ ---
             spacer(185)
             c_r4[1] = match_card("CR4_1", c_r3[1][0], m_sf[1][1], "T-YF2", 27, "M25 Kazananı", "M14 Kaybedeni", show=True)
         with tc5: 
             st.markdown("<h6 style='text-align: center;'>Finaller</h6>", unsafe_allow_html=True)
-            spacer(S_R3_TOP)
+            
+            # --- M28, M29 ve M30'u 50px aşağı kaydırma ---
+            spacer(S_R3_TOP + 50) # Önceki: S_R3_TOP (210) -> Şimdi: 260
             match_card("FINAL_TESELLI", c_r4[0][0], c_r4[1][0], "3.-4.'LÜK", 28, "M26 Kazananı", "M27 Kazananı", show=True)
             spacer(65)
             match_card("MATCH_5_6", c_r4[0][1], c_r4[1][1], "5.-6.'LIK", 29, "M26 Kaybedeni", "M27 Kaybedeni", show=True)
