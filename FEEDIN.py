@@ -10,16 +10,15 @@ from fpdf import FPDF
 st.set_page_config(layout="wide", page_title="Consolation Milli Takım Belirleme", initial_sidebar_state="expanded")
 
 # ==============================================================================
-# 1. DOSYA, HTML TEMİZLEYİCİ VE FPDF YARDIMCI FONKSİYONLARI
+# 1. DOSYA VE FPDF YARDIMCI FONKSİYONLARI
 # ==============================================================================
 DB_FILE = "turnuva_db.json"
 FONT_YUKLENDI = os.path.exists("arial.ttf")
 
-# Gelişmiş HTML Temizleyici (Boşluk yaratan gizli div'leri yok eder)
 def clean_html_text(text):
     if not isinstance(text, str): return str(text)
-    t = html.unescape(text) # &lt; gibi karakterleri normale çevirir
-    t = re.sub(r'<[^>]+>', '', t) # Tüm HTML etiketlerini siler
+    t = html.unescape(text)
+    t = re.sub(r'<[^>]+>', '', t)
     return t.strip()
 
 def load_data():
@@ -45,14 +44,11 @@ def save_data():
 
 if 'data' not in st.session_state:
     st.session_state.data = load_data()
-    
-    # Sisteme bulaşmış eski görünmez HTML kodlarını temizleme rutini
     for cat in ['Erkekler', 'Kadınlar']:
         temiz_liste = []
         for p in st.session_state.data[cat]['players']:
             cp = clean_html_text(p)
-            if cp: temiz_liste.append(cp) # Sadece gerçek metin varsa ekle
-        
+            if cp: temiz_liste.append(cp)
         while len(temiz_liste) < 16:
             temiz_liste.append(f"Oyuncu {len(temiz_liste)+1}")
         st.session_state.data[cat]['players'] = temiz_liste[:16]
@@ -73,9 +69,7 @@ def to_pdf_text(text):
 def generate_pdf(df, baslik, col_widths=None):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     pdf.add_page()
-    
     font_family = "ArialTR" if FONT_YUKLENDI else "Arial"
-    
     if FONT_YUKLENDI:
         try: pdf.add_font("ArialTR", "", "arial.ttf", uni=True)
         except: font_family = "Arial"
@@ -87,7 +81,6 @@ def generate_pdf(df, baslik, col_widths=None):
     if not df.empty:
         pdf.set_font(font_family, 'B' if not FONT_YUKLENDI else "", 10)
         w = col_widths if col_widths else [190 / len(df.columns)] * len(df.columns)
-
         for i, col in enumerate(df.columns):
             pdf.cell(w[i], 10, to_pdf_text(col), border=1, align='C')
         pdf.ln()
@@ -97,20 +90,16 @@ def generate_pdf(df, baslik, col_widths=None):
                 align = 'C' if w[i] < 26 else 'L' 
                 text = str(item)
                 pdf_text = to_pdf_text(text)
-                
                 original_size = 9
                 pdf.set_font(font_family, "", original_size)
-                
                 current_size = original_size
                 while pdf.get_string_width(pdf_text) > (w[i] - 2) and current_size > 5:
                     current_size -= 0.5
                     pdf.set_font(font_family, "", current_size)
-                
                 if pdf.get_string_width(pdf_text) > (w[i] - 2):
                     while pdf.get_string_width(pdf_text + "..") > (w[i] - 2) and len(pdf_text) > 0:
                         pdf_text = pdf_text[:-1]
                     pdf_text += ".."
-                    
                 pdf.cell(w[i], 8, pdf_text, border=1, align=align)
                 pdf.set_font(font_family, "", original_size)
             pdf.ln()
@@ -195,31 +184,34 @@ S_FIN_TOP = 490
 def match_card(m_id, p1, p2, label, match_no="", src1="", src2="", show=True):
     st.session_state[f"match_players_{active_cat}_{m_id}"] = (p1, p2)
     
-    name1_safe = p1 if p1 else "Bekleniyor..."
-    name2_safe = p2 if p2 else "Bekleniyor..."
+    name1_safe = clean_html_text(p1) if p1 else "Bekleniyor..."
+    name2_safe = clean_html_text(p2) if p2 else "Bekleniyor..."
     
     current_winner = cat_data['res'].get(m_id, {}).get("w", "-")
     current_score = cat_data['scores'].get(m_id, "")
     
     if show:
+        # BOŞ SATIR (HTML KANAMASI) HATASININ ÇÖZÜMÜ BURADA:
+        # src1 ve src2 değişkenlerini direkt kod bloğu içine değil, tek satırda oluşturup bağlıyoruz.
+        html_src1 = f'<div class="player-src">↳ {src1}</div>' if src1 else ""
+        html_src2 = f'<div class="player-src">↳ {src2}</div>' if src2 else ""
+        
         html = f"""
         <div class="match-wrapper"><div class="match-card">
             <div class="match-header">
                 <div class="match-label">{label}</div>
                 <div class="match-number">M{match_no}</div>
             </div>
-            <div class="player-name" style="font-weight: {'bold' if current_winner == p1 and p1 else 'normal'};">{name1_safe}</div>
-            {f'<div class="player-src">{src1}</div>' if src1 else ''}
+            <div class="player-name" style="font-weight: {'bold' if current_winner == p1 and p1 else 'normal'};">{name1_safe}</div>{html_src1}
             <div class="player-separator"></div>
-            <div class="player-name" style="font-weight: {'bold' if current_winner == p2 and p2 else 'normal'};">{name2_safe}</div>
-            {f'<div class="player-src">{src2}</div>' if src2 else ''}
+            <div class="player-name" style="font-weight: {'bold' if current_winner == p2 and p2 else 'normal'};">{name2_safe}</div>{html_src2}
         </div></div>
         """
         st.markdown(html, unsafe_allow_html=True)
         
         if not st.session_state.admin_mi:
             if current_winner != "-":
-                st.markdown(f"<div style='text-align:center; font-size:12px; color:green; margin-top:-5px;' class='no-print'><b>K:</b> {current_winner} <br> {current_score}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align:center; font-size:12px; color:green; margin-top:-5px;' class='no-print'><b>K:</b> {clean_html_text(current_winner)} <br> {clean_html_text(current_score)}</div>", unsafe_allow_html=True)
             return current_winner if current_winner != "-" else None, p2 if current_winner == p1 else (p1 if current_winner == p2 else None)
         
         if p1 and p2:
@@ -326,14 +318,16 @@ with tab_fikstur:
             st.markdown("<h6 style='text-align: center;'>T-YF 1</h6>", unsafe_allow_html=True)
             spacer(S_R2_TOP)
             c_r3[0] = match_card("CR3_0", c_r2[0][0], c_r2[1][0], "T-YF1", 24, "M20 Kazananı", "M21 Kazananı", show=True)
-            # M25 için yarım kutu (65px) aşağı hizalama
+            
+            # --- M25 YARIM KUTU (65px) AŞAĞI HİZALAMA TALEBİ ---
             spacer(345) 
             c_r3[1] = match_card("CR3_1", c_r2[2][0], c_r2[3][0], "T-YF1", 25, "M22 Kazananı", "M23 Kazananı", show=True)
         with tc4: 
             st.markdown("<h6 style='text-align: center;'>T-YF 2</h6>", unsafe_allow_html=True)
             spacer(S_R2_TOP + 40)
             c_r4[0] = match_card("CR4_0", c_r3[0][0], m_sf[0][1], "T-YF2", 26, "M24 Kazananı", "M13 Kaybedeni", show=True)
-            # M27 için bir kutu (135px) yukarı hizalama
+            
+            # --- M27 BİR TAM KUTU (135px) YUKARI HİZALAMA TALEBİ ---
             spacer(185)
             c_r4[1] = match_card("CR4_1", c_r3[1][0], m_sf[1][1], "T-YF2", 27, "M25 Kazananı", "M14 Kaybedeni", show=True)
         with tc5: 
@@ -449,8 +443,11 @@ with tab_program:
             p1, p2 = st.session_state.get(f"match_players_{cat_name}_{m_id}", ("⏳", "⏳"))
             winner = cat_d['res'].get(m_id, {}).get("w", None)
             
-            p1_display = f"🏆 **{p1}**" if winner and p1 == winner else p1
-            p2_display = f"🏆 **{p2}**" if winner and p2 == winner else p2
+            p1_display = clean_html_text(p1)
+            p2_display = clean_html_text(p2)
+            
+            p1_display = f"🏆 **{p1_display}**" if winner and p1 == winner else p1_display
+            p2_display = f"🏆 **{p2_display}**" if winner and p2 == winner else p2_display
             
             bracket_score = cat_d['scores'].get(m_id, "")
             data = cat_d['schedule_data'].get(m_id, {"saat": "", "kort": ""}) 
@@ -460,7 +457,7 @@ with tab_program:
 
             pdf_program_data.append({
                 "Tarih/Gün": pdf_tarih, "Kat.": pdf_kategori, "Tur": pdf_tur, "Saat": data.get("saat", "-"), "Kort": data.get("kort", "-"),
-                "Oyuncu 1": p1, "Oyuncu 2": p2, "Skor": bracket_score if bracket_score else "-"
+                "Oyuncu 1": clean_html_text(p1), "Oyuncu 2": clean_html_text(p2), "Skor": bracket_score if bracket_score else "-"
             })
 
             c1, c2, c3, c4, c5, c6 = st.columns([1.5, 2, 2, 1, 1, 1])
@@ -469,7 +466,7 @@ with tab_program:
             if not st.session_state.admin_mi:
                 c4.write(data.get("saat", "-"))
                 c5.write(data.get("kort", "-"))
-                c6.write(bracket_score if bracket_score else "-")
+                c6.write(clean_html_text(bracket_score) if bracket_score else "-")
             else:
                 new_saat = c4.text_input("Saat", value=data.get("saat", ""), key=f"t_{cat_name}_{m_id}", label_visibility="collapsed")
                 new_kort = c5.text_input("Kort", value=data.get("kort", ""), key=f"c_{cat_name}_{m_id}", label_visibility="collapsed")
@@ -505,10 +502,10 @@ with tab_program:
         pdf_prog_df = pd.DataFrame(pdf_program_data)
         prog_col_widths = [29, 9, 21, 12, 12, 42, 42, 23]
         btn_pdf_prog = generate_pdf(pdf_prog_df, f"Mac Programi", col_widths=prog_col_widths)
-        st.download_button("📥 Ekrandaki Maç Programını PDF Olarak İndir (Auto-Fit Destekli)", data=btn_pdf_prog, file_name="Mac_Programi.pdf", mime="application/pdf")
+        st.download_button("📥 Ekrandaki Maç Programını PDF Olarak İndir", data=btn_pdf_prog, file_name="Mac_Programi.pdf", mime="application/pdf")
 
 # ==========================================
-# TAB 4: SIRALAMA
+# TAB 3: SIRALAMA
 # ==========================================
 with tab_siralama:
     st.subheader("🇹🇷 Milli Takım Kesin Sıralama")
@@ -526,6 +523,7 @@ with tab_siralama:
         
         for rank, m_id, key in rankings:
             player_name = res[m_id][key] if m_id in res and key in res[m_id] else "Belli Değil"
+            player_name = clean_html_text(player_name)
             pdf_siralama_data.append({"Sıra": rank, "Kategori": k_adi, "Oyuncu Adı": player_name})
             
             c_no, c_isim = st.columns([0.5, 4])
@@ -541,7 +539,7 @@ with tab_siralama:
         st.download_button("📥 Sıralamayı PDF Olarak İndir", data=btn_pdf_sir, file_name="Siralama.pdf", mime="application/pdf")
 
 # ==========================================
-# TAB 5: YEDEKLEME VE DOSYA (Sadece Admin)
+# TAB 4: YEDEKLEME VE DOSYA (Sadece Admin)
 # ==========================================
 with tab_dosya:
     if st.session_state.admin_mi:
@@ -549,16 +547,14 @@ with tab_dosya:
         
         st.markdown(f"**1. Esame Listesini Güncelle ({active_cat})**")
         
-        # Sadece gerçek metinleri okuyarak kutuya yerleştir
         mevcut_isimler = [clean_html_text(x) for x in cat_data['players']]
         txt = st.text_area("16 Oyuncu girin (1. Seribaşı en üstte):", value="\n".join(mevcut_isimler), height=150)
         
         if st.button("👥 Listeyi Kaydet"):
-            # Her satırı okuyup içindeki gizli HTML div'lerini zorla silip alıyoruz
             temiz_isimler = []
             for name in txt.splitlines():
                 temiz = clean_html_text(name)
-                if temiz: # Sadece div kodu kalıntısı olmayan dolu isimleri listeye ekle
+                if temiz:
                     temiz_isimler.append(temiz)
                     
             cat_data['players'] = temiz_isimler
