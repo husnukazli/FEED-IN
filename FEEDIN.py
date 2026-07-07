@@ -50,7 +50,6 @@ def to_pdf_text(text):
     if FONT_YUKLENDI: return str(text)
     return str(text).encode('latin-1', 'replace').decode('latin-1')
 
-# --- YENİLENMİŞ FPDF FONKSİYONU (AUTO-FIT DİNAMİK FONT KÜÇÜLTME) ---
 def generate_pdf(df, baslik, col_widths=None):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     pdf.add_page()
@@ -69,37 +68,30 @@ def generate_pdf(df, baslik, col_widths=None):
         pdf.set_font(font_family, 'B' if not FONT_YUKLENDI else "", 10)
         w = col_widths if col_widths else [190 / len(df.columns)] * len(df.columns)
 
-        # Başlıklar
         for i, col in enumerate(df.columns):
             pdf.cell(w[i], 10, to_pdf_text(col), border=1, align='C')
         pdf.ln()
         
-        # Satırlar (Hücreye taşırmadan sığdırma algoritması)
         for _, row in df.iterrows():
             for i, item in enumerate(row):
                 align = 'C' if w[i] < 26 else 'L' 
                 text = str(item)
                 pdf_text = to_pdf_text(text)
                 
-                # Orijinal font boyutu
                 original_size = 9
                 pdf.set_font(font_family, "", original_size)
                 
-                # Metin hücreye sığıyor mu kontrol et, sığmıyorsa fontu ufalt (Auto-Fit)
                 current_size = original_size
                 while pdf.get_string_width(pdf_text) > (w[i] - 2) and current_size > 5:
                     current_size -= 0.5
                     pdf.set_font(font_family, "", current_size)
                 
-                # Eğer 5pt'ye inmesine rağmen sığmıyorsa, kırparak ".." ekle
                 if pdf.get_string_width(pdf_text) > (w[i] - 2):
                     while pdf.get_string_width(pdf_text + "..") > (w[i] - 2) and len(pdf_text) > 0:
                         pdf_text = pdf_text[:-1]
                     pdf_text += ".."
                     
                 pdf.cell(w[i], 8, pdf_text, border=1, align=align)
-                
-                # Bir sonraki hücre için fontu sıfırla
                 pdf.set_font(font_family, "", original_size)
             pdf.ln()
     return bytes(pdf.output())
@@ -141,7 +133,7 @@ cat_data = st.session_state.data[active_cat]
 # ==============================================================================
 st.markdown("""
 <style>
-.match-wrapper { height: 105px; margin-bottom: 5px; }
+.match-wrapper { height: 115px; margin-bottom: 5px; } /* Buton için biraz yükselttik */
 .match-card {
     border: 1px solid #1f77b4; border-radius: 6px; padding: 6px; 
     background-color: #f8f9fa; box-shadow: 2px 2px 5px rgba(0,0,0,0.05); height: 100%;
@@ -149,6 +141,9 @@ st.markdown("""
 .match-label { font-size: 11px; font-weight: bold; color: #1f77b4; border-bottom: 1px solid #ddd; margin-bottom: 4px; padding-bottom: 2px; }
 .player-name { font-size: 13px; font-weight: 500; color: #333; padding: 2px 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;}
 .player-separator { border-top: 1px dashed #ccc; margin: 2px 0; }
+
+/* Streamlit butonlarını küçültüyoruz ki karta sığsın */
+.stButton button { padding: 0px 5px !important; font-size: 12px !important; min-height: 28px !important; height: 28px !important; width: 100%; }
 
 @media print {
     header, footer, [data-testid="stSidebar"], .stTabs [data-baseweb="tab-list"], 
@@ -166,9 +161,10 @@ st.markdown("""
 def spacer(height_px):
     st.markdown(f'<div style="height:{height_px}px;"></div>', unsafe_allow_html=True)
 
-S_R2_TOP = 55; S_R2_GAP = 110
-S_R3_TOP = 165; S_R3_GAP = 330
-S_FIN_TOP = 385
+# Yeni Yüksekliğe Göre Simetri Değerleri
+S_R2_TOP = 60; S_R2_GAP = 120
+S_R3_TOP = 180; S_R3_GAP = 360
+S_FIN_TOP = 420
 
 def match_card(m_id, p1, p2, label):
     st.session_state[f"match_players_{active_cat}_{m_id}"] = (p1, p2)
@@ -197,11 +193,12 @@ def match_card(m_id, p1, p2, label):
         options = ["-", p1, p2]
         idx = options.index(current_winner) if current_winner in options else 0
         
-        c_win, c_score = st.columns([1.2, 1])
+        c_win, c_score, c_btn = st.columns([1.1, 1.2, 0.7])
         winner = c_win.selectbox("Kz", options, index=idx, key=f"sel_{active_cat}_{m_id}", label_visibility="collapsed")
         score = c_score.text_input("Sk", value=current_score, key=f"score_{active_cat}_{m_id}", label_visibility="collapsed", placeholder="Skor")
         
-        if score != current_score or winner != current_winner:
+        # KAYDET/İŞLE BUTONU
+        if c_btn.button("İşle", key=f"btn_{active_cat}_{m_id}"):
             cat_data['scores'][m_id] = score
             if winner != "-":
                 loser = p2 if winner == p1 else p1
@@ -323,10 +320,10 @@ with tab_program:
             def_d3 = datetime.datetime.strptime(dates_dict.get("3. GÜN", str(datetime.date.today() + datetime.timedelta(days=2))), "%Y-%m-%d").date() if dates_dict.get("3. GÜN") else datetime.date.today() + datetime.timedelta(days=2)
             def_d4 = datetime.datetime.strptime(dates_dict.get("4. GÜN", str(datetime.date.today() + datetime.timedelta(days=3))), "%Y-%m-%d").date() if dates_dict.get("4. GÜN") else datetime.date.today() + datetime.timedelta(days=3)
 
-            date1 = dc1.date_input("1. GÜN Tarihi:", value=def_d1, key="d1_input")
-            date2 = dc2.date_input("2. GÜN Tarihi:", value=def_d2, key="d2_input")
-            date3 = dc3.date_input("3. GÜN Tarihi:", value=def_d3, key="d3_input")
-            date4 = dc4.date_input("4. GÜN Tarihi:", value=def_d4, key="d4_input")
+            date1 = dc1.date_input("1. GÜN:", value=def_d1, key="d1_in")
+            date2 = dc2.date_input("2. GÜN:", value=def_d2, key="d2_in")
+            date3 = dc3.date_input("3. GÜN:", value=def_d3, key="d3_in")
+            date4 = dc4.date_input("4. GÜN:", value=def_d4, key="d4_in")
             
             if str(date1) != dates_dict.get("1. GÜN") or str(date2) != dates_dict.get("2. GÜN") or str(date3) != dates_dict.get("3. GÜN") or str(date4) != dates_dict.get("4. GÜN"):
                 st.session_state.data['publish']['dates'] = {"1. GÜN": str(date1), "2. GÜN": str(date2), "3. GÜN": str(date3), "4. GÜN": str(date4)}
@@ -343,7 +340,7 @@ with tab_program:
         mevcut_k = st.session_state.data['publish'].get('kategori', 'Tümü')
         mevcut_f = st.session_state.data['publish'].get('filtre', 'Tümü')
         
-        secilen_gun = c_gun.radio("🗓️ Günü Seçin (İç Yönetim):", gunler, index=gunler.index(mevcut_g) if mevcut_g in gunler else 0)
+        secilen_gun = c_gun.radio("🗓️ Günü Seçin:", gunler, index=gunler.index(mevcut_g) if mevcut_g in gunler else 0)
         secilen_kategori = c_kat.radio("🎾 Kategori:", kategoriler, index=kategoriler.index(mevcut_k) if mevcut_k in kategoriler else 0)
         tablo_filtresi = c_fil.radio("🔍 Filtre:", filtreler, index=filtreler.index(mevcut_f) if mevcut_f in filtreler else 0)
         
@@ -377,7 +374,6 @@ with tab_program:
         
         if not filtered_matches: return
 
-        # PDF İçin İsimlendirmeler ve Kısaltmalar
         dates_dict = st.session_state.data['publish'].get('dates', {})
         gercek_tarih_str = format_date_tr(dates_dict.get(day_name))
         
@@ -386,8 +382,10 @@ with tab_program:
 
         baslik_gun = f"{gercek_tarih_str} ({day_name})" if gercek_tarih_str else day_name
         st.markdown(f"<h5 style='color:#1f77b4; margin-top:10px;'>🎾 {cat_name} - {baslik_gun}</h5>", unsafe_allow_html=True)
-        h1, h2, h3, h4, h5, h6 = st.columns([1.5, 2, 2, 1, 1, 1])
-        h1.markdown("**Maç Türü**"); h2.markdown("**Oyuncu 1**"); h3.markdown("**Oyuncu 2**"); h4.markdown("**Saat**"); h5.markdown("**Kort**"); h6.markdown("**Skor**")
+        
+        # Sütunları butona yer açacak şekilde oranlıyoruz
+        h1, h2, h3, h4, h5, h6, h7 = st.columns([1.2, 2, 2, 0.8, 0.8, 1.2, 0.7])
+        h1.markdown("**Maç Türü**"); h2.markdown("**Oyuncu 1**"); h3.markdown("**Oyuncu 2**"); h4.markdown("**Saat**"); h5.markdown("**Kort**"); h6.markdown("**Skor**"); h7.markdown("**Kaydet**")
         st.markdown("<div style='margin-top:-10px; margin-bottom:10px; border-bottom:1px solid #ddd;'></div>", unsafe_allow_html=True)
         
         for m_id, label in filtered_matches:
@@ -399,7 +397,6 @@ with tab_program:
             bracket_score = cat_d['scores'].get(m_id, "")
             data = cat_d['schedule_data'].get(m_id, {"saat": "", "kort": ""}) 
             
-            # Tur Kısaltması PDF İçin (Ana Tablo -> AT, Teselli -> FC)
             pdf_tur = label.replace("Ana Tablo", "AT").replace("T-", "FC ")
             pdf_tur = pdf_tur.replace("3.-4.'lük (Teselli)", "FC 3-4").replace("5.-6.'lık Maçı", "FC 5-6").replace("7.-8.'lik Maçı", "FC 7-8")
 
@@ -408,26 +405,25 @@ with tab_program:
                 "Oyuncu 1": p1, "Oyuncu 2": p2, "Skor": bracket_score if bracket_score else "-"
             })
 
-            c1, c2, c3, c4, c5, c6 = st.columns([1.5, 2, 2, 1, 1, 1])
+            c1, c2, c3, c4, c5, c6, c7 = st.columns([1.2, 2, 2, 0.8, 0.8, 1.2, 0.7])
             c1.write(label); c2.write(p1_display); c3.write(p2_display)
             
             if not st.session_state.admin_mi:
                 c4.write(data.get("saat", "-"))
                 c5.write(data.get("kort", "-"))
                 c6.write(bracket_score if bracket_score else "-")
+                c7.write("-")
             else:
                 new_saat = c4.text_input("Saat", value=data.get("saat", ""), key=f"t_{cat_name}_{m_id}", label_visibility="collapsed")
                 new_kort = c5.text_input("Kort", value=data.get("kort", ""), key=f"c_{cat_name}_{m_id}", label_visibility="collapsed")
                 new_skor = c6.text_input("Skor", value=bracket_score, key=f"s_{cat_name}_{m_id}", label_visibility="collapsed")
                 
-                degisiklik_var = False
-                if new_saat != data.get("saat") or new_kort != data.get("kort"):
+                # KAYDET/İŞLE BUTONU (PROGRAM İÇİ)
+                if c7.button("İşle", key=f"btn_p_{cat_name}_{m_id}"):
                     cat_d['schedule_data'][m_id] = {"saat": new_saat, "kort": new_kort}
-                    degisiklik_var = True
-                if new_skor != bracket_score:
                     cat_d['scores'][m_id] = new_skor
-                    degisiklik_var = True
-                if degisiklik_var: save_data()
+                    save_data()
+                    st.rerun()
 
     g_maclar = {
         "1. GÜN": [(f"MR1_{i}", f"Ana Tablo R1 M{i+1}") for i in range(8)],
@@ -446,7 +442,6 @@ with tab_program:
     if pdf_program_data:
         st.divider()
         pdf_prog_df = pd.DataFrame(pdf_program_data)
-        # Kısaltmalarla Alan Tasarrufu Yapılan Sütun Genişlikleri (Toplam: 190mm)
         prog_col_widths = [29, 9, 21, 12, 12, 42, 42, 23]
         btn_pdf_prog = generate_pdf(pdf_prog_df, f"Mac Programi", col_widths=prog_col_widths)
         st.download_button("📥 Ekrandaki Maç Programını PDF Olarak İndir (Auto-Fit Destekli)", data=btn_pdf_prog, file_name="Mac_Programi.pdf", mime="application/pdf")
