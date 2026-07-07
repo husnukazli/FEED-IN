@@ -14,7 +14,6 @@ st.set_page_config(layout="wide", page_title="Consolation Milli Takım Belirleme
 DB_FILE = "turnuva_db.json"
 FONT_YUKLENDI = os.path.exists("arial.ttf")
 
-# Kopyala-Yapıştır ile gelen gizli HTML kodlarını tamamen siler
 def clean_html(text):
     if not isinstance(text, str): return str(text)
     return re.sub(r'<[^>]+>', '', text).strip()
@@ -151,7 +150,6 @@ st.markdown("""
 .player-src { font-size: 11px; color: #444; font-weight: bold; font-style: italic; margin-top: -2px; margin-bottom: 2px; }
 .player-separator { border-top: 1px dashed #ccc; margin: 2px 0; }
 
-/* KESİNTİSİZ PDF BASKISI İÇİN AGRESİF OVERRIDE'LAR */
 @media print {
     html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], [data-testid="stMainView"], section {
         overflow: visible !important;
@@ -182,7 +180,6 @@ S_FIN_TOP = 490
 def match_card(m_id, p1, p2, label, match_no="", src1="", src2="", show=True):
     st.session_state[f"match_players_{active_cat}_{m_id}"] = (p1, p2)
     
-    # HTML etiketlerini tamamen sil
     name1_safe = clean_html(p1) if p1 else "Bekleniyor..."
     name2_safe = clean_html(p2) if p2 else "Bekleniyor..."
     
@@ -235,7 +232,6 @@ def match_card(m_id, p1, p2, label, match_no="", src1="", src2="", show=True):
 # ==========================================
 st.title("🎾 Turnuva Yönetim Sistemi")
 tab_fikstur, tab_program, tab_siralama, tab_dosya = st.tabs(["🏆 Fikstürler", "📅 Maç Programı", "🇹🇷 Sıralama", "⚙️ Veri Yönetimi"])
-# Oyuncu isimlerini okurken de HTML kodlarından arındırıyoruz
 p = [clean_html(player) for player in cat_data['players']]
 
 # ==========================================
@@ -253,9 +249,8 @@ with tab_fikstur:
     show_tes = gorunum in ["İkisini de Göster", "Sadece Teselli"]
 
     m_r1, m_qf, m_sf = {}, {}, {}
-    c_r1, c_r2, c_r3, c_r4 = {}, {}, {}
+    c_r1, c_r2, c_r3, c_r4 = {}, {}, {}, {}
 
-    # --- ANA TABLO ---
     if show_ana:
         st.markdown(f"#### 🏆 {active_cat} Ana Tablosu")
         c1, c2, c3, c4 = st.columns(4)
@@ -294,11 +289,9 @@ with tab_fikstur:
         m_sf[1] = match_card("MSF_1", m_qf[2][0], m_qf[3][0], "YF", 14, "", "", show=False)
         res_main = match_card("FINAL_MAIN", m_sf[0][0], m_sf[1][0], "FİNAL", 15, "", "", show=False)
 
-    # --- AYIRICI ÇİZGİ (Ve PDF için Sayfa Kırılımı) ---
     if show_ana and show_tes:
         st.markdown("<div class='page-break'></div><br class='no-print'><hr class='no-print' style='border: 2px dashed #1f77b4; margin: 20px 0;'><br class='no-print'>", unsafe_allow_html=True)
 
-    # --- TESELLİ TABLOSU ---
     if show_tes:
         st.markdown(f"#### 🔄 {active_cat} Teselli Tablosu")
         tc1, tc2, tc3, tc4, tc5 = st.columns(5)
@@ -347,7 +340,7 @@ with tab_fikstur:
         match_card("MATCH_7_8", c_r3[0][1], c_r3[1][1], "7.-8.'LİK", 30, show=False)
 
     if st.session_state.admin_mi:
-        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
         if st.button(f"💾 {active_cat} Fikstür Skorlarını Kaydet", use_container_width=True, key="btn_save_all"):
             save_data()
             st.success("Tüm fikstür değişiklikleri başarıyla kaydedildi!")
@@ -439,7 +432,6 @@ with tab_program:
             p1, p2 = st.session_state.get(f"match_players_{cat_name}_{m_id}", ("⏳", "⏳"))
             winner = cat_d['res'].get(m_id, {}).get("w", None)
             
-            # HTML temizleme program ekranı için
             p1_display = clean_html(p1)
             p2_display = clean_html(p2)
             
@@ -499,10 +491,10 @@ with tab_program:
         pdf_prog_df = pd.DataFrame(pdf_program_data)
         prog_col_widths = [29, 9, 21, 12, 12, 42, 42, 23]
         btn_pdf_prog = generate_pdf(pdf_prog_df, f"Mac Programi", col_widths=prog_col_widths)
-        st.download_button("📥 Ekrandaki Maç Programını PDF Olarak İndir (Auto-Fit Destekli)", data=btn_pdf_prog, file_name="Mac_Programi.pdf", mime="application/pdf")
+        st.download_button("📥 Ekrandaki Maç Programını PDF Olarak İndir", data=btn_pdf_prog, file_name="Mac_Programi.pdf", mime="application/pdf")
 
 # ==========================================
-# TAB 3: SIRALAMA
+# TAB 4: SIRALAMA
 # ==========================================
 with tab_siralama:
     st.subheader("🇹🇷 Milli Takım Kesin Sıralama")
@@ -536,14 +528,13 @@ with tab_siralama:
         st.download_button("📥 Sıralamayı PDF Olarak İndir", data=btn_pdf_sir, file_name="Siralama.pdf", mime="application/pdf")
 
 # ==========================================
-# TAB 4: YEDEKLEME VE DOSYA (Sadece Admin)
+# TAB 5: YEDEKLEME VE DOSYA (Sadece Admin)
 # ==========================================
 with tab_dosya:
     if st.session_state.admin_mi:
         st.subheader("📥 Veri Yönetimi ve Oyuncu Listesi")
         
         st.markdown(f"**1. Esame Listesini Güncelle ({active_cat})**")
-        # Text area'ya yazılanları doğrudan göster, kaydederken HTML temizliği yap
         txt = st.text_area("16 Oyuncu girin (1. Seribaşı en üstte):", value="\n".join([clean_html(x) for x in cat_data['players']]), height=150)
         if st.button("👥 Listeyi Kaydet"):
             cat_data['players'] = [clean_html(name.strip()) for name in txt.splitlines() if name.strip()]
