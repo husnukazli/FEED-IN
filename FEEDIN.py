@@ -18,7 +18,6 @@ def load_data():
         try:
             with open(DB_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                # Eski verilerde tarih ve yayın ayarı yoksa ekle
                 if 'publish' not in data:
                     data['publish'] = {'gun': 'Tüm Günler', 'filtre': 'Tümü', 'kategori': 'Tümü', 'dates': {}}
                 if 'dates' not in data['publish']:
@@ -38,7 +37,6 @@ def save_data():
 if 'data' not in st.session_state:
     st.session_state.data = load_data()
 
-# Tarih formatlama fonksiyonu (YYYY-MM-DD -> DD.MM.YYYY GünAdı)
 def format_date_tr(date_str):
     if not date_str: return ""
     try:
@@ -48,50 +46,66 @@ def format_date_tr(date_str):
     except:
         return date_str
 
-# FPDF Çıktı Fonksiyonu
 def to_pdf_text(text):
     if FONT_YUKLENDI: return str(text)
     return str(text).encode('latin-1', 'replace').decode('latin-1')
 
+# --- YENİLENMİŞ FPDF FONKSİYONU (AUTO-FIT DİNAMİK FONT KÜÇÜLTME) ---
 def generate_pdf(df, baslik, col_widths=None):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     pdf.add_page()
     
+    font_family = "ArialTR" if FONT_YUKLENDI else "Arial"
+    
     if FONT_YUKLENDI:
-        try:
-            pdf.add_font("ArialTR", "", "arial.ttf", uni=True)
-            pdf.set_font("ArialTR", "", 14)
-        except: pdf.set_font("Arial", 'B', 14)
-    else: pdf.set_font("Arial", 'B', 14)
+        try: pdf.add_font("ArialTR", "", "arial.ttf", uni=True)
+        except: font_family = "Arial"
         
+    pdf.set_font(font_family, 'B' if not FONT_YUKLENDI else "", 14)
     pdf.cell(0, 10, to_pdf_text(baslik), ln=True, align='C')
     pdf.ln(5)
     
     if not df.empty:
-        if FONT_YUKLENDI: pdf.set_font("ArialTR", "", 10)
-        else: pdf.set_font("Arial", 'B', 10)
-        
-        if col_widths is None:
-            w = [190 / len(df.columns)] * len(df.columns)
-        else:
-            w = col_widths
+        pdf.set_font(font_family, 'B' if not FONT_YUKLENDI else "", 10)
+        w = col_widths if col_widths else [190 / len(df.columns)] * len(df.columns)
 
+        # Başlıklar
         for i, col in enumerate(df.columns):
             pdf.cell(w[i], 10, to_pdf_text(col), border=1, align='C')
         pdf.ln()
         
-        if FONT_YUKLENDI: pdf.set_font("ArialTR", "", 9)
-        else: pdf.set_font("Arial", '', 9)
-            
+        # Satırlar (Hücreye taşırmadan sığdırma algoritması)
         for _, row in df.iterrows():
             for i, item in enumerate(row):
-                align = 'C' if w[i] < 30 else 'L' 
-                pdf.cell(w[i], 8, to_pdf_text(str(item)), border=1, align=align)
+                align = 'C' if w[i] < 26 else 'L' 
+                text = str(item)
+                pdf_text = to_pdf_text(text)
+                
+                # Orijinal font boyutu
+                original_size = 9
+                pdf.set_font(font_family, "", original_size)
+                
+                # Metin hücreye sığıyor mu kontrol et, sığmıyorsa fontu ufalt (Auto-Fit)
+                current_size = original_size
+                while pdf.get_string_width(pdf_text) > (w[i] - 2) and current_size > 5:
+                    current_size -= 0.5
+                    pdf.set_font(font_family, "", current_size)
+                
+                # Eğer 5pt'ye inmesine rağmen sığmıyorsa, kırparak ".." ekle
+                if pdf.get_string_width(pdf_text) > (w[i] - 2):
+                    while pdf.get_string_width(pdf_text + "..") > (w[i] - 2) and len(pdf_text) > 0:
+                        pdf_text = pdf_text[:-1]
+                    pdf_text += ".."
+                    
+                pdf.cell(w[i], 8, pdf_text, border=1, align=align)
+                
+                # Bir sonraki hücre için fontu sıfırla
+                pdf.set_font(font_family, "", original_size)
             pdf.ln()
     return bytes(pdf.output())
 
 # ==============================================================================
-# 2. ŞİFRELİ GİRİŞ / MİSAFİR MODU (SİDEBAR)
+# 2. ŞİFRELİ GİRİŞ / MİSAFİR MODU
 # ==============================================================================
 if "admin_mi" not in st.session_state:
     st.session_state.admin_mi = False
@@ -152,10 +166,8 @@ st.markdown("""
 def spacer(height_px):
     st.markdown(f'<div style="height:{height_px}px;"></div>', unsafe_allow_html=True)
 
-S_R2_TOP = 55
-S_R2_GAP = 110
-S_R3_TOP = 165
-S_R3_GAP = 330
+S_R2_TOP = 55; S_R2_GAP = 110
+S_R3_TOP = 165; S_R3_GAP = 330
 S_FIN_TOP = 385
 
 def match_card(m_id, p1, p2, label):
@@ -199,8 +211,7 @@ def match_card(m_id, p1, p2, label):
             save_data()
             st.rerun()
             
-        if winner != "-":
-            return winner, p2 if winner == p1 else p1
+        if winner != "-": return winner, p2 if winner == p1 else p1
     return None, None
 
 # ==========================================
@@ -302,9 +313,8 @@ with tab_program:
     st.subheader("📅 Ortak Maç Programı")
     
     if st.session_state.admin_mi:
-        # GERÇEK TARİH BELİRLEME PANELİ (YENİ)
         with st.expander("🗓️ Günlerin Gerçek Tarihlerini Belirle"):
-            st.info("Bu alanda '1. GÜN', '2. GÜN' gibi tanımların takvimde hangi tarihlere (Örn: 15.07.2026 Çarşamba) denk geldiğini seçebilirsiniz. Bu tarihler izleyicilere ve PDF çıktısına yansıyacaktır.")
+            st.info("Bu tarihler PDF çıktısına ve İzleyici ekranına otomatik yansır.")
             dc1, dc2, dc3, dc4 = st.columns(4)
             
             dates_dict = st.session_state.data['publish'].get('dates', {})
@@ -347,10 +357,9 @@ with tab_program:
         secilen_kategori = st.session_state.data['publish'].get('kategori', 'Tümü')
         tablo_filtresi = st.session_state.data['publish'].get('filtre', 'Tümü')
         
-        # Misafire Gerçek Tarihi Göster
         dates_dict = st.session_state.data['publish'].get('dates', {})
         gosterim_gun_ismi = format_date_tr(dates_dict.get(secilen_gun)) if secilen_gun in dates_dict else secilen_gun
-        st.warning(f"👁️ Yayındaki Akış: **{gosterim_gun_ismi} | {secilen_kategori} Kategorisi | {tablo_filtresi}**")
+        st.warning(f"👁️ Yayındaki Akış: **{gosterim_gun_ismi} | {secilen_kategori} | {tablo_filtresi}**")
 
     st.divider()
 
@@ -368,11 +377,14 @@ with tab_program:
         
         if not filtered_matches: return
 
-        # Gerçek Tarihi ve Günü Çek
+        # PDF İçin İsimlendirmeler ve Kısaltmalar
         dates_dict = st.session_state.data['publish'].get('dates', {})
         gercek_tarih_str = format_date_tr(dates_dict.get(day_name))
-        baslik_gun = f"{gercek_tarih_str} ({day_name})" if gercek_tarih_str else day_name
+        
+        pdf_tarih = gercek_tarih_str if gercek_tarih_str else day_name.replace(" GÜN", "")
+        pdf_kategori = "E" if cat_name == "Erkekler" else "K"
 
+        baslik_gun = f"{gercek_tarih_str} ({day_name})" if gercek_tarih_str else day_name
         st.markdown(f"<h5 style='color:#1f77b4; margin-top:10px;'>🎾 {cat_name} - {baslik_gun}</h5>", unsafe_allow_html=True)
         h1, h2, h3, h4, h5, h6 = st.columns([1.5, 2, 2, 1, 1, 1])
         h1.markdown("**Maç Türü**"); h2.markdown("**Oyuncu 1**"); h3.markdown("**Oyuncu 2**"); h4.markdown("**Saat**"); h5.markdown("**Kort**"); h6.markdown("**Skor**")
@@ -384,12 +396,15 @@ with tab_program:
             p1_display = f"🏆 **{p1}**" if winner and p1 == winner else p1
             p2_display = f"🏆 **{p2}**" if winner and p2 == winner else p2
             
-            # Skor Çift Yönlü Senkronizasyon: Fikstürdeki skor asıl kaynaktır!
             bracket_score = cat_d['scores'].get(m_id, "")
             data = cat_d['schedule_data'].get(m_id, {"saat": "", "kort": ""}) 
             
+            # Tur Kısaltması PDF İçin (Ana Tablo -> AT, Teselli -> FC)
+            pdf_tur = label.replace("Ana Tablo", "AT").replace("T-", "FC ")
+            pdf_tur = pdf_tur.replace("3.-4.'lük (Teselli)", "FC 3-4").replace("5.-6.'lık Maçı", "FC 5-6").replace("7.-8.'lik Maçı", "FC 7-8")
+
             pdf_program_data.append({
-                "Tarih/Gün": baslik_gun, "Kategori": cat_name, "Tur": label, "Saat": data.get("saat", "-"), "Kort": data.get("kort", "-"),
+                "Tarih/Gün": pdf_tarih, "Kat.": pdf_kategori, "Tur": pdf_tur, "Saat": data.get("saat", "-"), "Kort": data.get("kort", "-"),
                 "Oyuncu 1": p1, "Oyuncu 2": p2, "Skor": bracket_score if bracket_score else "-"
             })
 
@@ -403,21 +418,16 @@ with tab_program:
             else:
                 new_saat = c4.text_input("Saat", value=data.get("saat", ""), key=f"t_{cat_name}_{m_id}", label_visibility="collapsed")
                 new_kort = c5.text_input("Kort", value=data.get("kort", ""), key=f"c_{cat_name}_{m_id}", label_visibility="collapsed")
-                
-                # Skor Programdan Değiştirilirse Fikstüre de (Ana Tabloya) Yansır
                 new_skor = c6.text_input("Skor", value=bracket_score, key=f"s_{cat_name}_{m_id}", label_visibility="collapsed")
                 
                 degisiklik_var = False
                 if new_saat != data.get("saat") or new_kort != data.get("kort"):
                     cat_d['schedule_data'][m_id] = {"saat": new_saat, "kort": new_kort}
                     degisiklik_var = True
-                
                 if new_skor != bracket_score:
                     cat_d['scores'][m_id] = new_skor
                     degisiklik_var = True
-                    
-                if degisiklik_var:
-                    save_data()
+                if degisiklik_var: save_data()
 
     g_maclar = {
         "1. GÜN": [(f"MR1_{i}", f"Ana Tablo R1 M{i+1}") for i in range(8)],
@@ -436,9 +446,10 @@ with tab_program:
     if pdf_program_data:
         st.divider()
         pdf_prog_df = pd.DataFrame(pdf_program_data)
-        prog_col_widths = [36, 18, 20, 12, 12, 34, 34, 24]
-        btn_pdf_prog = generate_pdf(pdf_prog_df, f"Mac Programi ({secilen_gun} - {secilen_kategori})", col_widths=prog_col_widths)
-        st.download_button("📥 Ekrandaki Maç Programını PDF Olarak İndir (Arial Destekli)", data=btn_pdf_prog, file_name="Mac_Programi.pdf", mime="application/pdf")
+        # Kısaltmalarla Alan Tasarrufu Yapılan Sütun Genişlikleri (Toplam: 190mm)
+        prog_col_widths = [29, 9, 21, 12, 12, 42, 42, 23]
+        btn_pdf_prog = generate_pdf(pdf_prog_df, f"Mac Programi", col_widths=prog_col_widths)
+        st.download_button("📥 Ekrandaki Maç Programını PDF Olarak İndir (Auto-Fit Destekli)", data=btn_pdf_prog, file_name="Mac_Programi.pdf", mime="application/pdf")
 
 # ==========================================
 # TAB 4: SIRALAMA
@@ -471,7 +482,7 @@ with tab_siralama:
         pdf_sir_df = pd.DataFrame(pdf_siralama_data)
         sir_col_widths = [15, 30, 145]
         btn_pdf_sir = generate_pdf(pdf_sir_df, f"Milli Takim Siralamasi ({sira_kategori})", col_widths=sir_col_widths)
-        st.download_button("📥 Sıralamayı PDF Olarak İndir (Arial Destekli)", data=btn_pdf_sir, file_name="Siralama.pdf", mime="application/pdf")
+        st.download_button("📥 Sıralamayı PDF Olarak İndir", data=btn_pdf_sir, file_name="Siralama.pdf", mime="application/pdf")
 
 # ==========================================
 # TAB 5: YEDEKLEME VE DOSYA (Sadece Admin)
