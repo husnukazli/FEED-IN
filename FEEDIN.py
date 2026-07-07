@@ -133,7 +133,7 @@ cat_data = st.session_state.data[active_cat]
 # ==============================================================================
 st.markdown("""
 <style>
-.match-wrapper { height: 115px; margin-bottom: 5px; } /* Buton için biraz yükselttik */
+.match-wrapper { height: 105px; margin-bottom: 5px; }
 .match-card {
     border: 1px solid #1f77b4; border-radius: 6px; padding: 6px; 
     background-color: #f8f9fa; box-shadow: 2px 2px 5px rgba(0,0,0,0.05); height: 100%;
@@ -141,9 +141,6 @@ st.markdown("""
 .match-label { font-size: 11px; font-weight: bold; color: #1f77b4; border-bottom: 1px solid #ddd; margin-bottom: 4px; padding-bottom: 2px; }
 .player-name { font-size: 13px; font-weight: 500; color: #333; padding: 2px 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;}
 .player-separator { border-top: 1px dashed #ccc; margin: 2px 0; }
-
-/* Streamlit butonlarını küçültüyoruz ki karta sığsın */
-.stButton button { padding: 0px 5px !important; font-size: 12px !important; min-height: 28px !important; height: 28px !important; width: 100%; }
 
 @media print {
     header, footer, [data-testid="stSidebar"], .stTabs [data-baseweb="tab-list"], 
@@ -161,10 +158,9 @@ st.markdown("""
 def spacer(height_px):
     st.markdown(f'<div style="height:{height_px}px;"></div>', unsafe_allow_html=True)
 
-# Yeni Yüksekliğe Göre Simetri Değerleri
-S_R2_TOP = 60; S_R2_GAP = 120
-S_R3_TOP = 180; S_R3_GAP = 360
-S_FIN_TOP = 420
+S_R2_TOP = 55; S_R2_GAP = 110
+S_R3_TOP = 165; S_R3_GAP = 330
+S_FIN_TOP = 385
 
 def match_card(m_id, p1, p2, label):
     st.session_state[f"match_players_{active_cat}_{m_id}"] = (p1, p2)
@@ -193,22 +189,21 @@ def match_card(m_id, p1, p2, label):
         options = ["-", p1, p2]
         idx = options.index(current_winner) if current_winner in options else 0
         
-        c_win, c_score, c_btn = st.columns([1.1, 1.2, 0.7])
+        c_win, c_score = st.columns([1.2, 1])
         winner = c_win.selectbox("Kz", options, index=idx, key=f"sel_{active_cat}_{m_id}", label_visibility="collapsed")
         score = c_score.text_input("Sk", value=current_score, key=f"score_{active_cat}_{m_id}", label_visibility="collapsed", placeholder="Skor")
         
-        # KAYDET/İŞLE BUTONU
-        if c_btn.button("İşle", key=f"btn_{active_cat}_{m_id}"):
+        # Sadece hafızayı (Memory) güncelliyoruz. Veritabanına sayfa sonundaki Kaydet butonu yazacak.
+        if score != current_score or winner != current_winner:
             cat_data['scores'][m_id] = score
             if winner != "-":
                 loser = p2 if winner == p1 else p1
                 cat_data['res'][m_id] = {"w": winner, "l": loser}
             elif winner == "-" and m_id in cat_data['res']:
                 del cat_data['res'][m_id]
-            save_data()
-            st.rerun()
             
-        if winner != "-": return winner, p2 if winner == p1 else p1
+        if winner != "-":
+            return winner, p2 if winner == p1 else p1
     return None, None
 
 # ==========================================
@@ -257,6 +252,13 @@ with tab_ana:
         spacer(S_FIN_TOP + 30)
         res_main = match_card("FINAL_MAIN", m_sf[0][0], m_sf[1][0], "🏆 ŞAMPİYON")
 
+    # ANA TABLO TOPLU KAYDETME BUTONU
+    if st.session_state.admin_mi:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        if st.button(f"💾 {active_cat} Ana Tablo Skorlarını Kaydet", use_container_width=True, key="btn_save_ana"):
+            save_data()
+            st.success("Ana Tablo değişiklikleri başarıyla kaydedildi!")
+
 # ==========================================
 # TAB 2: TESELLİ TABLOSU
 # ==========================================
@@ -303,6 +305,13 @@ with tab_teselli:
         spacer(50)
         match_card("MATCH_7_8", c_r3[0][1], c_r3[1][1], "7. VE 8. MAÇI")
 
+    # TESELLİ TABLOSU TOPLU KAYDETME BUTONU
+    if st.session_state.admin_mi:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        if st.button(f"💾 {active_cat} Teselli Skorlarını Kaydet", use_container_width=True, key="btn_save_teselli"):
+            save_data()
+            st.success("Teselli değişiklikleri başarıyla kaydedildi!")
+
 # ==========================================
 # TAB 3: ORTAK MAÇ PROGRAMI
 # ==========================================
@@ -340,7 +349,7 @@ with tab_program:
         mevcut_k = st.session_state.data['publish'].get('kategori', 'Tümü')
         mevcut_f = st.session_state.data['publish'].get('filtre', 'Tümü')
         
-        secilen_gun = c_gun.radio("🗓️ Günü Seçin:", gunler, index=gunler.index(mevcut_g) if mevcut_g in gunler else 0)
+        secilen_gun = c_gun.radio("🗓️ Günü Seçin (İç Yönetim):", gunler, index=gunler.index(mevcut_g) if mevcut_g in gunler else 0)
         secilen_kategori = c_kat.radio("🎾 Kategori:", kategoriler, index=kategoriler.index(mevcut_k) if mevcut_k in kategoriler else 0)
         tablo_filtresi = c_fil.radio("🔍 Filtre:", filtreler, index=filtreler.index(mevcut_f) if mevcut_f in filtreler else 0)
         
@@ -383,9 +392,9 @@ with tab_program:
         baslik_gun = f"{gercek_tarih_str} ({day_name})" if gercek_tarih_str else day_name
         st.markdown(f"<h5 style='color:#1f77b4; margin-top:10px;'>🎾 {cat_name} - {baslik_gun}</h5>", unsafe_allow_html=True)
         
-        # Sütunları butona yer açacak şekilde oranlıyoruz
-        h1, h2, h3, h4, h5, h6, h7 = st.columns([1.2, 2, 2, 0.8, 0.8, 1.2, 0.7])
-        h1.markdown("**Maç Türü**"); h2.markdown("**Oyuncu 1**"); h3.markdown("**Oyuncu 2**"); h4.markdown("**Saat**"); h5.markdown("**Kort**"); h6.markdown("**Skor**"); h7.markdown("**Kaydet**")
+        # Sütunlar normale döndü (Buton alanı kaldırıldı)
+        h1, h2, h3, h4, h5, h6 = st.columns([1.5, 2, 2, 1, 1, 1])
+        h1.markdown("**Maç Türü**"); h2.markdown("**Oyuncu 1**"); h3.markdown("**Oyuncu 2**"); h4.markdown("**Saat**"); h5.markdown("**Kort**"); h6.markdown("**Skor**")
         st.markdown("<div style='margin-top:-10px; margin-bottom:10px; border-bottom:1px solid #ddd;'></div>", unsafe_allow_html=True)
         
         for m_id, label in filtered_matches:
@@ -405,25 +414,23 @@ with tab_program:
                 "Oyuncu 1": p1, "Oyuncu 2": p2, "Skor": bracket_score if bracket_score else "-"
             })
 
-            c1, c2, c3, c4, c5, c6, c7 = st.columns([1.2, 2, 2, 0.8, 0.8, 1.2, 0.7])
+            c1, c2, c3, c4, c5, c6 = st.columns([1.5, 2, 2, 1, 1, 1])
             c1.write(label); c2.write(p1_display); c3.write(p2_display)
             
             if not st.session_state.admin_mi:
                 c4.write(data.get("saat", "-"))
                 c5.write(data.get("kort", "-"))
                 c6.write(bracket_score if bracket_score else "-")
-                c7.write("-")
             else:
                 new_saat = c4.text_input("Saat", value=data.get("saat", ""), key=f"t_{cat_name}_{m_id}", label_visibility="collapsed")
                 new_kort = c5.text_input("Kort", value=data.get("kort", ""), key=f"c_{cat_name}_{m_id}", label_visibility="collapsed")
                 new_skor = c6.text_input("Skor", value=bracket_score, key=f"s_{cat_name}_{m_id}", label_visibility="collapsed")
                 
-                # KAYDET/İŞLE BUTONU (PROGRAM İÇİ)
-                if c7.button("İşle", key=f"btn_p_{cat_name}_{m_id}"):
+                # Hafıza güncellemeleri
+                if new_saat != data.get("saat") or new_kort != data.get("kort"):
                     cat_d['schedule_data'][m_id] = {"saat": new_saat, "kort": new_kort}
+                if new_skor != bracket_score:
                     cat_d['scores'][m_id] = new_skor
-                    save_data()
-                    st.rerun()
 
     g_maclar = {
         "1. GÜN": [(f"MR1_{i}", f"Ana Tablo R1 M{i+1}") for i in range(8)],
@@ -439,6 +446,13 @@ with tab_program:
         for k_adi in kategoriler_to_show:
             draw_schedule(k_adi, g_maclar[g_adi], g_adi)
             
+    # MAÇ PROGRAMI TOPLU KAYDETME BUTONU
+    if st.session_state.admin_mi:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        if st.button("💾 Maç Programını Kaydet", use_container_width=True, key="btn_save_prog"):
+            save_data()
+            st.success("Maç programı başarıyla kaydedildi!")
+
     if pdf_program_data:
         st.divider()
         pdf_prog_df = pd.DataFrame(pdf_program_data)
