@@ -309,8 +309,8 @@ with tab_fikstur:
                 mevcut_skor = cat_data['scores'].get(mid, "")
                 secenekler = ["-", p1, p2]
                 idx = secenekler.index(mevcut_kazanan) if mevcut_kazanan in secenekler else 0
-                secilen = cw.selectbox(f"{lbl} · {mno}: {p1}  vs  {p2}", secenekler, index=idx, key=f"edit_sel_{active_cat}_{mid}")
-                skor = cs.text_input("Skor", value=mevcut_skor, key=f"edit_sk_{active_cat}_{mid}", label_visibility="collapsed", placeholder="Skor")
+                secilen = cw.selectbox(f"{lbl} · {mno}: {p1}  vs  {p2}", secenekler, index=idx, key=f"tab1_edit_sel_{active_cat}_{mid}")
+                skor = cs.text_input("Skor", value=mevcut_skor, key=f"tab1_edit_sk_{active_cat}_{mid}", label_visibility="collapsed", placeholder="Skor")
                 if secilen != mevcut_kazanan or skor != mevcut_skor:
                     cat_data['scores'][mid] = clean_html_text(skor)
                     if secilen != "-":
@@ -379,8 +379,8 @@ with tab_program:
                         mevcut_skor = cat_data['scores'].get(mid, "")
                         secenekler = ["-", p1, p2]
                         idx = secenekler.index(mevcut_kazanan) if mevcut_kazanan in secenekler else 0
-                        secilen = cw.selectbox(f"{lbl} · {mno}: {p1}  vs  {p2}", secenekler, index=idx, key=f"edit_sel_{active_cat}_{mid}")
-                        skor = cs.text_input("Skor", value=mevcut_skor, key=f"edit_sk_{active_cat}_{mid}", label_visibility="collapsed", placeholder="Skor")
+                        secilen = cw.selectbox(f"{lbl} · {mno}: {p1}  vs  {p2}", secenekler, index=idx, key=f"tab2_edit_sel_{active_cat}_{mid}")
+                        skor = cs.text_input("Skor", value=mevcut_skor, key=f"tab2_edit_sk_{active_cat}_{mid}", label_visibility="collapsed", placeholder="Skor")
                         
                         if secilen != mevcut_kazanan or skor != mevcut_skor:
                             cat_data['scores'][mid] = clean_html_text(skor)
@@ -425,6 +425,8 @@ with tab_program:
         h1.markdown("**Maç Türü**"); h2.markdown("**Oyuncu 1**"); h3.markdown("**Oyuncu 2**"); h4.markdown("**Saat**"); h5.markdown("**Kort**"); h6.markdown("**Skor**")
         st.markdown("<div style='margin-top:-10px; margin-bottom:10px; border-bottom:1px solid #ddd;'></div>", unsafe_allow_html=True)
         
+        day_key_safe = day_name.replace(" ", "_").replace(".", "")
+
         for m_id, label in filtered_matches:
             match_data = b_state.get(m_id, {})
             p1 = match_data.get("p1") or "Bekleniyor..."
@@ -485,9 +487,9 @@ with tab_program:
                 c5.write(data.get("kort", "-"))
                 c6.write(clean_html_text(bracket_score) if bracket_score else "-")
             else:
-                new_saat = c4.text_input("Saat", value=data.get("saat", ""), key=f"t_{cat_name}_{m_id}", label_visibility="collapsed")
-                new_kort = c5.text_input("Kort", value=data.get("kort", ""), key=f"c_{cat_name}_{m_id}", label_visibility="collapsed")
-                new_skor = c6.text_input("Skor", value=bracket_score, key=f"s_{cat_name}_{m_id}", label_visibility="collapsed")
+                new_saat = c4.text_input("Saat", value=data.get("saat", ""), key=f"t_{cat_name}_{m_id}_{day_key_safe}", label_visibility="collapsed")
+                new_kort = c5.text_input("Kort", value=data.get("kort", ""), key=f"c_{cat_name}_{m_id}_{day_key_safe}", label_visibility="collapsed")
+                new_skor = c6.text_input("Skor", value=bracket_score, key=f"s_{cat_name}_{m_id}_{day_key_safe}", label_visibility="collapsed")
                 
                 if new_saat != data.get("saat") or new_kort != data.get("kort"):
                     cat_d['schedule_data'][m_id] = {"saat": new_saat, "kort": new_kort}
