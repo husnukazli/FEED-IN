@@ -4,9 +4,9 @@ Hem SVG (ekran) hem FPDF (PDF) tarafi AYNI bu fonksiyonlari kullanacak,
 boylece ikisi birebir ayni gorunecek.
 """
 
-BOX_W = 150
-BOX_H = 50
-R1_PITCH = 64   # bir R1 kutusunun kapladigi dikey alan (kutu + bosluk)
+BOX_W = 160
+BOX_H = 64
+R1_PITCH = 80   # bir R1 kutusunun kapladigi dikey alan (kutu + bosluk)
 
 def r1_center(i):
     return 25 + R1_PITCH * i + BOX_H/2 - 25  # basitce: ilk kutunun merkezi 25+BOX_H/2
