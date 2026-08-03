@@ -335,60 +335,63 @@ with tab_program:
     st.subheader("📅 Ortak Maç Programı")
     
     if st.session_state.admin_mi:
-        with st.expander("🗓️ Günlerin Gerçek Tarihlerini Belirle"):
-            st.info("Bu tarihler PDF çıktısına ve İzleyici ekranına otomatik yansır.")
-            dc1, dc2, dc3, dc4 = st.columns(4)
+        st.markdown("<br>", unsafe_allow_html=True)
+        with st.expander("✏️ Skor / Kazanan Gir", expanded=True):
             
-            dates_dict = st.session_state.data['publish'].get('dates', {})
-            def_d1 = datetime.datetime.strptime(dates_dict.get("1. GÜN", str(datetime.date.today())), "%Y-%m-%d").date() if dates_dict.get("1. GÜN") else datetime.date.today()
-            def_d2 = datetime.datetime.strptime(dates_dict.get("2. GÜN", str(datetime.date.today() + datetime.timedelta(days=1))), "%Y-%m-%d").date() if dates_dict.get("2. GÜN") else datetime.date.today() + datetime.timedelta(days=1)
-            def_d3 = datetime.datetime.strptime(dates_dict.get("3. GÜN", str(datetime.date.today() + datetime.timedelta(days=2))), "%Y-%m-%d").date() if dates_dict.get("3. GÜN") else datetime.date.today() + datetime.timedelta(days=2)
-            def_d4 = datetime.datetime.strptime(dates_dict.get("4. GÜN", str(datetime.date.today() + datetime.timedelta(days=3))), "%Y-%m-%d").date() if dates_dict.get("4. GÜN") else datetime.date.today() + datetime.timedelta(days=3)
-
-            date1 = dc1.date_input("1. GÜN:", value=def_d1, key="d1_in")
-            date2 = dc2.date_input("2. GÜN:", value=def_d2, key="d2_in")
-            date3 = dc3.date_input("3. GÜN:", value=def_d3, key="d3_in")
-            date4 = dc4.date_input("4. GÜN:", value=def_d4, key="d4_in")
+            # Maçları günlere göre grupladık
+            GUNLUK_MACLAR = {
+                "1. GÜN MAÇLARI": [
+                    ("MR1_0","Ana R1","M1"),("MR1_1","Ana R1","M2"),("MR1_2","Ana R1","M3"),("MR1_3","Ana R1","M4"),
+                    ("MR1_4","Ana R1","M5"),("MR1_5","Ana R1","M6"),("MR1_6","Ana R1","M7"),("MR1_7","Ana R1","M8")
+                ],
+                "2. GÜN MAÇLARI": [
+                    ("MQF_0","Ana ÇF","M9"),("MQF_1","Ana ÇF","M10"),("MQF_2","Ana ÇF","M11"),("MQF_3","Ana ÇF","M12"),
+                    ("CR1_0","T-R1","M16"),("CR1_1","T-R1","M17"),("CR1_2","T-R1","M18"),("CR1_3","T-R1","M19"),
+                    ("CR2_0","T-ÇF","M20"),("CR2_1","T-ÇF","M21"),("CR2_2","T-ÇF","M22"),("CR2_3","T-ÇF","M23")
+                ],
+                "3. GÜN MAÇLARI": [
+                    ("MSF_0","Ana YF","M13"),("MSF_1","Ana YF","M14"),
+                    ("CR3_0","T-YF1","M24"),("CR3_1","T-YF1","M25"),
+                    ("CR4_0","T-YF2","M26"),("CR4_1","T-YF2","M27"),
+                    ("MATCH_7_8","7.-8.'lik","M30")
+                ],
+                "4. GÜN MAÇLARI": [
+                    ("FINAL_MAIN","FİNAL","M15"),("FINAL_TESELLI","3.-4.'lük","M28"),("MATCH_5_6","5.-6.'lık","M29")
+                ]
+            }
             
-            if str(date1) != dates_dict.get("1. GÜN") or str(date2) != dates_dict.get("2. GÜN") or str(date3) != dates_dict.get("3. GÜN") or str(date4) != dates_dict.get("4. GÜN"):
-                st.session_state.data['publish']['dates'] = {"1. GÜN": str(date1), "2. GÜN": str(date2), "3. GÜN": str(date3), "4. GÜN": str(date4)}
-                save_data()
-
-        st.info("💡 **Yayın Ayarı:** Seçimleriniz anında Misafir (İzleyici) moduna yansır.")
-        c_gun, c_kat, c_fil = st.columns(3)
-        
-        gunler = ["Tüm Günler", "1. GÜN", "2. GÜN", "3. GÜN", "4. GÜN"]
-        kategoriler = ["Tümü", "Erkekler", "Kadınlar"]
-        filtreler = ["Tümü", "Sadece Ana Tablo", "Sadece Teselli"]
-        
-        mevcut_g = st.session_state.data['publish'].get('gun', 'Tüm Günler')
-        mevcut_k = st.session_state.data['publish'].get('kategori', 'Tümü')
-        mevcut_f = st.session_state.data['publish'].get('filtre', 'Tümü')
-        
-        secilen_gun = c_gun.radio("🗓️ Günü Seçin (İç Yönetim):", gunler, index=gunler.index(mevcut_g) if mevcut_g in gunler else 0)
-        secilen_kategori = c_kat.radio("🎾 Kategori:", kategoriler, index=kategoriler.index(mevcut_k) if mevcut_k in kategoriler else 0)
-        tablo_filtresi = c_fil.radio("🔍 Filtre:", filtreler, index=filtreler.index(mevcut_f) if mevcut_f in filtreler else 0)
-        
-        if secilen_gun != mevcut_g or secilen_kategori != mevcut_k or tablo_filtresi != mevcut_f:
-            st.session_state.data['publish']['gun'] = secilen_gun
-            st.session_state.data['publish']['kategori'] = secilen_kategori
-            st.session_state.data['publish']['filtre'] = tablo_filtresi
-            save_data()
-    else:
-        secilen_gun = st.session_state.data['publish'].get('gun', 'Tüm Günler')
-        secilen_kategori = st.session_state.data['publish'].get('kategori', 'Tümü')
-        tablo_filtresi = st.session_state.data['publish'].get('filtre', 'Tümü')
-        
-        dates_dict = st.session_state.data['publish'].get('dates', {})
-        gosterim_gun_ismi = format_date_tr(dates_dict.get(secilen_gun)) if secilen_gun in dates_dict else secilen_gun
-        st.warning(f"👁️ Yayındaki Akış: **{gosterim_gun_ismi} | {secilen_kategori} Kategorisi | {tablo_filtresi}**")
-
-    st.divider()
-
-    pdf_program_data = []
-
-    def draw_schedule(cat_name, matches, day_name):
-        cat_d = st.session_state.data[cat_name]
+            degisti = False
+            for gun_baslik, mac_listesi in GUNLUK_MACLAR.items():
+                
+                # Sadece oyuncuları belli olan (oynanmaya hazır) maçları filtrele
+                hazir_maclar = [m for m in mac_listesi if bracket_state[m[0]]["p1"] and bracket_state[m[0]]["p2"]]
+                
+                # Eğer o güne ait hazır maç varsa, gün başlığını ve çizgiyi ekle
+                if hazir_maclar:
+                    st.markdown(f"<div style='margin-top: 15px; margin-bottom: 10px; padding-bottom: 3px; border-bottom: 2px solid #1f77b4; color: #1f77b4;'><b>📅 {gun_baslik}</b></div>", unsafe_allow_html=True)
+                    
+                    for mid, lbl, mno in hazir_maclar:
+                        d = bracket_state[mid]
+                        p1, p2 = d["p1"], d["p2"]
+                        
+                        cw, cs = st.columns([3, 1.3])
+                        mevcut_kazanan = cat_data['res'].get(mid, {}).get("w", "-")
+                        mevcut_skor = cat_data['scores'].get(mid, "")
+                        secenekler = ["-", p1, p2]
+                        idx = secenekler.index(mevcut_kazanan) if mevcut_kazanan in secenekler else 0
+                        secilen = cw.selectbox(f"{lbl} · {mno}: {p1}  vs  {p2}", secenekler, index=idx, key=f"edit_sel_{active_cat}_{mid}")
+                        skor = cs.text_input("Skor", value=mevcut_skor, key=f"edit_sk_{active_cat}_{mid}", label_visibility="collapsed", placeholder="Skor")
+                        
+                        if secilen != mevcut_kazanan or skor != mevcut_skor:
+                            cat_data['scores'][mid] = clean_html_text(skor)
+                            if secilen != "-":
+                                kaybeden = p2 if secilen == p1 else p1
+                                cat_data['res'][mid] = {"w": secilen, "l": kaybeden}
+                            elif mid in cat_data['res']:
+                                del cat_data['res'][mid]
+                            degisti = True
+            if degisti:
+                bracket_state = compute_bracket_state(cat_data)]
         
         # Oyuncu isimlerini ana motor üzerinden alıyoruz
         b_state = compute_bracket_state(cat_d)
