@@ -17,9 +17,27 @@ st.set_page_config(layout="wide", page_title="Milli Takım Belirleme Turnuvası"
 # 1. DOSYA, ŞİFRE VE FPDF YARDIMCI FONKSİYONLARI
 # ==============================================================================
 FONT_YUKLENDI = os.path.exists("arial.ttf")
-FONT_BOLD_YUKLENDI = os.path.exists("arialbd.ttf")
 
-# Yaş gruplarına özel şifreler (Streamlit secrets üzerinden yönetilebilir)
+# Kalın fontun isimlendirme farklılıklarını tolere etmek için dosya arama
+BOLD_FONT_FILE = None
+for fname in ["arialbd.ttf", "ArialBD.ttf", "ARIALBD.TTF", "arial bd.ttf", "Arial BD.ttf"]:
+    if os.path.exists(fname):
+        BOLD_FONT_FILE = fname
+        break
+
+FONT_BOLD_YUKLENDI = BOLD_FONT_FILE is not None
+
+# FPDF Sınıfını Özelleştirme: bracket_pdf.py normal fontu eklediğinde, kalın fontu otomatik iliştirir
+class TurnuvaFPDF(FPDF):
+    def add_font(self, family, style='', fname='', uni=False):
+        super().add_font(family, style, fname, uni)
+        if family.lower() == 'arialtr' and style == '' and FONT_BOLD_YUKLENDI:
+            try:
+                super().add_font(family, 'B', BOLD_FONT_FILE, uni=True)
+            except:
+                pass
+
+# Yaş gruplarına özel şifreler
 SIFRELER = {
     "12 Yaş": st.secrets.get("sifre_12", "hakem12"),
     "14 Yaş": st.secrets.get("sifre_14", "hakem14"),
@@ -130,15 +148,14 @@ def to_pdf_text(text):
     return t.encode('latin-1', 'replace').decode('latin-1')
 
 def generate_pdf(df, baslik, col_widths=None):
-    pdf = FPDF(orientation='P', unit='mm', format='A4')
+    pdf = TurnuvaFPDF(orientation='P', unit='mm', format='A4')
     pdf.add_page()
     font_family = "ArialTR" if FONT_YUKLENDI else "Arial"
     
     if FONT_YUKLENDI:
         try: 
             pdf.add_font("ArialTR", "", "arial.ttf", uni=True)
-            if FONT_BOLD_YUKLENDI:
-                pdf.add_font("ArialTR", "B", "arialbd.ttf", uni=True)
+            # Kalın font TurnuvaFPDF içinde otomatik eklenecektir
         except: 
             font_family = "Arial"
             
@@ -272,7 +289,8 @@ with tab_fikstur:
         gorunum = st.radio("👀 Görünüm:", ["İkisini de Göster", "Sadece Ana Tablo", "Sadece Teselli"], horizontal=True, label_visibility="collapsed")
     with c_view2:
         try:
-            pdf_bytes = generate_bracket_pdf(cat_data, active_cat, FPDF, to_pdf_text, FONT_YUKLENDI)
+            # Standart FPDF yerine kalın fontu otomatik tanıyan TurnuvaFPDF sınıfını gönderiyoruz
+            pdf_bytes = generate_bracket_pdf(cat_data, active_cat, TurnuvaFPDF, to_pdf_text, FONT_YUKLENDI)
             st.download_button("📄 Ağacı PDF İndir", data=pdf_bytes, file_name=f"{st.session_state.aktif_yas[:2]}_yas_{active_cat}_fikstur.pdf", mime="application/pdf", key="dl_bracket_pdf")
         except Exception as e:
             st.caption(f"PDF oluşturulamadı: {e}")
