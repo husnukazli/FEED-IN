@@ -18,6 +18,7 @@ st.set_page_config(layout="wide", page_title="Consolation Milli Takım Belirleme
 # ==============================================================================
 DB_FILE = "turnuva_db.json"
 FONT_YUKLENDI = os.path.exists("arial.ttf")
+FONT_BOLD_YUKLENDI = os.path.exists("arialbd.ttf")
 
 def clean_html_text(text):
     if not isinstance(text, str): return str(text)
@@ -77,16 +78,23 @@ def generate_pdf(df, baslik, col_widths=None):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     pdf.add_page()
     font_family = "ArialTR" if FONT_YUKLENDI else "Arial"
+    
     if FONT_YUKLENDI:
-        try: pdf.add_font("ArialTR", "", "arial.ttf", uni=True)
-        except: font_family = "Arial"
+        try: 
+            pdf.add_font("ArialTR", "", "arial.ttf", uni=True)
+            if FONT_BOLD_YUKLENDI:
+                pdf.add_font("ArialTR", "B", "arialbd.ttf", uni=True)
+        except: 
+            font_family = "Arial"
+            
+    header_style = 'B' if (font_family == "Arial" or FONT_BOLD_YUKLENDI) else ""
         
-    pdf.set_font(font_family, 'B' if not FONT_YUKLENDI else "", 14)
+    pdf.set_font(font_family, header_style, 14)
     pdf.cell(0, 10, to_pdf_text(baslik), ln=True, align='C')
     pdf.ln(5)
     
     if not df.empty:
-        pdf.set_font(font_family, 'B' if not FONT_YUKLENDI else "", 10)
+        pdf.set_font(font_family, header_style, 10)
         w = col_widths if col_widths else [190 / len(df.columns)] * len(df.columns)
         for i, col in enumerate(df.columns):
             pdf.cell(w[i], 10, to_pdf_text(col), border=1, align='C')
@@ -96,19 +104,28 @@ def generate_pdf(df, baslik, col_widths=None):
             for i, item in enumerate(row):
                 align = 'C' if w[i] < 26 else 'L' 
                 text = str(item)
+                
+                is_bold = False
+                if text.startswith("**") and text.endswith("**"):
+                    is_bold = True
+                    text = text[2:-2]
+                    
                 pdf_text = to_pdf_text(text)
+                
+                cell_style = 'B' if is_bold and (font_family == "Arial" or FONT_BOLD_YUKLENDI) else ""
+                
                 original_size = 9
-                pdf.set_font(font_family, "", original_size)
+                pdf.set_font(font_family, cell_style, original_size)
                 current_size = original_size
+                
                 while pdf.get_string_width(pdf_text) > (w[i] - 2) and current_size > 5:
                     current_size -= 0.5
-                    pdf.set_font(font_family, "", current_size)
+                    pdf.set_font(font_family, cell_style, current_size)
                 if pdf.get_string_width(pdf_text) > (w[i] - 2):
                     while pdf.get_string_width(pdf_text + "..") > (w[i] - 2) and len(pdf_text) > 0:
                         pdf_text = pdf_text[:-1]
                     pdf_text += ".."
                 pdf.cell(w[i], 8, pdf_text, border=1, align=align)
-                pdf.set_font(font_family, "", original_size)
             pdf.ln()
     return bytes(pdf.output())
 
@@ -392,11 +409,9 @@ with tab_program:
             
             winner = cat_d['res'].get(m_id, {}).get("w", None)
             
-            p1_display = clean_html_text(p1)
-            p2_display = clean_html_text(p2)
-            
-            p1_display = f"🏆 **{p1_display}**" if winner and p1 == winner else p1_display
-            p2_display = f"🏆 **{p2_display}**" if winner and p2 == winner else p2_display
+            # Sadece Markdown kalınlaştırma uygulandı, emojiler kaldırıldı
+            p1_display = f"**{clean_html_text(p1)}**" if winner and p1 == winner else clean_html_text(p1)
+            p2_display = f"**{clean_html_text(p2)}**" if winner and p2 == winner else clean_html_text(p2)
             
             bracket_score = cat_d['scores'].get(m_id, "")
             data = cat_d['schedule_data'].get(m_id, {"saat": "", "kort": ""}) 
@@ -404,12 +419,12 @@ with tab_program:
             pdf_tur = label.replace("Ana Tablo", "AT").replace("T-", "FC ")
             pdf_tur = pdf_tur.replace("3.-4.'lük Maçı", "FC 3-4").replace("5.-6.'lık Maçı", "FC 5-6").replace("7.-8.'lik Maçı", "FC 7-8")
 
+            # PDF'e ** formatında aktarılıyor, generate_pdf fonksiyonu okuyup arialbd ile basacak
             pdf_program_data.append({
                 "Tarih/Gün": pdf_tarih, "Kat.": pdf_kategori, "Tur": pdf_tur, "Saat": data.get("saat", "-"), "Kort": data.get("kort", "-"),
-                "Oyuncu 1": clean_html_text(p1), "Oyuncu 2": clean_html_text(p2), "Skor": bracket_score if bracket_score else "-"
+                "Oyuncu 1": p1_display, "Oyuncu 2": p2_display, "Skor": bracket_score if bracket_score else "-"
             })
 
-            # Renk Kodlaması (MQF ve CR1 Eşleşmeleri İçin)
             bg_style = ""
             
             if m_id.startswith("MQF_") or m_id.startswith("CR1_"):
