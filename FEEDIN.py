@@ -44,15 +44,17 @@ class TurnuvaFPDF(FPDF):
                     pass
                 self._fonts_injected = True
             
-            # Dışarıdaki dosya Helvetica vs. istese bile zorla bizim Türkçe destekli fontu uygula!
             family = "ArialTR"
             
-            # FPDF2 kütüphanesi bazen style parametresini obje (Enum) olarak gönderir. 
-            # String değilse metne çeviriyoruz ki 'B' in style kontrolü çökmesin.
+            # FPDF2 kütüphanesi Enum (obje) yollarsa metne çeviriyoruz
             if not isinstance(style, str):
                 style = getattr(style, 'name', '')
             
-            # Eğer kalın stil istenmiş ama bold font yoksa, hata vermemesi için stili normale çek
+            # "ENNO" hatasının kök çözümü: NONE kelimesini silip normal stile (boş) çeviriyoruz
+            if style == 'NONE' or style == 'REGULAR':
+                style = ''
+            
+            # Kalın stil istenmiş ama bold font yoksa, hata vermemesi için stili normale çek
             if 'B' in style and not FONT_BOLD_YUKLENDI:
                 style = style.replace('B', '')
         
