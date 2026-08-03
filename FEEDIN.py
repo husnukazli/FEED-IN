@@ -47,6 +47,36 @@ def save_data():
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(st.session_state.data, f)
 
+def clean_ghost_data(data):
+    """
+    Eski testlerden kalan, oyuncusu değiştiği halde veritabanında asılı kalmış 
+    (hayalet) kazanan skorlarını tespit edip temizler.
+    """
+    degisiklik_oldu = False
+    for cat in ['Erkekler', 'Kadınlar']:
+        while True:
+            b_state = compute_bracket_state(data[cat])
+            cleaned_in_loop = False
+            keys_to_delete = []
+            
+            for mid, res_dict in data[cat]['res'].items():
+                match = b_state.get(mid)
+                if not match: continue
+                p1, p2 = match.get("p1"), match.get("p2")
+                w = res_dict.get("w")
+                # Eğer kayıtlı kazanan o maçın güncel oyuncularından biri değilse, sil.
+                if w and (w != p1 and w != p2):
+                    keys_to_delete.append(mid)
+                    cleaned_in_loop = True
+                    degisiklik_oldu = True
+                    
+            for k in keys_to_delete:
+                del data[cat]['res'][k]
+                
+            if not cleaned_in_loop:
+                break
+    return degisiklik_oldu
+
 if 'data' not in st.session_state:
     st.session_state.data = load_data()
     for cat in ['Erkekler', 'Kadınlar']:
@@ -57,6 +87,10 @@ if 'data' not in st.session_state:
         while len(temiz_liste) < 16:
             temiz_liste.append(f"Oyuncu {len(temiz_liste)+1}")
         st.session_state.data[cat]['players'] = temiz_liste[:16]
+        
+    # Veriler yüklendiğinde eski kalıntıları temizle
+    if clean_ghost_data(st.session_state.data):
+        save_data()
 
 def format_date_tr(date_str):
     if not date_str: return ""
@@ -163,7 +197,7 @@ with st.sidebar:
 cat_data = st.session_state.data[active_cat]
 
 # ==============================================================================
-# 3. ÖZEL CSS VE SİMETRİ YARDIMCILARI
+# 3. ÖZEL CSS
 # ==============================================================================
 st.markdown("""
 <style>
@@ -179,7 +213,6 @@ st.markdown("""
 .player-src { font-size: 11px; color: #444; font-weight: bold; font-style: italic; margin-top: -2px; margin-bottom: 2px; }
 .player-separator { border-top: 1px dashed #ccc; margin: 2px 0; }
 
-/* SADECE YAZDIRILDIĞINDA GÖRÜNEN SKOR ALANI (YENİ EKLENDİ) */
 .print-only-score { display: none; font-size: 10px; font-weight: bold; text-align: center; color: #1f77b4; margin-top: 3px; border-top: 1px dashed #bbb; padding-top: 3px; }
 
 @media print {
@@ -199,68 +232,10 @@ st.markdown("""
     .match-card { border: 1px solid #000; background-color: #eee !important; margin-bottom: 2px !important; }
     .page-break { page-break-before: always !important; display: block !important; margin-top: 20px !important;} 
     
-    /* Yazdırıldığında kutular gidince skor yazısı görünür olsun */
     .print-only-score { display: block !important; }
 }
 </style>
 """, unsafe_allow_html=True)
-
-def spacer(height_px):
-    st.markdown(f'<div style="height:{height_px}px;"></div>', unsafe_allow_html=True)
-
-def match_card(m_id, p1, p2, label, match_no="", src1="", src2="", show=True):
-    st.session_state[f"match_players_{active_cat}_{m_id}"] = (p1, p2)
-    
-    name1_safe = clean_html_text(p1) if p1 else "Bekleniyor..."
-    name2_safe = clean_html_text(p2) if p2 else "Bekleniyor..."
-    
-    current_winner = cat_data['res'].get(m_id, {}).get("w", "-")
-    current_score = cat_data['scores'].get(m_id, "")
-    
-    if show:
-        html_src1 = f'<div class="player-src">↳ {src1}</div>' if src1 else ""
-        html_src2 = f'<div class="player-src">↳ {src2}</div>' if src2 else ""
-        
-        html_score_print = f'<div class="print-only-score">Skor: {clean_html_text(current_score)}</div>' if current_score else ''
-        
-        html = f"""
-        <div class="match-wrapper"><div class="match-card">
-            <div class="match-header">
-                <div class="match-label">{label}</div>
-                <div class="match-number">M{match_no}</div>
-            </div>
-            <div class="player-name" style="font-weight: {'bold' if current_winner == p1 and p1 else 'normal'};">{name1_safe}</div>{html_src1}
-            <div class="player-separator"></div>
-            <div class="player-name" style="font-weight: {'bold' if current_winner == p2 and p2 else 'normal'};">{name2_safe}</div>{html_src2}
-            {html_score_print}
-        </div></div>
-        """
-        st.markdown(html, unsafe_allow_html=True)
-        
-        if not st.session_state.admin_mi:
-            if current_winner != "-":
-                st.markdown(f"<div style='text-align:center; font-size:12px; color:green; margin-top:-5px;' class='no-print'><b>K:</b> {clean_html_text(current_winner)} <br> {clean_html_text(current_score)}</div>", unsafe_allow_html=True)
-            return current_winner if current_winner != "-" else None, p2 if current_winner == p1 else (p1 if current_winner == p2 else None)
-        
-        if p1 and p2:
-            options = ["-", p1, p2]
-            idx = options.index(current_winner) if current_winner in options else 0
-            
-            c_win, c_score = st.columns([1.2, 1])
-            winner = c_win.selectbox("Kz", options, index=idx, key=f"sel_{active_cat}_{m_id}", label_visibility="collapsed")
-            score = c_score.text_input("Sk", value=current_score, key=f"score_{active_cat}_{m_id}", label_visibility="collapsed", placeholder="Skor")
-            
-            if score != current_score or winner != current_winner:
-                cat_data['scores'][m_id] = clean_html_text(score)
-                if winner != "-":
-                    loser = p2 if winner == p1 else p1
-                    cat_data['res'][m_id] = {"w": winner, "l": loser}
-                elif winner == "-" and m_id in cat_data['res']:
-                    del cat_data['res'][m_id]
-                
-    if current_winner != "-":
-        return current_winner, p2 if current_winner == p1 else (p1 if current_winner == p2 else None)
-    return None, None
 
 # ==========================================
 # SEKME YÖNETİMİ
@@ -327,32 +302,34 @@ with tab_fikstur:
 
         degisti = False
         for gun_baslik, mac_listesi in GUNLUK_MACLAR.items():
-            hazir_maclar = [m for m in mac_listesi if bracket_state[m[0]]["p1"] and bracket_state[m[0]]["p2"]]
-            
             with st.expander(f"📅 {gun_baslik}", expanded=False):
-                if not hazir_maclar:
-                    st.info("Bu gün için henüz oynanmaya hazır maç bulunmuyor.")
-                
-                for mid, lbl, mno in hazir_maclar:
+                for mid, lbl, mno in mac_listesi:
                     d = bracket_state[mid]
-                    p1, p2 = d["p1"], d["p2"]
+                    p1, p2 = d.get("p1"), d.get("p2")
                     cw, cs = st.columns([3, 1.3])
-                    mevcut_kazanan = cat_data['res'].get(mid, {}).get("w", "-")
-                    mevcut_skor = cat_data['scores'].get(mid, "")
-                    secenekler = ["-", p1, p2]
-                    idx = secenekler.index(mevcut_kazanan) if mevcut_kazanan in secenekler else 0
                     
-                    secilen = cw.selectbox(f"{lbl} · {mno}: {p1}  vs  {p2}", secenekler, index=idx, key=f"tab1_edit_sel_{active_cat}_{mid}")
-                    skor = cs.text_input("Skor", value=mevcut_skor, key=f"tab1_edit_sk_{active_cat}_{mid}", label_visibility="collapsed", placeholder="Skor")
-                    
-                    if secilen != mevcut_kazanan or skor != mevcut_skor:
-                        cat_data['scores'][mid] = clean_html_text(skor)
-                        if secilen != "-":
-                            kaybeden = p2 if secilen == p1 else p1
-                            cat_data['res'][mid] = {"w": secilen, "l": kaybeden}
-                        elif mid in cat_data['res']:
-                            del cat_data['res'][mid]
-                        degisti = True
+                    if p1 and p2:
+                        mevcut_kazanan = cat_data['res'].get(mid, {}).get("w", "-")
+                        mevcut_skor = cat_data['scores'].get(mid, "")
+                        secenekler = ["-", p1, p2]
+                        idx = secenekler.index(mevcut_kazanan) if mevcut_kazanan in secenekler else 0
+                        
+                        secilen = cw.selectbox(f"{lbl} · {mno}: {p1}  vs  {p2}", secenekler, index=idx, key=f"tab1_edit_sel_{active_cat}_{mid}")
+                        skor = cs.text_input("Skor", value=mevcut_skor, key=f"tab1_edit_sk_{active_cat}_{mid}", label_visibility="collapsed", placeholder="Skor")
+                        
+                        if secilen != mevcut_kazanan or skor != mevcut_skor:
+                            cat_data['scores'][mid] = clean_html_text(skor)
+                            if secilen != "-":
+                                kaybeden = p2 if secilen == p1 else p1
+                                cat_data['res'][mid] = {"w": secilen, "l": kaybeden}
+                            elif mid in cat_data['res']:
+                                del cat_data['res'][mid]
+                            degisti = True
+                    else:
+                        p1_disp = p1 if p1 else "Bekleniyor..."
+                        p2_disp = p2 if p2 else "Bekleniyor..."
+                        cw.markdown(f"<div style='padding-top: 8px; font-size: 14px; color: #555;'>{lbl} · {mno}: <b>{p1_disp}</b> vs <b>{p2_disp}</b></div>", unsafe_allow_html=True)
+                        cs.text_input("Skor", value="", key=f"tab1_edit_sk_dis_{active_cat}_{mid}", disabled=True, label_visibility="collapsed", placeholder="Skor")
         
         if degisti:
             bracket_state = compute_bracket_state(cat_data)
@@ -409,7 +386,7 @@ with tab_program:
             
             winner = cat_d['res'].get(m_id, {}).get("w", None)
             
-            # Sadece Markdown kalınlaştırma uygulandı, emojiler kaldırıldı
+            # Kalın yapma (Bold) - Emojiler kaldırıldı
             p1_display = f"**{clean_html_text(p1)}**" if winner and p1 == winner else clean_html_text(p1)
             p2_display = f"**{clean_html_text(p2)}**" if winner and p2 == winner else clean_html_text(p2)
             
@@ -419,39 +396,45 @@ with tab_program:
             pdf_tur = label.replace("Ana Tablo", "AT").replace("T-", "FC ")
             pdf_tur = pdf_tur.replace("3.-4.'lük Maçı", "FC 3-4").replace("5.-6.'lık Maçı", "FC 5-6").replace("7.-8.'lik Maçı", "FC 7-8")
 
-            # PDF'e ** formatında aktarılıyor, generate_pdf fonksiyonu okuyup arialbd ile basacak
             pdf_program_data.append({
                 "Tarih/Gün": pdf_tarih, "Kat.": pdf_kategori, "Tur": pdf_tur, "Saat": data.get("saat", "-"), "Kort": data.get("kort", "-"),
                 "Oyuncu 1": p1_display, "Oyuncu 2": p2_display, "Skor": bracket_score if bracket_score else "-"
             })
 
+            # Renk Kodlaması: Ana Tablo ÇF kaybedenleri, Teselli'ye çapraz yerleştiği için
+            # Renkleri de aynı şekilde eşleştiriyoruz.
             bg_style = ""
-            
             if m_id.startswith("MQF_") or m_id.startswith("CR1_"):
                 try:
-                    mac_no = int(m_id.split("_")[1])
+                    mac_index = int(m_id.split("_")[1])
+                    
+                    if m_id.startswith("MQF_"):
+                        # MQF için tersine çevir: 3->0, 2->1, 1->2, 0->3
+                        color_idx = 3 - mac_index
+                    else:
+                        # CR1 için normal indeks: 0->0, 1->1, 2->2, 3->3
+                        color_idx = mac_index
+                        
                     renkler = {
-                        0: "#d0ebff",
-                        1: "#d3f9d8",
-                        2: "#fff3bf",
-                        3: "#ffc9c9"
+                        0: "#d0ebff", # Mavi
+                        1: "#d3f9d8", # Yeşil
+                        2: "#fff3bf", # Sarı
+                        3: "#ffc9c9"  # Kırmızı
                     }
-                    bg_renk = renkler.get(mac_no, "")
+                    bg_renk = renkler.get(color_idx, "")
                     if bg_renk:
                         bg_style = f"background-color: {bg_renk}; color: #000; padding: 4px; border-radius: 4px; margin-bottom: 2px;"
                 except:
                     pass
 
-            gosterilecek_label = label
-
             c1, c2, c3, c4, c5, c6 = st.columns([1.5, 2, 2, 1, 1, 1])
             
             if bg_style:
-                c1.markdown(f"<div style='{bg_style}'><b>{gosterilecek_label}</b></div>", unsafe_allow_html=True)
+                c1.markdown(f"<div style='{bg_style}'><b>{label}</b></div>", unsafe_allow_html=True)
                 c2.markdown(f"<div style='{bg_style}'>{p1_display}</div>", unsafe_allow_html=True)
                 c3.markdown(f"<div style='{bg_style}'>{p2_display}</div>", unsafe_allow_html=True)
             else:
-                c1.write(gosterilecek_label)
+                c1.write(label)
                 c2.write(p1_display)
                 c3.write(p2_display)
             
@@ -550,6 +533,8 @@ with tab_dosya:
                     temiz_isimler.append(temiz)
                     
             cat_data['players'] = temiz_isimler
+            # Temizlik robotunu isimler güncellendiğinde de çalıştırıyoruz
+            clean_ghost_data(st.session_state.data)
             save_data()
             st.success("Liste güncellendi!")
             st.rerun()
