@@ -389,6 +389,10 @@ with tab_program:
 
     def draw_schedule(cat_name, matches, day_name):
         cat_d = st.session_state.data[cat_name]
+        
+        # 💡 EKLENEN KISIM: Program ekranı için isimleri bracket_engine üzerinden çekiyoruz
+        b_state = compute_bracket_state(cat_d)
+        
         filtered_matches = []
         
         for m_id, label in matches:
@@ -412,7 +416,14 @@ with tab_program:
         st.markdown("<div style='margin-top:-10px; margin-bottom:10px; border-bottom:1px solid #ddd;'></div>", unsafe_allow_html=True)
         
         for m_id, label in filtered_matches:
-            p1, p2 = st.session_state.get(f"match_players_{cat_name}_{m_id}", ("⏳", "⏳"))
+            # ❌ DEĞİŞTİRİLEN KISIM: Eski st.session_state yapısını kaldırıyoruz
+            # p1, p2 = st.session_state.get(f"match_players_{cat_name}_{m_id}", ("⏳", "⏳"))
+            
+            # ✅ YENİ KISIM: İsimleri ve skorları güncel bracket_state üzerinden alıyoruz
+            match_data = b_state.get(m_id, {})
+            p1 = match_data.get("p1") or "Bekleniyor..."
+            p2 = match_data.get("p2") or "Bekleniyor..."
+            
             winner = cat_d['res'].get(m_id, {}).get("w", None)
             
             p1_display = clean_html_text(p1)
@@ -424,7 +435,9 @@ with tab_program:
             bracket_score = cat_d['scores'].get(m_id, "")
             data = cat_d['schedule_data'].get(m_id, {"saat": "", "kort": ""}) 
             
+            # ... Fonksiyonun geri kalanı aynı şekilde devam ediyor ...
             pdf_tur = label.replace("Ana Tablo", "AT").replace("T-", "FC ")
+            # ...
             pdf_tur = pdf_tur.replace("3.-4.'lük Maçı", "FC 3-4").replace("5.-6.'lık Maçı", "FC 5-6").replace("7.-8.'lik Maçı", "FC 7-8")
 
             pdf_program_data.append({
