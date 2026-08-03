@@ -391,7 +391,7 @@ with tab_program:
                                 del cat_data['res'][mid]
                             degisti = True
             if degisti:
-                bracket_state = compute_bracket_state(cat_data)]
+                bracket_state = compute_bracket_state(cat_data)
         
         # Oyuncu isimlerini ana motor üzerinden alıyoruz
         b_state = compute_bracket_state(cat_d)
