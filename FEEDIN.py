@@ -204,7 +204,6 @@ def match_card(m_id, p1, p2, label, match_no="", src1="", src2="", show=True):
         html_src1 = f'<div class="player-src">↳ {src1}</div>' if src1 else ""
         html_src2 = f'<div class="player-src">↳ {src2}</div>' if src2 else ""
         
-        # Skor varsa sadece yazdırıldığında görünen CSS sınıfıyla HTML'e ekle
         html_score_print = f'<div class="print-only-score">Skor: {clean_html_text(current_score)}</div>' if current_score else ''
         
         html = f"""
@@ -286,43 +285,61 @@ with tab_fikstur:
 
     if st.session_state.admin_mi:
         st.markdown("<br>", unsafe_allow_html=True)
-        with st.expander("✏️ Skor / Kazanan Gir", expanded=True):
-            MAC_SIRASI = [
-                ("MR1_0","R1","M1"),("MR1_1","R1","M2"),("MR1_2","R1","M3"),("MR1_3","R1","M4"),
-                ("MR1_4","R1","M5"),("MR1_5","R1","M6"),("MR1_6","R1","M7"),("MR1_7","R1","M8"),
-                ("MQF_0","ÇF","M9"),("MQF_1","ÇF","M10"),("MQF_2","ÇF","M11"),("MQF_3","ÇF","M12"),
-                ("MSF_0","YF","M13"),("MSF_1","YF","M14"),("FINAL_MAIN","FİNAL","M15"),
+        st.markdown("### ✏️ Günlük Skor Girişi")
+        
+        GUNLUK_MACLAR = {
+            "1. GÜN MAÇLARI": [
+                ("MR1_0","Ana R1","M1"),("MR1_1","Ana R1","M2"),("MR1_2","Ana R1","M3"),("MR1_3","Ana R1","M4"),
+                ("MR1_4","Ana R1","M5"),("MR1_5","Ana R1","M6"),("MR1_6","Ana R1","M7"),("MR1_7","Ana R1","M8")
+            ],
+            "2. GÜN MAÇLARI": [
+                ("MQF_0","Ana ÇF","M9"),("MQF_1","Ana ÇF","M10"),("MQF_2","Ana ÇF","M11"),("MQF_3","Ana ÇF","M12"),
                 ("CR1_0","T-R1","M16"),("CR1_1","T-R1","M17"),("CR1_2","T-R1","M18"),("CR1_3","T-R1","M19"),
-                ("CR2_0","T-ÇF","M20"),("CR2_1","T-ÇF","M21"),("CR2_2","T-ÇF","M22"),("CR2_3","T-ÇF","M23"),
+                ("CR2_0","T-ÇF","M20"),("CR2_1","T-ÇF","M21"),("CR2_2","T-ÇF","M22"),("CR2_3","T-ÇF","M23")
+            ],
+            "3. GÜN MAÇLARI": [
+                ("MSF_0","Ana YF","M13"),("MSF_1","Ana YF","M14"),
                 ("CR3_0","T-YF1","M24"),("CR3_1","T-YF1","M25"),
                 ("CR4_0","T-YF2","M26"),("CR4_1","T-YF2","M27"),
-                ("FINAL_TESELLI","3.-4.'LÜK","M28"),("MATCH_5_6","5.-6.'LIK","M29"),("MATCH_7_8","7.-8.'LİK","M30"),
+                ("MATCH_7_8","7.-8.'LİK","M30")
+            ],
+            "4. GÜN MAÇLARI": [
+                ("FINAL_MAIN","FİNAL","M15"),("FINAL_TESELLI","3.-4.'LÜK","M28"),("MATCH_5_6","5.-6.'LIK","M29")
             ]
-            degisti = False
-            for mid, lbl, mno in MAC_SIRASI:
-                d = bracket_state[mid]
-                p1, p2 = d["p1"], d["p2"]
-                if not (p1 and p2):
-                    continue
-                cw, cs = st.columns([3, 1.3])
-                mevcut_kazanan = cat_data['res'].get(mid, {}).get("w", "-")
-                mevcut_skor = cat_data['scores'].get(mid, "")
-                secenekler = ["-", p1, p2]
-                idx = secenekler.index(mevcut_kazanan) if mevcut_kazanan in secenekler else 0
-                secilen = cw.selectbox(f"{lbl} · {mno}: {p1}  vs  {p2}", secenekler, index=idx, key=f"tab1_edit_sel_{active_cat}_{mid}")
-                skor = cs.text_input("Skor", value=mevcut_skor, key=f"tab1_edit_sk_{active_cat}_{mid}", label_visibility="collapsed", placeholder="Skor")
-                if secilen != mevcut_kazanan or skor != mevcut_skor:
-                    cat_data['scores'][mid] = clean_html_text(skor)
-                    if secilen != "-":
-                        kaybeden = p2 if secilen == p1 else p1
-                        cat_data['res'][mid] = {"w": secilen, "l": kaybeden}
-                    elif mid in cat_data['res']:
-                        del cat_data['res'][mid]
-                    degisti = True
-            if degisti:
-                bracket_state = compute_bracket_state(cat_data)
+        }
 
-    if st.session_state.admin_mi:
+        degisti = False
+        for gun_baslik, mac_listesi in GUNLUK_MACLAR.items():
+            hazir_maclar = [m for m in mac_listesi if bracket_state[m[0]]["p1"] and bracket_state[m[0]]["p2"]]
+            
+            with st.expander(f"📅 {gun_baslik}", expanded=False):
+                if not hazir_maclar:
+                    st.info("Bu gün için henüz oynanmaya hazır maç bulunmuyor.")
+                
+                for mid, lbl, mno in hazir_maclar:
+                    d = bracket_state[mid]
+                    p1, p2 = d["p1"], d["p2"]
+                    cw, cs = st.columns([3, 1.3])
+                    mevcut_kazanan = cat_data['res'].get(mid, {}).get("w", "-")
+                    mevcut_skor = cat_data['scores'].get(mid, "")
+                    secenekler = ["-", p1, p2]
+                    idx = secenekler.index(mevcut_kazanan) if mevcut_kazanan in secenekler else 0
+                    
+                    secilen = cw.selectbox(f"{lbl} · {mno}: {p1}  vs  {p2}", secenekler, index=idx, key=f"tab1_edit_sel_{active_cat}_{mid}")
+                    skor = cs.text_input("Skor", value=mevcut_skor, key=f"tab1_edit_sk_{active_cat}_{mid}", label_visibility="collapsed", placeholder="Skor")
+                    
+                    if secilen != mevcut_kazanan or skor != mevcut_skor:
+                        cat_data['scores'][mid] = clean_html_text(skor)
+                        if secilen != "-":
+                            kaybeden = p2 if secilen == p1 else p1
+                            cat_data['res'][mid] = {"w": secilen, "l": kaybeden}
+                        elif mid in cat_data['res']:
+                            del cat_data['res'][mid]
+                        degisti = True
+        
+        if degisti:
+            bracket_state = compute_bracket_state(cat_data)
+
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button(f"💾 {active_cat} Fikstür Skorlarını Kaydet", use_container_width=True, key="btn_save_all"):
             save_data()
@@ -333,65 +350,6 @@ with tab_fikstur:
 # ==========================================
 with tab_program:
     st.subheader("📅 Ortak Maç Programı")
-    
-    if st.session_state.admin_mi:
-        st.markdown("<br>", unsafe_allow_html=True)
-        with st.expander("✏️ Skor / Kazanan Gir", expanded=True):
-            
-            # Maçları günlere göre grupladık
-            GUNLUK_MACLAR = {
-                "1. GÜN MAÇLARI": [
-                    ("MR1_0","Ana R1","M1"),("MR1_1","Ana R1","M2"),("MR1_2","Ana R1","M3"),("MR1_3","Ana R1","M4"),
-                    ("MR1_4","Ana R1","M5"),("MR1_5","Ana R1","M6"),("MR1_6","Ana R1","M7"),("MR1_7","Ana R1","M8")
-                ],
-                "2. GÜN MAÇLARI": [
-                    ("MQF_0","Ana ÇF","M9"),("MQF_1","Ana ÇF","M10"),("MQF_2","Ana ÇF","M11"),("MQF_3","Ana ÇF","M12"),
-                    ("CR1_0","T-R1","M16"),("CR1_1","T-R1","M17"),("CR1_2","T-R1","M18"),("CR1_3","T-R1","M19"),
-                    ("CR2_0","T-ÇF","M20"),("CR2_1","T-ÇF","M21"),("CR2_2","T-ÇF","M22"),("CR2_3","T-ÇF","M23")
-                ],
-                "3. GÜN MAÇLARI": [
-                    ("MSF_0","Ana YF","M13"),("MSF_1","Ana YF","M14"),
-                    ("CR3_0","T-YF1","M24"),("CR3_1","T-YF1","M25"),
-                    ("CR4_0","T-YF2","M26"),("CR4_1","T-YF2","M27"),
-                    ("MATCH_7_8","7.-8.'lik","M30")
-                ],
-                "4. GÜN MAÇLARI": [
-                    ("FINAL_MAIN","FİNAL","M15"),("FINAL_TESELLI","3.-4.'lük","M28"),("MATCH_5_6","5.-6.'lık","M29")
-                ]
-            }
-            
-            degisti = False
-            for gun_baslik, mac_listesi in GUNLUK_MACLAR.items():
-                
-                # Sadece oyuncuları belli olan (oynanmaya hazır) maçları filtrele
-                hazir_maclar = [m for m in mac_listesi if bracket_state[m[0]]["p1"] and bracket_state[m[0]]["p2"]]
-                
-                # Eğer o güne ait hazır maç varsa, gün başlığını ve çizgiyi ekle
-                if hazir_maclar:
-                    st.markdown(f"<div style='margin-top: 15px; margin-bottom: 10px; padding-bottom: 3px; border-bottom: 2px solid #1f77b4; color: #1f77b4;'><b>📅 {gun_baslik}</b></div>", unsafe_allow_html=True)
-                    
-                    for mid, lbl, mno in hazir_maclar:
-                        d = bracket_state[mid]
-                        p1, p2 = d["p1"], d["p2"]
-                        
-                        cw, cs = st.columns([3, 1.3])
-                        mevcut_kazanan = cat_data['res'].get(mid, {}).get("w", "-")
-                        mevcut_skor = cat_data['scores'].get(mid, "")
-                        secenekler = ["-", p1, p2]
-                        idx = secenekler.index(mevcut_kazanan) if mevcut_kazanan in secenekler else 0
-                        secilen = cw.selectbox(f"{lbl} · {mno}: {p1}  vs  {p2}", secenekler, index=idx, key=f"tab2_edit_sel_{active_cat}_{mid}")
-                        skor = cs.text_input("Skor", value=mevcut_skor, key=f"tab2_edit_sk_{active_cat}_{mid}", label_visibility="collapsed", placeholder="Skor")
-                        
-                        if secilen != mevcut_kazanan or skor != mevcut_skor:
-                            cat_data['scores'][mid] = clean_html_text(skor)
-                            if secilen != "-":
-                                kaybeden = p2 if secilen == p1 else p1
-                                cat_data['res'][mid] = {"w": secilen, "l": kaybeden}
-                            elif mid in cat_data['res']:
-                                del cat_data['res'][mid]
-                            degisti = True
-            if degisti:
-                bracket_state = compute_bracket_state(cat_data)
         
     c_f1, c_f2, c_f3 = st.columns(3)
     secilen_gun = c_f1.selectbox("📅 Gün Seçimi:", ["Tüm Günler", "1. GÜN", "2. GÜN", "3. GÜN", "4. GÜN"])
