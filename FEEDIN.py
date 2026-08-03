@@ -390,11 +390,10 @@ with tab_program:
     def draw_schedule(cat_name, matches, day_name):
         cat_d = st.session_state.data[cat_name]
         
-        # 💡 EKLENEN KISIM: Program ekranı için isimleri bracket_engine üzerinden çekiyoruz
+        # Oyuncu isimlerini ana motor üzerinden alıyoruz
         b_state = compute_bracket_state(cat_d)
         
         filtered_matches = []
-        
         for m_id, label in matches:
             is_consolation = m_id.startswith("CR") or "TESELLI" in m_id or "5_6" in m_id or "7_8" in m_id
             if tablo_filtresi == "Sadece Ana Tablo" and is_consolation: continue
@@ -416,10 +415,6 @@ with tab_program:
         st.markdown("<div style='margin-top:-10px; margin-bottom:10px; border-bottom:1px solid #ddd;'></div>", unsafe_allow_html=True)
         
         for m_id, label in filtered_matches:
-            # ❌ DEĞİŞTİRİLEN KISIM: Eski st.session_state yapısını kaldırıyoruz
-            # p1, p2 = st.session_state.get(f"match_players_{cat_name}_{m_id}", ("⏳", "⏳"))
-            
-            # ✅ YENİ KISIM: İsimleri ve skorları güncel bracket_state üzerinden alıyoruz
             match_data = b_state.get(m_id, {})
             p1 = match_data.get("p1") or "Bekleniyor..."
             p2 = match_data.get("p2") or "Bekleniyor..."
@@ -435,9 +430,7 @@ with tab_program:
             bracket_score = cat_d['scores'].get(m_id, "")
             data = cat_d['schedule_data'].get(m_id, {"saat": "", "kort": ""}) 
             
-            # ... Fonksiyonun geri kalanı aynı şekilde devam ediyor ...
             pdf_tur = label.replace("Ana Tablo", "AT").replace("T-", "FC ")
-            # ...
             pdf_tur = pdf_tur.replace("3.-4.'lük Maçı", "FC 3-4").replace("5.-6.'lık Maçı", "FC 5-6").replace("7.-8.'lik Maçı", "FC 7-8")
 
             pdf_program_data.append({
@@ -445,8 +438,37 @@ with tab_program:
                 "Oyuncu 1": clean_html_text(p1), "Oyuncu 2": clean_html_text(p2), "Skor": bracket_score if bracket_score else "-"
             })
 
+            # Renk Kodlaması (MQF ve CR1 Eşleşmeleri İçin)
+            bg_style = ""
+            ekstra_simge = ""
+            
+            if m_id.startswith("MQF_") or m_id.startswith("CR1_"):
+                try:
+                    mac_no = int(m_id.split("_")[1])
+                    renkler = {
+                        0: ("#d0ebff", "🔵"),
+                        1: ("#d3f9d8", "🟢"),
+                        2: ("#fff3bf", "🟡"),
+                        3: ("#ffc9c9", "🔴")
+                    }
+                    bg_renk, ekstra_simge = renkler.get(mac_no, ("", ""))
+                    if bg_renk:
+                        bg_style = f"background-color: {bg_renk}; color: #000; padding: 4px; border-radius: 4px; margin-bottom: 2px;"
+                except:
+                    pass
+
+            gosterilecek_label = f"{ekstra_simge} {label}" if ekstra_simge else label
+
             c1, c2, c3, c4, c5, c6 = st.columns([1.5, 2, 2, 1, 1, 1])
-            c1.write(label); c2.write(p1_display); c3.write(p2_display)
+            
+            if bg_style:
+                c1.markdown(f"<div style='{bg_style}'><b>{gosterilecek_label}</b></div>", unsafe_allow_html=True)
+                c2.markdown(f"<div style='{bg_style}'>{p1_display}</div>", unsafe_allow_html=True)
+                c3.markdown(f"<div style='{bg_style}'>{p2_display}</div>", unsafe_allow_html=True)
+            else:
+                c1.write(gosterilecek_label)
+                c2.write(p1_display)
+                c3.write(p2_display)
             
             if not st.session_state.admin_mi:
                 c4.write(data.get("saat", "-"))
@@ -488,7 +510,6 @@ with tab_program:
         prog_col_widths = [29, 9, 21, 12, 12, 42, 42, 23]
         btn_pdf_prog = generate_pdf(pdf_prog_df, f"Mac Programi", col_widths=prog_col_widths)
         st.download_button("📥 Ekrandaki Maç Programını PDF Olarak İndir", data=btn_pdf_prog, file_name="Mac_Programi.pdf", mime="application/pdf")
-
 # ==========================================
 # TAB 3: SIRALAMA
 # ==========================================
