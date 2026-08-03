@@ -64,7 +64,6 @@ def clean_ghost_data(data):
                 if not match: continue
                 p1, p2 = match.get("p1"), match.get("p2")
                 w = res_dict.get("w")
-                # Eğer kayıtlı kazanan o maçın güncel oyuncularından biri değilse, sil.
                 if w and (w != p1 and w != p2):
                     keys_to_delete.append(mid)
                     cleaned_in_loop = True
@@ -88,7 +87,6 @@ if 'data' not in st.session_state:
             temiz_liste.append(f"Oyuncu {len(temiz_liste)+1}")
         st.session_state.data[cat]['players'] = temiz_liste[:16]
         
-    # Veriler yüklendiğinde eski kalıntıları temizle
     if clean_ghost_data(st.session_state.data):
         save_data()
 
@@ -386,7 +384,6 @@ with tab_program:
             
             winner = cat_d['res'].get(m_id, {}).get("w", None)
             
-            # Kalın yapma (Bold) - Emojiler kaldırıldı
             p1_display = f"**{clean_html_text(p1)}**" if winner and p1 == winner else clean_html_text(p1)
             p2_display = f"**{clean_html_text(p2)}**" if winner and p2 == winner else clean_html_text(p2)
             
@@ -401,26 +398,32 @@ with tab_program:
                 "Oyuncu 1": p1_display, "Oyuncu 2": p2_display, "Skor": bracket_score if bracket_score else "-"
             })
 
-            # Renk Kodlaması: Ana Tablo ÇF kaybedenleri, Teselli'ye çapraz yerleştiği için
-            # Renkleri de aynı şekilde eşleştiriyoruz.
+            # Sabah maçlarında aynı gün öğleden sonra oynayacakları kolay gruplamak için renk sistemi
             bg_style = ""
+            
+            # 2. GÜN: Ana Tablo ÇF (MQF) ile Teselli 1. Tur (CR1) -> ÇAPRAZ EŞLEŞME (Ters)
             if m_id.startswith("MQF_") or m_id.startswith("CR1_"):
                 try:
                     mac_index = int(m_id.split("_")[1])
-                    
                     if m_id.startswith("MQF_"):
-                        # MQF için tersine çevir: 3->0, 2->1, 1->2, 0->3
-                        color_idx = 3 - mac_index
+                        color_idx = 3 - mac_index # Ters eşleşme kuralı
                     else:
-                        # CR1 için normal indeks: 0->0, 1->1, 2->2, 3->3
-                        color_idx = mac_index
+                        color_idx = mac_index     # Normal sıra
                         
-                    renkler = {
-                        0: "#d0ebff", # Mavi
-                        1: "#d3f9d8", # Yeşil
-                        2: "#fff3bf", # Sarı
-                        3: "#ffc9c9"  # Kırmızı
-                    }
+                    renkler = {0: "#d0ebff", 1: "#d3f9d8", 2: "#fff3bf", 3: "#ffc9c9"}
+                    bg_renk = renkler.get(color_idx, "")
+                    if bg_renk:
+                        bg_style = f"background-color: {bg_renk}; color: #000; padding: 4px; border-radius: 4px; margin-bottom: 2px;"
+                except:
+                    pass
+            
+            # 3. GÜN: Ana Tablo YF (MSF) ile Teselli 3. Tur (CR3) -> DÜZ EŞLEŞME (Normal)
+            elif m_id.startswith("MSF_") or m_id.startswith("CR3_"):
+                try:
+                    mac_index = int(m_id.split("_")[1])
+                    color_idx = mac_index # İkisi de aynı indeksle birleşiyor (Düz)
+                        
+                    renkler = {0: "#d0ebff", 1: "#d3f9d8"} # 3. günde sadece 2 grup eşleşiyor
                     bg_renk = renkler.get(color_idx, "")
                     if bg_renk:
                         bg_style = f"background-color: {bg_renk}; color: #000; padding: 4px; border-radius: 4px; margin-bottom: 2px;"
@@ -533,7 +536,6 @@ with tab_dosya:
                     temiz_isimler.append(temiz)
                     
             cat_data['players'] = temiz_isimler
-            # Temizlik robotunu isimler güncellendiğinde de çalıştırıyoruz
             clean_ghost_data(st.session_state.data)
             save_data()
             st.success("Liste güncellendi!")
