@@ -29,7 +29,7 @@ FONT_BOLD_YUKLENDI = BOLD_FONT_FILE is not None
 
 # AKILLI FPDF SINIFI: Tüm PDF çağrılarını zorla Arial Unicode'a (Türkçe) çevirir
 class TurnuvaFPDF(FPDF):
-    def set_font(self, family, style='', size=0):
+    def set_font(self, family=None, style='', size=0):
         if not hasattr(self, '_fonts_injected'):
             self._fonts_injected = False
             
@@ -46,6 +46,11 @@ class TurnuvaFPDF(FPDF):
             
             # Dışarıdaki dosya Helvetica vs. istese bile zorla bizim Türkçe destekli fontu uygula!
             family = "ArialTR"
+            
+            # FPDF2 kütüphanesi bazen style parametresini obje (Enum) olarak gönderir. 
+            # String değilse metne çeviriyoruz ki 'B' in style kontrolü çökmesin.
+            if not isinstance(style, str):
+                style = getattr(style, 'name', '')
             
             # Eğer kalın stil istenmiş ama bold font yoksa, hata vermemesi için stili normale çek
             if 'B' in style and not FONT_BOLD_YUKLENDI:
@@ -167,13 +172,13 @@ def generate_pdf(df, baslik, col_widths=None):
     pdf.add_page()
     
     # Başlık font boyutu 14'ten 16'ya çıkarıldı
-    pdf.set_font("Arial", 'B', 16)
+    pdf.set_font("ArialTR", 'B', 16)
     pdf.cell(0, 10, to_pdf_text(baslik), ln=True, align='C')
     pdf.ln(5)
     
     if not df.empty:
         # Tablo başlıkları font boyutu 10'dan 11'e çıkarıldı
-        pdf.set_font("Arial", 'B', 11)
+        pdf.set_font("ArialTR", 'B', 11)
         w = col_widths if col_widths else [190 / len(df.columns)] * len(df.columns)
         for i, col in enumerate(df.columns):
             pdf.cell(w[i], 10, to_pdf_text(col), border=1, align='C')
@@ -194,12 +199,12 @@ def generate_pdf(df, baslik, col_widths=None):
                 
                 # Tablo içi veri font boyutu 9'dan 11'e çıkarıldı
                 original_size = 11 
-                pdf.set_font("Arial", cell_style, original_size)
+                pdf.set_font("ArialTR", cell_style, original_size)
                 current_size = original_size
                 
                 while pdf.get_string_width(pdf_text) > (w[i] - 2) and current_size > 6:
                     current_size -= 0.5
-                    pdf.set_font("Arial", cell_style, current_size)
+                    pdf.set_font("ArialTR", cell_style, current_size)
                 if pdf.get_string_width(pdf_text) > (w[i] - 2):
                     while pdf.get_string_width(pdf_text + "..") > (w[i] - 2) and len(pdf_text) > 0:
                         pdf_text = pdf_text[:-1]
