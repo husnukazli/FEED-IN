@@ -393,7 +393,15 @@ with tab_program:
             if degisti:
                 bracket_state = compute_bracket_state(cat_data)
         
-        # Oyuncu isimlerini ana motor üzerinden alıyoruz
+    c_f1, c_f2, c_f3 = st.columns(3)
+    secilen_gun = c_f1.selectbox("📅 Gün Seçimi:", ["Tüm Günler", "1. GÜN", "2. GÜN", "3. GÜN", "4. GÜN"])
+    secilen_kategori = c_f2.selectbox("🎾 Kategori Seçimi:", ["Tümü", "Erkekler", "Kadınlar"])
+    tablo_filtresi = c_f3.selectbox("📊 Tablo Gösterimi:", ["İkisini de Göster", "Sadece Ana Tablo", "Sadece Teselli"])
+
+    pdf_program_data = []
+
+    def draw_schedule(cat_name, matches, day_name):
+        cat_d = st.session_state.data[cat_name]
         b_state = compute_bracket_state(cat_d)
         
         filtered_matches = []
@@ -443,24 +451,23 @@ with tab_program:
 
             # Renk Kodlaması (MQF ve CR1 Eşleşmeleri İçin)
             bg_style = ""
-            ekstra_simge = ""
             
             if m_id.startswith("MQF_") or m_id.startswith("CR1_"):
                 try:
                     mac_no = int(m_id.split("_")[1])
                     renkler = {
-                        0: ("#d0ebff", "🔵"),
-                        1: ("#d3f9d8", "🟢"),
-                        2: ("#fff3bf", "🟡"),
-                        3: ("#ffc9c9", "🔴")
+                        0: "#d0ebff",
+                        1: "#d3f9d8",
+                        2: "#fff3bf",
+                        3: "#ffc9c9"
                     }
-                    bg_renk, ekstra_simge = renkler.get(mac_no, ("", ""))
+                    bg_renk = renkler.get(mac_no, "")
                     if bg_renk:
                         bg_style = f"background-color: {bg_renk}; color: #000; padding: 4px; border-radius: 4px; margin-bottom: 2px;"
                 except:
                     pass
 
-            gosterilecek_label = f"{ekstra_simge} {label}" if ekstra_simge else label
+            gosterilecek_label = label
 
             c1, c2, c3, c4, c5, c6 = st.columns([1.5, 2, 2, 1, 1, 1])
             
@@ -513,6 +520,7 @@ with tab_program:
         prog_col_widths = [29, 9, 21, 12, 12, 42, 42, 23]
         btn_pdf_prog = generate_pdf(pdf_prog_df, f"Mac Programi", col_widths=prog_col_widths)
         st.download_button("📥 Ekrandaki Maç Programını PDF Olarak İndir", data=btn_pdf_prog, file_name="Mac_Programi.pdf", mime="application/pdf")
+
 # ==========================================
 # TAB 3: SIRALAMA
 # ==========================================
