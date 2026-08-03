@@ -18,7 +18,7 @@ st.set_page_config(layout="wide", page_title="Milli Takım Belirleme Turnuvası"
 # ==============================================================================
 FONT_YUKLENDI = os.path.exists("arial.ttf")
 
-# Kalın fontun isimlendirme farklılıklarını tolere etmek için dosya arama
+# Kalın fontun olası isimlendirme farklılıklarını tarayarak bulalım
 BOLD_FONT_FILE = None
 for fname in ["arialbd.ttf", "ArialBD.ttf", "ARIALBD.TTF", "arial bd.ttf", "Arial BD.ttf"]:
     if os.path.exists(fname):
@@ -27,15 +27,31 @@ for fname in ["arialbd.ttf", "ArialBD.ttf", "ARIALBD.TTF", "arial bd.ttf", "Aria
 
 FONT_BOLD_YUKLENDI = BOLD_FONT_FILE is not None
 
-# FPDF Sınıfını Özelleştirme: bracket_pdf.py normal fontu eklediğinde, kalın fontu otomatik iliştirir
+# AKILLI FPDF SINIFI: Tüm PDF çağrılarını zorla Arial Unicode'a (Türkçe) çevirir
 class TurnuvaFPDF(FPDF):
-    def add_font(self, family, style='', fname='', uni=False):
-        super().add_font(family, style, fname, uni)
-        if family.lower() == 'arialtr' and style == '' and FONT_BOLD_YUKLENDI:
-            try:
-                super().add_font(family, 'B', BOLD_FONT_FILE, uni=True)
-            except:
-                pass
+    def set_font(self, family, style='', size=0):
+        if not hasattr(self, '_fonts_injected'):
+            self._fonts_injected = False
+            
+        if FONT_YUKLENDI:
+            # Fontlar sadece ilk kullanımda sisteme eklenir
+            if not self._fonts_injected:
+                try:
+                    self.add_font("ArialTR", "", "arial.ttf", uni=True)
+                    if FONT_BOLD_YUKLENDI:
+                        self.add_font("ArialTR", "B", BOLD_FONT_FILE, uni=True)
+                except:
+                    pass
+                self._fonts_injected = True
+            
+            # Dışarıdaki dosya Helvetica vs. istese bile zorla bizim Türkçe destekli fontu uygula!
+            family = "ArialTR"
+            
+            # Eğer kalın stil istenmiş ama bold font yoksa, hata vermemesi için stili normale çek
+            if 'B' in style and not FONT_BOLD_YUKLENDI:
+                style = style.replace('B', '')
+        
+        super().set_font(family, style, size)
 
 # Yaş gruplarına özel şifreler
 SIFRELER = {
@@ -55,7 +71,6 @@ with st.sidebar:
     st.markdown("### 🏆 Turnuva Seçimi")
     secilen_yas = st.selectbox("Yaş Grubu:", ["12 Yaş", "14 Yaş", "16 Yaş", "18 Yaş"])
     
-    # Kategori değişirse veriyi sıfırla ve güvenliği (admin) kapat
     if secilen_yas != st.session_state.aktif_yas:
         st.session_state.aktif_yas = secilen_yas
         st.session_state.admin_mi = False
@@ -150,23 +165,15 @@ def to_pdf_text(text):
 def generate_pdf(df, baslik, col_widths=None):
     pdf = TurnuvaFPDF(orientation='P', unit='mm', format='A4')
     pdf.add_page()
-    font_family = "ArialTR" if FONT_YUKLENDI else "Arial"
     
-    if FONT_YUKLENDI:
-        try: 
-            pdf.add_font("ArialTR", "", "arial.ttf", uni=True)
-            # Kalın font TurnuvaFPDF içinde otomatik eklenecektir
-        except: 
-            font_family = "Arial"
-            
-    header_style = 'B' if (font_family == "Arial" or FONT_BOLD_YUKLENDI) else ""
-        
-    pdf.set_font(font_family, header_style, 14)
+    # Başlık font boyutu 14'ten 16'ya çıkarıldı
+    pdf.set_font("Arial", 'B', 16)
     pdf.cell(0, 10, to_pdf_text(baslik), ln=True, align='C')
     pdf.ln(5)
     
     if not df.empty:
-        pdf.set_font(font_family, header_style, 10)
+        # Tablo başlıkları font boyutu 10'dan 11'e çıkarıldı
+        pdf.set_font("Arial", 'B', 11)
         w = col_widths if col_widths else [190 / len(df.columns)] * len(df.columns)
         for i, col in enumerate(df.columns):
             pdf.cell(w[i], 10, to_pdf_text(col), border=1, align='C')
@@ -183,21 +190,23 @@ def generate_pdf(df, baslik, col_widths=None):
                     text = text[2:-2]
                     
                 pdf_text = to_pdf_text(text)
+                cell_style = 'B' if is_bold else ""
                 
-                cell_style = 'B' if is_bold and (font_family == "Arial" or FONT_BOLD_YUKLENDI) else ""
-                
-                original_size = 9
-                pdf.set_font(font_family, cell_style, original_size)
+                # Tablo içi veri font boyutu 9'dan 11'e çıkarıldı
+                original_size = 11 
+                pdf.set_font("Arial", cell_style, original_size)
                 current_size = original_size
                 
-                while pdf.get_string_width(pdf_text) > (w[i] - 2) and current_size > 5:
+                while pdf.get_string_width(pdf_text) > (w[i] - 2) and current_size > 6:
                     current_size -= 0.5
-                    pdf.set_font(font_family, cell_style, current_size)
+                    pdf.set_font("Arial", cell_style, current_size)
                 if pdf.get_string_width(pdf_text) > (w[i] - 2):
                     while pdf.get_string_width(pdf_text + "..") > (w[i] - 2) and len(pdf_text) > 0:
                         pdf_text = pdf_text[:-1]
                     pdf_text += ".."
-                pdf.cell(w[i], 8, pdf_text, border=1, align=align)
+                
+                # Satır yüksekliği 8'den 9'a çıkarıldı (Daha ferah görünüm)
+                pdf.cell(w[i], 9, pdf_text, border=1, align=align)
             pdf.ln()
     return bytes(pdf.output())
 
@@ -289,7 +298,7 @@ with tab_fikstur:
         gorunum = st.radio("👀 Görünüm:", ["İkisini de Göster", "Sadece Ana Tablo", "Sadece Teselli"], horizontal=True, label_visibility="collapsed")
     with c_view2:
         try:
-            # Standart FPDF yerine kalın fontu otomatik tanıyan TurnuvaFPDF sınıfını gönderiyoruz
+            # Akıllı font sınıfımız (TurnuvaFPDF) sayesinde dış dosya hata vermeden Türkçe karakterleri basacak
             pdf_bytes = generate_bracket_pdf(cat_data, active_cat, TurnuvaFPDF, to_pdf_text, FONT_YUKLENDI)
             st.download_button("📄 Ağacı PDF İndir", data=pdf_bytes, file_name=f"{st.session_state.aktif_yas[:2]}_yas_{active_cat}_fikstur.pdf", mime="application/pdf", key="dl_bracket_pdf")
         except Exception as e:
