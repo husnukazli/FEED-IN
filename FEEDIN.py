@@ -5,9 +5,13 @@ import pandas as pd
 import datetime
 import re
 import html
+import copy
 from fpdf import FPDF
 
+import bracket_engine
 from bracket_engine import compute_bracket_state
+
+import bracket_pdf
 from bracket_svg import render_main_bracket_svg, render_consolation_bracket_svg
 from bracket_pdf import generate_bracket_pdf
 
@@ -336,30 +340,60 @@ with tab_fikstur:
     c_view1, c_view2 = st.columns([3, 1])
     with c_view1:
         gorunum = st.radio("👀 Görünüm:", ["İkisini de Göster", "Sadece Ana Tablo", "Sadece Teselli"], horizontal=True, label_visibility="collapsed")
+    
+    bracket_state = compute_bracket_state(cat_data)
+    
+    # Görsel ağaçlar ve PDF için "Bekleniyor..." yerine kaynak haritasını ekleyen kopya
+    display_bracket_state = copy.deepcopy(bracket_state)
+    for mid, d in display_bracket_state.items():
+        if not d.get("p1"): display_bracket_state[mid]["p1"] = SRC_MAP.get(f"{mid}_p1", "Bekleniyor...")
+        if not d.get("p2"): display_bracket_state[mid]["p2"] = SRC_MAP.get(f"{mid}_p2", "Bekleniyor...")
+
     with c_view2:
+        pdf_bytes = None
         try:
-            # Akıllı font sınıfımız (TurnuvaFPDF) sayesinde dış dosya hata vermeden Türkçe karakterleri basacak
+            # PDF çizici motoru kandırarak haritalı veriyi gönderiyoruz
+            original_compute = bracket_engine.compute_bracket_state
+            
+            def display_compute(cat_d):
+                state = original_compute(cat_d)
+                for m_id, d_ in state.items():
+                    if not d_.get("p1"): d_["p1"] = SRC_MAP.get(f"{m_id}_p1", "Bekleniyor...")
+                    if not d_.get("p2"): d_["p2"] = SRC_MAP.get(f"{m_id}_p2", "Bekleniyor...")
+                return state
+                
+            bracket_engine.compute_bracket_state = display_compute
+            if hasattr(bracket_pdf, 'compute_bracket_state'):
+                bracket_pdf.compute_bracket_state = display_compute
+                
             pdf_bytes = generate_bracket_pdf(cat_data, active_cat, TurnuvaFPDF, to_pdf_text, FONT_YUKLENDI)
-            st.download_button("📄 Ağacı PDF İndir", data=pdf_bytes, file_name=f"{st.session_state.aktif_yas[:2]}_yas_{active_cat}_fikstur.pdf", mime="application/pdf", key="dl_bracket_pdf")
         except Exception as e:
             st.caption(f"PDF oluşturulamadı: {e}")
+        finally:
+            if 'original_compute' in locals():
+                bracket_engine.compute_bracket_state = original_compute
+                if hasattr(bracket_pdf, 'compute_bracket_state'):
+                    bracket_pdf.compute_bracket_state = original_compute
+        
+        if pdf_bytes:
+            st.download_button("📄 Ağacı PDF İndir", data=pdf_bytes, file_name=f"{st.session_state.aktif_yas[:2]}_yas_{active_cat}_fikstur.pdf", mime="application/pdf", key="dl_bracket_pdf")
+
     st.divider()
 
     show_ana = gorunum in ["İkisini de Göster", "Sadece Ana Tablo"]
     show_tes = gorunum in ["İkisini de Göster", "Sadece Teselli"]
 
-    bracket_state = compute_bracket_state(cat_data)
-
     if show_ana:
         st.markdown(f"#### 🏆 {active_cat} Ana Tablosu")
-        st.markdown(render_main_bracket_svg(bracket_state), unsafe_allow_html=True)
+        # Ekrana basarken de haritalı veriyi (display_bracket_state) kullanıyoruz
+        st.markdown(render_main_bracket_svg(display_bracket_state), unsafe_allow_html=True)
 
     if show_ana and show_tes:
         st.markdown("<div class='page-break'></div><br class='no-print'><hr class='no-print' style='border: 2px dashed #1f77b4; margin: 20px 0;'><br class='no-print'>", unsafe_allow_html=True)
 
     if show_tes:
         st.markdown(f"#### 🔄 {active_cat} Teselli Tablosu")
-        st.markdown(render_consolation_bracket_svg(bracket_state), unsafe_allow_html=True)
+        st.markdown(render_consolation_bracket_svg(display_bracket_state), unsafe_allow_html=True)
 
     if st.session_state.admin_mi:
         st.markdown("<br>", unsafe_allow_html=True)
@@ -390,6 +424,7 @@ with tab_fikstur:
         for gun_baslik, mac_listesi in GUNLUK_MACLAR.items():
             with st.expander(f"📅 {gun_baslik}", expanded=False):
                 for mid, lbl, mno in mac_listesi:
+                    # Inputlar için ham durumu (bracket_state) kontrol ediyoruz, oyuncu yoksa giriş kapalı olur
                     d = bracket_state[mid]
                     p1, p2 = d.get("p1"), d.get("p2")
                     cw, cs = st.columns([3, 1.3])
