@@ -11,14 +11,40 @@ from bracket_engine import compute_bracket_state
 from bracket_svg import render_main_bracket_svg, render_consolation_bracket_svg
 from bracket_pdf import generate_bracket_pdf
 
-st.set_page_config(layout="wide", page_title="Consolation Milli Takım Belirleme", initial_sidebar_state="expanded")
+st.set_page_config(layout="wide", page_title="Milli Takım Belirleme Turnuvası", initial_sidebar_state="expanded")
 
 # ==============================================================================
-# 1. DOSYA VE FPDF YARDIMCI FONKSİYONLARI
+# 1. DOSYA, ŞİFRE VE FPDF YARDIMCI FONKSİYONLARI
 # ==============================================================================
-DB_FILE = "turnuva_db.json"
 FONT_YUKLENDI = os.path.exists("arial.ttf")
 FONT_BOLD_YUKLENDI = os.path.exists("arialbd.ttf")
+
+# Yaş gruplarına özel şifreler (Streamlit secrets üzerinden yönetilebilir)
+SIFRELER = {
+    "12 Yaş": st.secrets.get("sifre_12", "hakem12"),
+    "14 Yaş": st.secrets.get("sifre_14", "hakem14"),
+    "16 Yaş": st.secrets.get("sifre_16", "hakem16"),
+    "18 Yaş": st.secrets.get("sifre_18", "hakem18")
+}
+
+if 'aktif_yas' not in st.session_state:
+    st.session_state.aktif_yas = "12 Yaş"
+if "admin_mi" not in st.session_state:
+    st.session_state.admin_mi = False
+
+# Sol menü - En üstte yaş grubu seçimi (Herkes görebilir)
+with st.sidebar:
+    st.markdown("### 🏆 Turnuva Seçimi")
+    secilen_yas = st.selectbox("Yaş Grubu:", ["12 Yaş", "14 Yaş", "16 Yaş", "18 Yaş"])
+    
+    # Kategori değişirse veriyi sıfırla ve güvenliği (admin) kapat
+    if secilen_yas != st.session_state.aktif_yas:
+        st.session_state.aktif_yas = secilen_yas
+        st.session_state.admin_mi = False
+        if 'data' in st.session_state:
+            del st.session_state['data']
+
+DB_FILE = f"turnuva_db_{st.session_state.aktif_yas[:2]}.json"
 
 def clean_html_text(text):
     if not isinstance(text, str): return str(text)
@@ -72,6 +98,7 @@ def clean_ghost_data(data):
                 break
     return degisiklik_oldu
 
+# Seçilen yaş grubunun verisini yükle
 if 'data' not in st.session_state:
     st.session_state.data = load_data()
     for cat in ['Erkekler', 'Kadınlar']:
@@ -160,25 +187,23 @@ def generate_pdf(df, baslik, col_widths=None):
 # ==============================================================================
 # 2. ŞİFRELİ GİRİŞ / MİSAFİR MODU
 # ==============================================================================
-if "admin_mi" not in st.session_state:
-    st.session_state.admin_mi = False
-
 with st.sidebar:
+    st.divider()
     st.markdown("### 👨‍⚖️ Turnuva Yönetimi")
     if not st.session_state.admin_mi:
-        st.info("👁️ Şu an **Misafir Modunda** izliyorsunuz.")
-        girilen_sifre = st.text_input("Hakem Şifresi:", type="password")
+        st.info(f"👁️ Şu an **{st.session_state.aktif_yas}** verilerini İzleyici Modunda görüyorsunuz.")
+        girilen_sifre = st.text_input("Başhakem Şifresi:", type="password")
         if st.button("🔒 Giriş Yap"):
-            HAKEM_SIFRESI = st.secrets.get("hakem_sifresi", "zonguldak2026")
-            if girilen_sifre == HAKEM_SIFRESI:
+            beklenen_sifre = SIFRELER.get(st.session_state.aktif_yas)
+            if girilen_sifre == beklenen_sifre:
                 st.session_state.admin_mi = True
-                st.success("✅ Başhakem Yetkisi Aktif!")
+                st.success(f"✅ {st.session_state.aktif_yas} Başhakem Yetkisi Aktif!")
                 st.rerun()
             else:
                 st.error("❌ Hatalı Şifre!")
     else:
-        st.success("🟢 **Aktif Mod:** Başhakem")
-        if st.button("🔓 Çıkış Yap (Misafir Modu)"):
+        st.success(f"🟢 **Aktif Mod:** {st.session_state.aktif_yas} Başhakem")
+        if st.button("🔓 Çıkış Yap (İzleyici Modu)"):
             st.session_state.admin_mi = False
             st.rerun()
             
@@ -234,7 +259,7 @@ st.markdown("""
 # ==========================================
 # SEKME YÖNETİMİ
 # ==========================================
-st.title("🎾 Turnuva Yönetim Sistemi")
+st.title(f"🎾 {st.session_state.aktif_yas} Milli Takım Belirleme Turnuvası")
 tab_fikstur, tab_program, tab_siralama, tab_dosya = st.tabs(["🏆 Fikstürler", "📅 Maç Programı", "🇹🇷 Sıralama", "⚙️ Veri Yönetimi"])
 p = cat_data['players']
 
@@ -248,7 +273,7 @@ with tab_fikstur:
     with c_view2:
         try:
             pdf_bytes = generate_bracket_pdf(cat_data, active_cat, FPDF, to_pdf_text, FONT_YUKLENDI)
-            st.download_button("📄 Ağacı PDF İndir", data=pdf_bytes, file_name=f"{active_cat}_brakete.pdf", mime="application/pdf", key="dl_bracket_pdf")
+            st.download_button("📄 Ağacı PDF İndir", data=pdf_bytes, file_name=f"{st.session_state.aktif_yas[:2]}_yas_{active_cat}_fikstur.pdf", mime="application/pdf", key="dl_bracket_pdf")
         except Exception as e:
             st.caption(f"PDF oluşturulamadı: {e}")
     st.divider()
@@ -329,7 +354,7 @@ with tab_fikstur:
             bracket_state = compute_bracket_state(cat_data)
 
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button(f"💾 {active_cat} Fikstür Skorlarını Kaydet", use_container_width=True, key="btn_save_all"):
+        if st.button(f"💾 {st.session_state.aktif_yas} - {active_cat} Skorlarını Kaydet", use_container_width=True, key="btn_save_all"):
             save_data()
             st.success("Tüm fikstür değişiklikleri başarıyla kaydedildi!")
 
@@ -386,11 +411,9 @@ with tab_program:
             is_p1_winner = (winner and p1 == winner)
             is_p2_winner = (winner and p2 == winner)
             
-            # PDF IÇIN (Yıldız formatında bırakıyoruz)
             pdf_p1 = f"**{p1_clean}**" if is_p1_winner else p1_clean
             pdf_p2 = f"**{p2_clean}**" if is_p2_winner else p2_clean
             
-            # EKRAN IÇIN (HTML b etiketi kullanıyoruz ki div içinde sorun çıkmasın)
             ui_p1 = f"<b>{p1_clean}</b>" if is_p1_winner else p1_clean
             ui_p2 = f"<b>{p2_clean}</b>" if is_p2_winner else p2_clean
             
@@ -406,7 +429,6 @@ with tab_program:
             })
 
             bg_style = ""
-            
             if m_id.startswith("MQF_") or m_id.startswith("CR1_"):
                 try:
                     mac_index = int(m_id.split("_")[1])
@@ -421,12 +443,10 @@ with tab_program:
                         bg_style = f"background-color: {bg_renk}; color: #000; padding: 4px; border-radius: 4px; margin-bottom: 2px;"
                 except:
                     pass
-            
             elif m_id.startswith("MSF_") or m_id.startswith("CR3_"):
                 try:
                     mac_index = int(m_id.split("_")[1])
                     color_idx = mac_index
-                        
                     renkler = {0: "#d0ebff", 1: "#d3f9d8"}
                     bg_renk = renkler.get(color_idx, "")
                     if bg_renk:
@@ -475,7 +495,7 @@ with tab_program:
             
     if st.session_state.admin_mi:
         st.markdown("<br><br>", unsafe_allow_html=True)
-        if st.button("💾 Maç Programını Kaydet", use_container_width=True, key="btn_save_prog"):
+        if st.button(f"💾 {st.session_state.aktif_yas} Maç Programını Kaydet", use_container_width=True, key="btn_save_prog"):
             save_data()
             st.success("Maç programı başarıyla kaydedildi!")
 
@@ -483,14 +503,14 @@ with tab_program:
         st.divider()
         pdf_prog_df = pd.DataFrame(pdf_program_data)
         prog_col_widths = [29, 9, 21, 12, 12, 42, 42, 23]
-        btn_pdf_prog = generate_pdf(pdf_prog_df, f"Mac Programi", col_widths=prog_col_widths)
-        st.download_button("📥 Ekrandaki Maç Programını PDF Olarak İndir", data=btn_pdf_prog, file_name="Mac_Programi.pdf", mime="application/pdf")
+        btn_pdf_prog = generate_pdf(pdf_prog_df, f"{st.session_state.aktif_yas} Mac Programi", col_widths=prog_col_widths)
+        st.download_button("📥 Ekrandaki Maç Programını PDF Olarak İndir", data=btn_pdf_prog, file_name=f"{st.session_state.aktif_yas[:2]}_yas_program.pdf", mime="application/pdf")
 
 # ==========================================
 # TAB 3: SIRALAMA
 # ==========================================
 with tab_siralama:
-    st.subheader("🇹🇷 Milli Takım Kesin Sıralama")
+    st.subheader(f"🇹🇷 {st.session_state.aktif_yas} Kesin Sıralama")
     
     sira_kategori = st.radio("Sıralamasını Görmek İstediğiniz Kategori:", ["Erkekler", "Kadınlar", "Tümü"], horizontal=True)
     kategoriler_sira = ["Erkekler", "Kadınlar"] if sira_kategori == "Tümü" else [sira_kategori]
@@ -517,8 +537,8 @@ with tab_siralama:
         st.divider()
         pdf_sir_df = pd.DataFrame(pdf_siralama_data)
         sir_col_widths = [15, 30, 145]
-        btn_pdf_sir = generate_pdf(pdf_sir_df, f"Milli Takim Siralamasi ({sira_kategori})", col_widths=sir_col_widths)
-        st.download_button("📥 Sıralamayı PDF Olarak İndir", data=btn_pdf_sir, file_name="Siralama.pdf", mime="application/pdf")
+        btn_pdf_sir = generate_pdf(pdf_sir_df, f"{st.session_state.aktif_yas} Siralamasi ({sira_kategori})", col_widths=sir_col_widths)
+        st.download_button("📥 Sıralamayı PDF Olarak İndir", data=btn_pdf_sir, file_name=f"{st.session_state.aktif_yas[:2]}_yas_siralama.pdf", mime="application/pdf")
 
 # ==========================================
 # TAB 4: YEDEKLEME VE DOSYA (Sadece Admin)
@@ -550,9 +570,9 @@ with tab_dosya:
         c_sv, c_ld = st.columns(2)
         
         data_to_save = json.dumps(st.session_state.data, ensure_ascii=False)
-        c_sv.download_button("📥 Tüm Veriyi Yedekle (.json)", data=data_to_save, file_name="turnuva_verisi.json")
+        c_sv.download_button(f"📥 {st.session_state.aktif_yas} Verisini Yedekle (.json)", data=data_to_save, file_name=DB_FILE)
         
-        uploaded_file = c_ld.file_uploader("📤 Dosyayı Geri Yükle", type="json")
+        uploaded_file = c_ld.file_uploader(f"📤 {st.session_state.aktif_yas} Dosyasını Geri Yükle", type="json")
         if uploaded_file and c_ld.button("Yüklenen Veriyi Uygula"):
             try:
                 yeni_veri = json.load(uploaded_file)
@@ -576,7 +596,7 @@ with tab_dosya:
 
             st.session_state.data = yeni_veri
             save_data()
-            st.success("Veri geri yüklendi!")
+            st.success(f"{st.session_state.aktif_yas} verisi geri yüklendi!")
             st.rerun()
     else:
         st.warning("🔒 Bu panel sadece Başhakem erişimine açıktır.")
