@@ -38,7 +38,6 @@ class TurnuvaFPDF(FPDF):
             self._fonts_injected = False
             
         if FONT_YUKLENDI:
-            # Fontlar sadece ilk kullanımda sisteme eklenir
             if not self._fonts_injected:
                 try:
                     self.add_font("ArialTR", "", "arial.ttf", uni=True)
@@ -50,21 +49,17 @@ class TurnuvaFPDF(FPDF):
             
             family = "ArialTR"
             
-            # FPDF2 kütüphanesi Enum (obje) yollarsa metne çeviriyoruz
             if not isinstance(style, str):
                 style = getattr(style, 'name', '')
             
-            # "ENNO" hatasının kök çözümü: NONE kelimesini silip normal stile (boş) çeviriyoruz
             if style == 'NONE' or style == 'REGULAR':
                 style = ''
             
-            # Kalın stil istenmiş ama bold font yoksa, hata vermemesi için stili normale çek
             if 'B' in style and not FONT_BOLD_YUKLENDI:
                 style = style.replace('B', '')
         
         super().set_font(family, style, size)
 
-# Yaş gruplarına özel şifreler
 SIFRELER = {
     "12 Yaş": st.secrets.get("sifre_12", "hakem12"),
     "14 Yaş": st.secrets.get("sifre_14", "hakem14"),
@@ -72,7 +67,6 @@ SIFRELER = {
     "18 Yaş": st.secrets.get("sifre_18", "hakem18")
 }
 
-# Algoritma Kaynak Haritası (Hangi maça kimin kazananı/kaybedeni gelecek?)
 SRC_MAP = {
     "MQF_0_p1": "M1 Kazananı", "MQF_0_p2": "M2 Kazananı",
     "MQF_1_p1": "M3 Kazananı", "MQF_1_p2": "M4 Kazananı",
@@ -110,7 +104,7 @@ if 'aktif_yas' not in st.session_state:
 if "admin_mi" not in st.session_state:
     st.session_state.admin_mi = False
 
-# Sol menü - En üstte yaş grubu seçimi (Herkes görebilir)
+# Sol menü
 with st.sidebar:
     st.markdown("### 🏆 Turnuva Seçimi")
     secilen_yas = st.selectbox("Yaş Grubu:", ["12 Yaş", "14 Yaş", "16 Yaş", "18 Yaş"])
@@ -175,7 +169,6 @@ def clean_ghost_data(data):
                 break
     return degisiklik_oldu
 
-# Seçilen yaş grubunun verisini yükle
 if 'data' not in st.session_state:
     st.session_state.data = load_data()
     for cat in ['Erkekler', 'Kadınlar']:
@@ -210,13 +203,11 @@ def generate_pdf(df, baslik, col_widths=None):
     pdf = TurnuvaFPDF(orientation='P', unit='mm', format='A4')
     pdf.add_page()
     
-    # Başlık font boyutu 14'ten 16'ya çıkarıldı
     pdf.set_font("ArialTR", 'B', 16)
     pdf.cell(0, 10, to_pdf_text(baslik), ln=True, align='C')
     pdf.ln(5)
     
     if not df.empty:
-        # Tablo başlıkları font boyutu 10'dan 11'e çıkarıldı
         pdf.set_font("ArialTR", 'B', 11)
         w = col_widths if col_widths else [190 / len(df.columns)] * len(df.columns)
         for i, col in enumerate(df.columns):
@@ -236,7 +227,6 @@ def generate_pdf(df, baslik, col_widths=None):
                 pdf_text = to_pdf_text(text)
                 cell_style = 'B' if is_bold else ""
                 
-                # Tablo içi veri font boyutu 9'dan 11'e çıkarıldı
                 original_size = 11 
                 pdf.set_font("ArialTR", cell_style, original_size)
                 current_size = original_size
@@ -249,7 +239,6 @@ def generate_pdf(df, baslik, col_widths=None):
                         pdf_text = pdf_text[:-1]
                     pdf_text += ".."
                 
-                # Satır yüksekliği 8'den 9'a çıkarıldı (Daha ferah görünüm)
                 pdf.cell(w[i], 9, pdf_text, border=1, align=align)
             pdf.ln()
     return bytes(pdf.output())
@@ -301,7 +290,6 @@ st.markdown("""
 .player-name { font-size: 13px; font-weight: 500; color: #333; padding: 2px 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;}
 .player-src { font-size: 11px; color: #444; font-weight: bold; font-style: italic; margin-top: -2px; margin-bottom: 2px; }
 .player-separator { border-top: 1px dashed #ccc; margin: 2px 0; }
-
 .print-only-score { display: none; font-size: 10px; font-weight: bold; text-align: center; color: #1f77b4; margin-top: 3px; border-top: 1px dashed #bbb; padding-top: 3px; }
 
 @media print {
@@ -320,7 +308,6 @@ st.markdown("""
     .match-wrapper { page-break-inside: avoid; }
     .match-card { border: 1px solid #000; background-color: #eee !important; margin-bottom: 2px !important; }
     .page-break { page-break-before: always !important; display: block !important; margin-top: 20px !important;} 
-    
     .print-only-score { display: block !important; }
 }
 </style>
@@ -343,7 +330,6 @@ with tab_fikstur:
     
     bracket_state = compute_bracket_state(cat_data)
     
-    # Görsel ağaçlar ve PDF için "Bekleniyor..." yerine kaynak haritasını ekleyen kopya
     display_bracket_state = copy.deepcopy(bracket_state)
     for mid, d in display_bracket_state.items():
         if not d.get("p1"): display_bracket_state[mid]["p1"] = SRC_MAP.get(f"{mid}_p1", "Bekleniyor...")
@@ -352,9 +338,7 @@ with tab_fikstur:
     with c_view2:
         pdf_bytes = None
         try:
-            # PDF çizici motoru kandırarak haritalı veriyi gönderiyoruz
             original_compute = bracket_engine.compute_bracket_state
-            
             def display_compute(cat_d):
                 state = original_compute(cat_d)
                 for m_id, d_ in state.items():
@@ -385,7 +369,6 @@ with tab_fikstur:
 
     if show_ana:
         st.markdown(f"#### 🏆 {active_cat} Ana Tablosu")
-        # Ekrana basarken de haritalı veriyi (display_bracket_state) kullanıyoruz
         st.markdown(render_main_bracket_svg(display_bracket_state), unsafe_allow_html=True)
 
     if show_ana and show_tes:
@@ -424,7 +407,6 @@ with tab_fikstur:
         for gun_baslik, mac_listesi in GUNLUK_MACLAR.items():
             with st.expander(f"📅 {gun_baslik}", expanded=False):
                 for mid, lbl, mno in mac_listesi:
-                    # Inputlar için ham durumu (bracket_state) kontrol ediyoruz, oyuncu yoksa giriş kapalı olur
                     d = bracket_state[mid]
                     p1, p2 = d.get("p1"), d.get("p2")
                     cw, cs = st.columns([3, 1.3])
@@ -466,7 +448,6 @@ with tab_fikstur:
 with tab_program:
     st.subheader("📅 Ortak Maç Programı")
     
-    # Yönetici için takvimden gerçek tarih seçme paneli
     if st.session_state.admin_mi:
         with st.expander("⚙️ Günlerin Gerçek Tarihlerini Belirle", expanded=False):
             with st.form("tarih_form"):
@@ -489,8 +470,21 @@ with tab_program:
                     st.success("Tarihler başarıyla kaydedildi!")
                     st.rerun()
         
+    # Veli ve Oyuncular için Akıllı "Gün Seçimi" (Tarihleri de gösterir)
+    dates_dict = st.session_state.data['publish'].get('dates', {})
+    gun_secenekleri = ["Tüm Günler"]
+    gun_map = {}
+    
+    for g in ["1. GÜN", "2. GÜN", "3. GÜN", "4. GÜN"]:
+        tarih_str = format_date_tr(dates_dict.get(g, ""))
+        label = f"{tarih_str} ({g})" if tarih_str else g
+        gun_secenekleri.append(label)
+        gun_map[label] = g
+
     c_f1, c_f2, c_f3 = st.columns(3)
-    secilen_gun = c_f1.selectbox("📅 Gün Seçimi:", ["Tüm Günler", "1. GÜN", "2. GÜN", "3. GÜN", "4. GÜN"])
+    secilen_gun_label = c_f1.selectbox("📅 Gün Seçimi:", gun_secenekleri)
+    secilen_gun = "Tüm Günler" if secilen_gun_label == "Tüm Günler" else gun_map[secilen_gun_label]
+    
     secilen_kategori = c_f2.selectbox("🎾 Kategori Seçimi:", ["Tümü", "Erkekler", "Kadınlar"])
     tablo_filtresi = c_f3.selectbox("📊 Tablo Gösterimi:", ["İkisini de Göster", "Sadece Ana Tablo", "Sadece Teselli"])
 
@@ -509,13 +503,12 @@ with tab_program:
         
         if not filtered_matches: return
 
-        dates_dict = st.session_state.data['publish'].get('dates', {})
-        gercek_tarih_str = format_date_tr(dates_dict.get(day_name))
+        dates_dict_local = st.session_state.data['publish'].get('dates', {})
+        gercek_tarih_str = format_date_tr(dates_dict_local.get(day_name))
         
-        pdf_tarih = gercek_tarih_str if gercek_tarih_str else day_name.replace(" GÜN", "")
         pdf_kategori = "E" if cat_name == "Erkekler" else "K"
-
         baslik_gun = f"{gercek_tarih_str} ({day_name})" if gercek_tarih_str else day_name
+        
         st.markdown(f"<h5 style='color:#1f77b4; margin-top:10px;'>🎾 {cat_name} - {baslik_gun}</h5>", unsafe_allow_html=True)
         h1, h2, h3, h4, h5, h6 = st.columns([1.5, 2, 2, 1, 1, 1])
         h1.markdown("**Maç Türü**"); h2.markdown("**Oyuncu 1**"); h3.markdown("**Oyuncu 2**"); h4.markdown("**Saat**"); h5.markdown("**Kort**"); h6.markdown("**Skor**")
@@ -551,8 +544,9 @@ with tab_program:
             pdf_tur = label.replace("Ana Tablo", "AT").replace("T-", "FC ")
             pdf_tur = pdf_tur.replace("3.-4.'lük Maçı", "FC 3-4").replace("5.-6.'lık Maçı", "FC 5-6").replace("7.-8.'lik Maçı", "FC 7-8")
 
+            # Tarih/Gün Sütunu Çıkarıldı. Yeni ve Ferah Sütun Dağılımı.
             pdf_program_data.append({
-                "Tarih/Gün": pdf_tarih, "Kat.": pdf_kategori, "Tur": pdf_tur, "Saat": data.get("saat", "-"), "Kort": data.get("kort", "-"),
+                "Kat.": pdf_kategori, "Tur": pdf_tur, "Saat": data.get("saat", "-"), "Kort": data.get("kort", "-"),
                 "Oyuncu 1": pdf_p1, "Oyuncu 2": pdf_p2, "Skor": bracket_score if bracket_score else "-"
             })
 
@@ -560,11 +554,7 @@ with tab_program:
             if m_id.startswith("MQF_") or m_id.startswith("CR1_"):
                 try:
                     mac_index = int(m_id.split("_")[1])
-                    if m_id.startswith("MQF_"):
-                        color_idx = 3 - mac_index
-                    else:
-                        color_idx = mac_index
-                        
+                    color_idx = 3 - mac_index if m_id.startswith("MQF_") else mac_index
                     renkler = {0: "#d0ebff", 1: "#d3f9d8", 2: "#fff3bf", 3: "#ffc9c9"}
                     bg_renk = renkler.get(color_idx, "")
                     if bg_renk:
@@ -630,8 +620,19 @@ with tab_program:
     if pdf_program_data:
         st.divider()
         pdf_prog_df = pd.DataFrame(pdf_program_data)
-        prog_col_widths = [29, 9, 21, 12, 12, 42, 42, 23]
-        btn_pdf_prog = generate_pdf(pdf_prog_df, f"{st.session_state.aktif_yas} Mac Programi", col_widths=prog_col_widths)
+        
+        # Sütun Genişlikleri Yeniden Dağıtıldı (Tarih sütunu kaldırıldı, Toplam 190)
+        prog_col_widths = [10, 26, 14, 14, 50, 50, 26] 
+        
+        # PDF Başlığına Gerçek Tarih Ekleme
+        if secilen_gun != "Tüm Günler":
+            gercek_tarih = format_date_tr(st.session_state.data['publish']['dates'].get(secilen_gun, ""))
+            baslik_tarih = gercek_tarih if gercek_tarih else secilen_gun
+            pdf_baslik = f"{st.session_state.aktif_yas} - {baslik_tarih} Maç Programı"
+        else:
+            pdf_baslik = f"{st.session_state.aktif_yas} Tüm Maçların Programı"
+
+        btn_pdf_prog = generate_pdf(pdf_prog_df, pdf_baslik, col_widths=prog_col_widths)
         st.download_button("📥 Ekrandaki Maç Programını PDF Olarak İndir", data=btn_pdf_prog, file_name=f"{st.session_state.aktif_yas[:2]}_yas_program.pdf", mime="application/pdf")
 
 # ==========================================
