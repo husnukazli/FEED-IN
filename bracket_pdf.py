@@ -117,11 +117,6 @@ def generate_bracket_pdf(cat_data, cat_name, FPDF, to_pdf_text, font_yuklendi):
     font_family = "ArialTR" if font_yuklendi else "Arial"
     pdf = FPDF(orientation='L', unit='mm', format='A4')
     pdf.set_auto_page_break(False)
-    if font_yuklendi:
-        try:
-            pdf.add_font("ArialTR", "", "arial.ttf", uni=True)
-        except Exception:
-            font_family = "Arial"
     pdf.add_page()
     draw_bracket_page(pdf, state, "main", cat_name, to_pdf_text, font_family)
     pdf.add_page()
