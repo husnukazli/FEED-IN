@@ -48,10 +48,6 @@ def save_data():
         json.dump(st.session_state.data, f)
 
 def clean_ghost_data(data):
-    """
-    Eski testlerden kalan, oyuncusu değiştiği halde veritabanında asılı kalmış 
-    (hayalet) kazanan skorlarını tespit edip temizler.
-    """
     degisiklik_oldu = False
     for cat in ['Erkekler', 'Kadınlar']:
         while True:
@@ -384,8 +380,19 @@ with tab_program:
             
             winner = cat_d['res'].get(m_id, {}).get("w", None)
             
-            p1_display = f"**{clean_html_text(p1)}**" if winner and p1 == winner else clean_html_text(p1)
-            p2_display = f"**{clean_html_text(p2)}**" if winner and p2 == winner else clean_html_text(p2)
+            p1_clean = clean_html_text(p1)
+            p2_clean = clean_html_text(p2)
+            
+            is_p1_winner = (winner and p1 == winner)
+            is_p2_winner = (winner and p2 == winner)
+            
+            # PDF IÇIN (Yıldız formatında bırakıyoruz)
+            pdf_p1 = f"**{p1_clean}**" if is_p1_winner else p1_clean
+            pdf_p2 = f"**{p2_clean}**" if is_p2_winner else p2_clean
+            
+            # EKRAN IÇIN (HTML b etiketi kullanıyoruz ki div içinde sorun çıkmasın)
+            ui_p1 = f"<b>{p1_clean}</b>" if is_p1_winner else p1_clean
+            ui_p2 = f"<b>{p2_clean}</b>" if is_p2_winner else p2_clean
             
             bracket_score = cat_d['scores'].get(m_id, "")
             data = cat_d['schedule_data'].get(m_id, {"saat": "", "kort": ""}) 
@@ -395,20 +402,18 @@ with tab_program:
 
             pdf_program_data.append({
                 "Tarih/Gün": pdf_tarih, "Kat.": pdf_kategori, "Tur": pdf_tur, "Saat": data.get("saat", "-"), "Kort": data.get("kort", "-"),
-                "Oyuncu 1": p1_display, "Oyuncu 2": p2_display, "Skor": bracket_score if bracket_score else "-"
+                "Oyuncu 1": pdf_p1, "Oyuncu 2": pdf_p2, "Skor": bracket_score if bracket_score else "-"
             })
 
-            # Sabah maçlarında aynı gün öğleden sonra oynayacakları kolay gruplamak için renk sistemi
             bg_style = ""
             
-            # 2. GÜN: Ana Tablo ÇF (MQF) ile Teselli 1. Tur (CR1) -> ÇAPRAZ EŞLEŞME (Ters)
             if m_id.startswith("MQF_") or m_id.startswith("CR1_"):
                 try:
                     mac_index = int(m_id.split("_")[1])
                     if m_id.startswith("MQF_"):
-                        color_idx = 3 - mac_index # Ters eşleşme kuralı
+                        color_idx = 3 - mac_index
                     else:
-                        color_idx = mac_index     # Normal sıra
+                        color_idx = mac_index
                         
                     renkler = {0: "#d0ebff", 1: "#d3f9d8", 2: "#fff3bf", 3: "#ffc9c9"}
                     bg_renk = renkler.get(color_idx, "")
@@ -417,13 +422,12 @@ with tab_program:
                 except:
                     pass
             
-            # 3. GÜN: Ana Tablo YF (MSF) ile Teselli 3. Tur (CR3) -> DÜZ EŞLEŞME (Normal)
             elif m_id.startswith("MSF_") or m_id.startswith("CR3_"):
                 try:
                     mac_index = int(m_id.split("_")[1])
-                    color_idx = mac_index # İkisi de aynı indeksle birleşiyor (Düz)
+                    color_idx = mac_index
                         
-                    renkler = {0: "#d0ebff", 1: "#d3f9d8"} # 3. günde sadece 2 grup eşleşiyor
+                    renkler = {0: "#d0ebff", 1: "#d3f9d8"}
                     bg_renk = renkler.get(color_idx, "")
                     if bg_renk:
                         bg_style = f"background-color: {bg_renk}; color: #000; padding: 4px; border-radius: 4px; margin-bottom: 2px;"
@@ -434,12 +438,12 @@ with tab_program:
             
             if bg_style:
                 c1.markdown(f"<div style='{bg_style}'><b>{label}</b></div>", unsafe_allow_html=True)
-                c2.markdown(f"<div style='{bg_style}'>{p1_display}</div>", unsafe_allow_html=True)
-                c3.markdown(f"<div style='{bg_style}'>{p2_display}</div>", unsafe_allow_html=True)
+                c2.markdown(f"<div style='{bg_style}'>{ui_p1}</div>", unsafe_allow_html=True)
+                c3.markdown(f"<div style='{bg_style}'>{ui_p2}</div>", unsafe_allow_html=True)
             else:
-                c1.write(label)
-                c2.write(p1_display)
-                c3.write(p2_display)
+                c1.markdown(label, unsafe_allow_html=True)
+                c2.markdown(ui_p1, unsafe_allow_html=True)
+                c3.markdown(ui_p2, unsafe_allow_html=True)
             
             if not st.session_state.admin_mi:
                 c4.write(data.get("saat", "-"))
