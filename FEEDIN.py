@@ -14,7 +14,7 @@ from bracket_pdf import generate_bracket_pdf
 st.set_page_config(layout="wide", page_title="Milli Takım Belirleme Turnuvası", initial_sidebar_state="expanded")
 
 # ==============================================================================
-# 1. DOSYA, ŞİFRE VE FPDF YARDIMCI FONKSİYONLARI
+# 1. DOSYA, ŞİFRE, FPDF VE ALGORİTMA YARDIMCI FONKSİYONLARI
 # ==============================================================================
 FONT_YUKLENDI = os.path.exists("arial.ttf")
 
@@ -66,6 +66,39 @@ SIFRELER = {
     "14 Yaş": st.secrets.get("sifre_14", "hakem14"),
     "16 Yaş": st.secrets.get("sifre_16", "hakem16"),
     "18 Yaş": st.secrets.get("sifre_18", "hakem18")
+}
+
+# Algoritma Kaynak Haritası (Hangi maça kimin kazananı/kaybedeni gelecek?)
+SRC_MAP = {
+    "MQF_0_p1": "M1 Kazananı", "MQF_0_p2": "M2 Kazananı",
+    "MQF_1_p1": "M3 Kazananı", "MQF_1_p2": "M4 Kazananı",
+    "MQF_2_p1": "M5 Kazananı", "MQF_2_p2": "M6 Kazananı",
+    "MQF_3_p1": "M7 Kazananı", "MQF_3_p2": "M8 Kazananı",
+    
+    "MSF_0_p1": "M9 Kazananı", "MSF_0_p2": "M10 Kazananı",
+    "MSF_1_p1": "M11 Kazananı", "MSF_1_p2": "M12 Kazananı",
+    
+    "FINAL_MAIN_p1": "M13 Kazananı", "FINAL_MAIN_p2": "M14 Kazananı",
+    
+    "CR1_0_p1": "M1 Kaybedeni", "CR1_0_p2": "M2 Kaybedeni",
+    "CR1_1_p1": "M3 Kaybedeni", "CR1_1_p2": "M4 Kaybedeni",
+    "CR1_2_p1": "M5 Kaybedeni", "CR1_2_p2": "M6 Kaybedeni",
+    "CR1_3_p1": "M7 Kaybedeni", "CR1_3_p2": "M8 Kaybedeni",
+    
+    "CR2_0_p1": "M16 Kazananı", "CR2_0_p2": "M12 Kaybedeni",
+    "CR2_1_p1": "M17 Kazananı", "CR2_1_p2": "M11 Kaybedeni",
+    "CR2_2_p1": "M18 Kazananı", "CR2_2_p2": "M10 Kaybedeni",
+    "CR2_3_p1": "M19 Kazananı", "CR2_3_p2": "M9 Kaybedeni",
+    
+    "CR3_0_p1": "M20 Kazananı", "CR3_0_p2": "M21 Kazananı",
+    "CR3_1_p1": "M22 Kazananı", "CR3_1_p2": "M23 Kazananı",
+    
+    "CR4_0_p1": "M24 Kazananı", "CR4_0_p2": "M13 Kaybedeni",
+    "CR4_1_p1": "M25 Kazananı", "CR4_1_p2": "M14 Kaybedeni",
+    
+    "FINAL_TESELLI_p1": "M26 Kazananı", "FINAL_TESELLI_p2": "M27 Kazananı",
+    "MATCH_5_6_p1": "M26 Kaybedeni", "MATCH_5_6_p2": "M27 Kaybedeni",
+    "MATCH_7_8_p1": "M24 Kaybedeni", "MATCH_7_8_p2": "M25 Kaybedeni",
 }
 
 if 'aktif_yas' not in st.session_state:
@@ -379,8 +412,8 @@ with tab_fikstur:
                                 del cat_data['res'][mid]
                             degisti = True
                     else:
-                        p1_disp = p1 if p1 else "Bekleniyor..."
-                        p2_disp = p2 if p2 else "Bekleniyor..."
+                        p1_disp = p1 if p1 else SRC_MAP.get(f"{mid}_p1", "Bekleniyor...")
+                        p2_disp = p2 if p2 else SRC_MAP.get(f"{mid}_p2", "Bekleniyor...")
                         cw.markdown(f"<div style='padding-top: 8px; font-size: 14px; color: #555;'>{lbl} · {mno}: <b>{p1_disp}</b> vs <b>{p2_disp}</b></div>", unsafe_allow_html=True)
                         cs.text_input("Skor", value="", key=f"tab1_edit_sk_dis_{active_cat}_{mid}", disabled=True, label_visibility="collapsed", placeholder="Skor")
         
@@ -397,6 +430,29 @@ with tab_fikstur:
 # ==========================================
 with tab_program:
     st.subheader("📅 Ortak Maç Programı")
+    
+    # Yönetici için takvimden gerçek tarih seçme paneli
+    if st.session_state.admin_mi:
+        with st.expander("⚙️ Günlerin Gerçek Tarihlerini Belirle", expanded=False):
+            with st.form("tarih_form"):
+                d_cols = st.columns(4)
+                gun_isimleri = ["1. GÜN", "2. GÜN", "3. GÜN", "4. GÜN"]
+                yeni_tarihler = {}
+                
+                for i, d_name in enumerate(gun_isimleri):
+                    mevcut_tarih_str = st.session_state.data['publish']['dates'].get(d_name, "")
+                    try:
+                        mevcut_tarih = datetime.datetime.strptime(mevcut_tarih_str, "%Y-%m-%d").date()
+                    except:
+                        mevcut_tarih = datetime.date.today() + datetime.timedelta(days=i)
+                    yeni_tarihler[d_name] = d_cols[i].date_input(d_name, value=mevcut_tarih)
+                
+                if st.form_submit_button("💾 Tarihleri Kaydet"):
+                    for d_name in gun_isimleri:
+                        st.session_state.data['publish']['dates'][d_name] = str(yeni_tarihler[d_name])
+                    save_data()
+                    st.success("Tarihler başarıyla kaydedildi!")
+                    st.rerun()
         
     c_f1, c_f2, c_f3 = st.columns(3)
     secilen_gun = c_f1.selectbox("📅 Gün Seçimi:", ["Tüm Günler", "1. GÜN", "2. GÜN", "3. GÜN", "4. GÜN"])
@@ -434,16 +490,19 @@ with tab_program:
 
         for m_id, label in filtered_matches:
             match_data = b_state.get(m_id, {})
-            p1 = match_data.get("p1") or "Bekleniyor..."
-            p2 = match_data.get("p2") or "Bekleniyor..."
+            p1_raw = match_data.get("p1")
+            p2_raw = match_data.get("p2")
+            
+            p1_disp_raw = p1_raw if p1_raw else SRC_MAP.get(f"{m_id}_p1", "Bekleniyor...")
+            p2_disp_raw = p2_raw if p2_raw else SRC_MAP.get(f"{m_id}_p2", "Bekleniyor...")
             
             winner = cat_d['res'].get(m_id, {}).get("w", None)
             
-            p1_clean = clean_html_text(p1)
-            p2_clean = clean_html_text(p2)
+            p1_clean = clean_html_text(p1_disp_raw)
+            p2_clean = clean_html_text(p2_disp_raw)
             
-            is_p1_winner = (winner and p1 == winner)
-            is_p2_winner = (winner and p2 == winner)
+            is_p1_winner = (winner and p1_raw == winner)
+            is_p2_winner = (winner and p2_raw == winner)
             
             pdf_p1 = f"**{p1_clean}**" if is_p1_winner else p1_clean
             pdf_p2 = f"**{p2_clean}**" if is_p2_winner else p2_clean
