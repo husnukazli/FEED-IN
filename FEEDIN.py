@@ -397,7 +397,6 @@ with tab_fikstur:
         if not d.get("p2"): display_bracket_state[mid]["p2"] = SRC_MAP.get(f"{mid}_p2", "Bekleniyor...")
 
     with c_view2:
-        # Sadece Yönetici İse PDF Butonunu Göster
         if st.session_state.admin_mi:
             pdf_bytes = None
             try:
@@ -511,9 +510,6 @@ with tab_fikstur:
 with tab_program:
     st.subheader("📅 Ortak Maç Programı")
     
-    # ---------------------------------------------------------
-    # SADECE YÖNETİCİ: Tarih Belirleme ve "Yayınla" Kutucukları
-    # ---------------------------------------------------------
     if st.session_state.admin_mi:
         with st.expander("⚙️ Günlerin Gerçek Tarihlerini Belirle", expanded=False):
             with st.form("tarih_form"):
@@ -557,9 +553,6 @@ with tab_program:
     else:
         tablo_filtresi = "İkisini de Göster"
         
-    # ---------------------------------------------------------
-    # AKILLI TARİH BUTONLARI (Misafir ve Yönetici Gösterimi)
-    # ---------------------------------------------------------
     dates_dict = st.session_state.data['publish'].get('dates', {})
     gosterilecek_gunler = []
     
@@ -575,34 +568,46 @@ with tab_program:
             aktif = g_data.get("aktif", False)
             g_date = g_data.get("tarih", "")
             
-        # Yönetici her günü görür, misafir sadece "Yayınlananları"
         if st.session_state.admin_mi or aktif:
             tarih_str = format_date_tr(g_date)
             if st.session_state.admin_mi:
                 label = f"{g} ({tarih_str})" if tarih_str else f"{g} (Tarih Yok)"
             else:
-                # Misafir sadece net tarihi görür
                 label = tarih_str if tarih_str else g
             gosterilecek_gunler.append({"key": g, "label": label})
 
-    if not st.session_state.admin_mi:
-        st.markdown("##### 📅 Hangi günün programını görmek istiyorsunuz?")
-    
-    cols = st.columns(len(gosterilecek_gunler) + 1)
-    
-    b_type = "primary" if st.session_state.secilen_gun_tab2 == "Tüm Günler" else "secondary"
-    if cols[0].button("Tüm Program", use_container_width=True, type=b_type):
-        st.session_state.secilen_gun_tab2 = "Tüm Günler"
-        st.rerun()
-        
-    for i, g_info in enumerate(gosterilecek_gunler):
-        k = g_info["key"]
-        l = g_info["label"]
-        bt = "primary" if st.session_state.secilen_gun_tab2 == k else "secondary"
-        if cols[i+1].button(l, use_container_width=True, type=bt):
-            st.session_state.secilen_gun_tab2 = k
+    if st.session_state.admin_mi:
+        cols = st.columns(len(gosterilecek_gunler) + 1)
+        b_type = "primary" if st.session_state.secilen_gun_tab2 == "Tüm Günler" else "secondary"
+        if cols[0].button("Tüm Program", use_container_width=True, type=b_type):
+            st.session_state.secilen_gun_tab2 = "Tüm Günler"
             st.rerun()
             
+        for i, g_info in enumerate(gosterilecek_gunler):
+            k = g_info["key"]
+            l = g_info["label"]
+            bt = "primary" if st.session_state.secilen_gun_tab2 == k else "secondary"
+            if cols[i+1].button(l, use_container_width=True, type=bt):
+                st.session_state.secilen_gun_tab2 = k
+                st.rerun()
+    else:
+        if not gosterilecek_gunler:
+            st.info("ℹ️ Henüz açıklanmış bir maç programı bulunmamaktadır.")
+        else:
+            valid_keys = [g["key"] for g in gosterilecek_gunler]
+            if st.session_state.secilen_gun_tab2 not in valid_keys:
+                st.session_state.secilen_gun_tab2 = valid_keys[0]
+
+            st.markdown("##### 📅 Hangi günün programını görmek istiyorsunuz?")
+            cols = st.columns(len(gosterilecek_gunler))
+            for i, g_info in enumerate(gosterilecek_gunler):
+                k = g_info["key"]
+                l = g_info["label"]
+                bt = "primary" if st.session_state.secilen_gun_tab2 == k else "secondary"
+                if cols[i].button(l, use_container_width=True, type=bt):
+                    st.session_state.secilen_gun_tab2 = k
+                    st.rerun()
+                    
     secilen_gun = st.session_state.secilen_gun_tab2
 
     pdf_program_data = []
@@ -755,10 +760,10 @@ with tab_program:
         "4. GÜN": [("FINAL_MAIN", "Ana Tablo FİNAL (M15)"), ("FINAL_TESELLI", "3.-4.'lük Maçı (M28)"), ("MATCH_5_6", "5.-6.'lık Maçı (M29)")]
     }
 
-    gunler_to_show = ["1. GÜN", "2. GÜN", "3. GÜN", "4. GÜN"] if secilen_gun == "Tüm Günler" else [secilen_gun]
-
-    for g_adi in gunler_to_show:
-        draw_schedule(active_cat, g_maclar[g_adi], g_adi)
+    if st.session_state.admin_mi or gosterilecek_gunler:
+        gunler_to_show = ["1. GÜN", "2. GÜN", "3. GÜN", "4. GÜN"] if secilen_gun == "Tüm Günler" else [secilen_gun]
+        for g_adi in gunler_to_show:
+            draw_schedule(active_cat, g_maclar[g_adi], g_adi)
             
     if st.session_state.admin_mi:
         st.markdown("<br><br>", unsafe_allow_html=True)
@@ -766,7 +771,6 @@ with tab_program:
             save_data()
             st.success("Maç programı başarıyla kaydedildi!")
 
-        # YALNIZCA YÖNETİCİ PDF İNDİREBİLİR
         if pdf_program_data:
             st.divider()
             pdf_prog_df = pd.DataFrame(pdf_program_data)
@@ -811,7 +815,6 @@ with tab_siralama:
         c_isim.markdown(f"<div style='font-size:16px; padding:5px;'>{player_name}</div>", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
         
-    # YALNIZCA YÖNETİCİ PDF İNDİREBİLİR
     if st.session_state.admin_mi and pdf_siralama_data:
         st.divider()
         pdf_sir_df = pd.DataFrame(pdf_siralama_data)
