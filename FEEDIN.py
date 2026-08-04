@@ -536,7 +536,6 @@ with tab_program:
         day_key_safe = day_name.replace(" ", "_").replace(".", "")
         html_rows = ""
 
-        # Sadece Yönetici İse Sütun Başlıklarını Çiz
         if st.session_state.admin_mi:
             h1, h2, h3, h4, h5, h6 = st.columns([1.5, 2, 2, 1, 1, 1])
             h1.markdown("**Maç Türü**"); h2.markdown("**Oyuncu 1**"); h3.markdown("**Oyuncu 2**"); h4.markdown("**Saat**"); h5.markdown("**Kort**"); h6.markdown("**Skor**")
@@ -567,12 +566,19 @@ with tab_program:
             bracket_score = cat_d['scores'].get(m_id, "")
             data = cat_d['schedule_data'].get(m_id, {"saat": "", "kort": ""}) 
             
+            # Boş değerlerin tablolarda görünmez olmasını engellemek için güvenli atamalar
+            g_saat = data.get("saat", "")
+            g_kort = data.get("kort", "")
+            saat_val = g_saat if g_saat else "-"
+            kort_val = g_kort if g_kort else "-"
+            skor_val = bracket_score if bracket_score else "-"
+            
             pdf_tur = label.replace("Ana Tablo", "AT").replace("T-", "FC ")
             pdf_tur = pdf_tur.replace("3.-4.'lük Maçı", "FC 3-4").replace("5.-6.'lık Maçı", "FC 5-6").replace("7.-8.'lik Maçı", "FC 7-8")
 
             pdf_program_data.append({
-                "Kat.": pdf_kategori, "Tur": pdf_tur, "Saat": data.get("saat", "-"), "Kort": data.get("kort", "-"),
-                "Oyuncu 1": pdf_p1, "Oyuncu 2": pdf_p2, "Skor": bracket_score if bracket_score else "-"
+                "Kat.": pdf_kategori, "Tur": pdf_tur, "Saat": saat_val, "Kort": kort_val,
+                "Oyuncu 1": pdf_p1, "Oyuncu 2": pdf_p2, "Skor": skor_val
             })
 
             bg_style = ""
@@ -611,27 +617,28 @@ with tab_program:
                     c2.markdown(ui_p1, unsafe_allow_html=True)
                     c3.markdown(ui_p2, unsafe_allow_html=True)
                 
-                new_saat = c4.text_input("Saat", value=data.get("saat", ""), key=f"t_{cat_name}_{m_id}_{day_key_safe}", label_visibility="collapsed")
-                new_kort = c5.text_input("Kort", value=data.get("kort", ""), key=f"c_{cat_name}_{m_id}_{day_key_safe}", label_visibility="collapsed")
+                new_saat = c4.text_input("Saat", value=g_saat, key=f"t_{cat_name}_{m_id}_{day_key_safe}", label_visibility="collapsed")
+                new_kort = c5.text_input("Kort", value=g_kort, key=f"c_{cat_name}_{m_id}_{day_key_safe}", label_visibility="collapsed")
                 new_skor = c6.text_input("Skor", value=bracket_score, key=f"s_{cat_name}_{m_id}_{day_key_safe}", label_visibility="collapsed")
                 
-                if new_saat != data.get("saat") or new_kort != data.get("kort"):
+                if new_saat != g_saat or new_kort != g_kort:
                     cat_d['schedule_data'][m_id] = {"saat": new_saat, "kort": new_kort}
                 if new_skor != bracket_score:
                     cat_d['scores'][m_id] = clean_html_text(new_skor)
             else:
+                # Boş style etiketleri (style='') yerine koşullu ekleme yapılıyor
+                tr_style = f" style='{bg_color_only}'" if bg_color_only else ""
                 html_rows += f"""
-                <tr style='{bg_color_only}'>
+                <tr{tr_style}>
                     <td><b>{label}</b></td>
                     <td>{ui_p1}</td>
                     <td>{ui_p2}</td>
-                    <td>{data.get("saat", "-")}</td>
-                    <td>{data.get("kort", "-")}</td>
-                    <td>{bracket_score if bracket_score else "-"}</td>
+                    <td>{saat_val}</td>
+                    <td>{kort_val}</td>
+                    <td>{skor_val}</td>
                 </tr>
                 """
 
-        # İzleyici Modu İçin Satır/Sütun Sabitleyici HTML Tablo
         if not st.session_state.admin_mi and html_rows:
             html_table = f"""
             <div class="mobile-table-container">
