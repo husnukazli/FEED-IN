@@ -20,9 +20,10 @@ def _box_svg(x, top, mid, label, match_no, p1, p2, winner, score, p2_kaynak=None
     <text x="{x+12}" y="{top+44}" font-size="16" style="{b1}">{p1n}</text>
     <text x="{x+12}" y="{top+61}" font-size="16" style="{b2}">{p2n}</text>'''
 
-def _connector(x1, y1, x2, y2, y3, x4):
+def _connector(x1, y1, x2, y2, y3, x4, xm=None):
     """İki üst kutudan (y1,y2) tek bir alt kutuya (x4, y3) giden dirsek çizgisi."""
-    xm = (x1 + x4) / 2
+    if xm is None:
+        xm = (x1 + x4) / 2
     return f'''
     <line x1="{x1}" y1="{y1}" x2="{xm}" y2="{y1}" stroke="#b0b0b0" stroke-width="1.5"/>
     <line x1="{x1}" y1="{y2}" x2="{xm}" y2="{y2}" stroke="#b0b0b0" stroke-width="1.5"/>
@@ -75,7 +76,7 @@ def render_consolation_bracket_svg(state):
         d = state[m["id"]]
         parts.append(_box_svg(X_YF2, m["top"], m["center"], "T-YF2", k+26, d["p1"], d["p2"], d["winner"], d["score"], p2_kaynak=f"M{k+13} Kaybedeni"))
         yf1 = g["t_yf1"][k]
-        parts.append(f'<line x1="{X_YF1+BOX_W}" y1="{yf1["center"]}" x2="{X_YF2}" y2="{m["top"]+BOX_H*0.35}" stroke="#b0b0b0" stroke-width="1.5"/>')
+        parts.append(f'<line x1="{X_YF1+BOX_W}" y1="{yf1["center"]}" x2="{X_YF2}" y2="{m["center"]}" stroke="#b0b0b0" stroke-width="1.5"/>')
 
     labels = [("FINAL_TESELLI", "3.-4.'LÜK", 28, g["final_teselli"]),
               ("MATCH_5_6", "5.-6.'LIK", 29, g["m56"]),
@@ -88,7 +89,7 @@ def render_consolation_bracket_svg(state):
     parts.append(_connector(X_YF2+BOX_W, a["center"], X_YF2+BOX_W, b["center"], g["final_teselli"]["center"], X_F))
     parts.append(_connector(X_YF2+BOX_W, a["center"], X_YF2+BOX_W, b["center"], g["m56"]["center"], X_F))
     a1, b1 = g["t_yf1"][0], g["t_yf1"][1]
-    parts.append(_connector(X_YF1+BOX_W, a1["center"], X_YF1+BOX_W, b1["center"], g["m78"]["center"], X_F))
+    parts.append(_connector(X_YF1+BOX_W, a1["center"], X_YF1+BOX_W, b1["center"], g["m78"]["center"], X_F, xm=X_YF1+BOX_W+15))
 
     svg_h = max(main["height"], g["m78"]["top"] + BOX_H + 20)
     return f'<svg viewBox="0 0 940 {svg_h}" width="100%" style="max-width:940px">{"".join(parts)}</svg>'
