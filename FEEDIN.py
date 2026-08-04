@@ -15,7 +15,7 @@ import bracket_pdf
 from bracket_svg import render_main_bracket_svg, render_consolation_bracket_svg
 from bracket_pdf import generate_bracket_pdf
 
-st.set_page_config(layout="wide", page_title="Milli Takım Belirleme Turnuvaları", initial_sidebar_state="expanded")
+st.set_page_config(layout="wide", page_title="Milli Takım Belirleme Turnuvaları", initial_sidebar_state="collapsed")
 
 # ==============================================================================
 # 1. DOSYA, ŞİFRE, FPDF VE ALGORİTMA YARDIMCI FONKSİYONLARI
@@ -94,12 +94,14 @@ if 'aktif_yas' not in st.session_state:
     st.session_state.aktif_yas = "Seçilmedi"
 if "admin_mi" not in st.session_state:
     st.session_state.admin_mi = False
+if "active_cat" not in st.session_state:
+    st.session_state.active_cat = "Erkekler"
 
 # ==============================================================================
 # 2. KARŞILAMA EKRANI (ANA SAYFA BUTONLARI)
 # ==============================================================================
 if st.session_state.aktif_yas == "Seçilmedi":
-    st.markdown("<br><h1 style='text-align: center; color: #1f77b4;'>🇹🇷 Milli Takım Belirleme Turnuvaları</h1>", unsafe_allow_html=True)
+    st.markdown("<br><h1 style='text-align: center; color: #1f77b4;'>🇹🇷 Milli Takım Belirleme Turnuvası</h1>", unsafe_allow_html=True)
     st.markdown("<h4 style='text-align: center; color: #555;'>Lütfen takip etmek istediğiniz yaş grubunu seçiniz</h4><br><br>", unsafe_allow_html=True)
     
     c1, c2, c3, c4 = st.columns(4)
@@ -129,7 +131,7 @@ if st.session_state.aktif_yas == "Seçilmedi":
         st.rerun()
         
     with st.sidebar:
-        st.info("👈 Turnuva detaylarını görmek ve hakem girişi yapmak için ekranın ortasındaki yaş grubu butonlarına tıklayınız.")
+        st.info("👈 Turnuva detaylarını görmek için ekranın ortasındaki yaş grubu butonlarına tıklayınız.")
         
     st.stop()
 
@@ -266,18 +268,10 @@ def generate_pdf(df, baslik, col_widths=None):
     return bytes(pdf.output())
 
 # ==============================================================================
-# 4. SOL MENÜ YÖNETİMİ
+# 4. SOL MENÜ YÖNETİMİ (Sadece Hakem Girişi İçin)
 # ==============================================================================
 with st.sidebar:
-    if st.button("🔙 Ana Sayfaya Dön", use_container_width=True):
-        st.session_state.aktif_yas = "Seçilmedi"
-        st.session_state.admin_mi = False
-        if 'data' in st.session_state:
-            del st.session_state['data']
-        st.rerun()
-        
-    st.divider()
-    st.markdown("### 👨‍⚖️ Turnuva Yönetimi")
+    st.markdown("### 👨‍⚖️ Hakem Yönetim Paneli")
     if not st.session_state.admin_mi:
         st.info(f"👁️ Şu an **{st.session_state.aktif_yas}** verilerini İzleyici Modunda görüyorsunuz.")
         girilen_sifre = st.text_input("Başhakem Şifresi:", type="password")
@@ -294,14 +288,6 @@ with st.sidebar:
         if st.button("🔓 Çıkış Yap (İzleyici Modu)"):
             st.session_state.admin_mi = False
             st.rerun()
-            
-    st.divider()
-    if not st.session_state.admin_mi:
-        active_cat = st.selectbox("🎾 Fikstür Kategorisi:", ["Erkekler", "Kadınlar"])
-    else:
-        active_cat = st.radio("🎾 Fikstür Kategorisi:", ["Erkekler", "Kadınlar"])
-
-cat_data = st.session_state.data[active_cat]
 
 # ==============================================================================
 # 5. ÖZEL CSS
@@ -375,9 +361,23 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 6. SEKME YÖNETİMİ
+# 6. ÜST BÖLÜM VE EKRAN ÜZERİ KATEGORİ SEÇİMİ
 # ==========================================
 st.title(f"🎾 {st.session_state.aktif_yas} Milli Takım Belirleme Turnuvası")
+
+# Ekran üzerine taşınan Kategori (Kadın/Erkek) Seçici
+secilen_kategori_radio = st.radio(
+    "🎾 **Kategori Seçimi:**",
+    ["Erkekler", "Kadınlar"],
+    horizontal=True,
+    key="top_cat_selector"
+)
+st.session_state.active_cat = secilen_kategori_radio
+active_cat = st.session_state.active_cat
+cat_data = st.session_state.data[active_cat]
+
+st.markdown("<br>", unsafe_allow_html=True)
+
 tab_fikstur, tab_program, tab_siralama, tab_dosya = st.tabs(["🏆 Fikstürler", "📅 Maç Programı", "🇹🇷 Sıralama", "⚙️ Veri Yönetimi"])
 p = cat_data['players']
 
@@ -541,12 +541,11 @@ with tab_program:
         gun_secenekleri.append(label)
         gun_map[label] = g
 
-    c_f1, c_f2, c_f3 = st.columns(3)
+    c_f1, c_f2 = st.columns(2)
     secilen_gun_label = c_f1.selectbox("📅 Gün Seçimi:", gun_secenekleri)
     secilen_gun = "Tüm Günler" if secilen_gun_label == "Tüm Günler" else gun_map[secilen_gun_label]
     
-    secilen_kategori = c_f2.selectbox("🎾 Kategori Seçimi:", ["Tümü", "Erkekler", "Kadınlar"])
-    tablo_filtresi = c_f3.selectbox("📊 Tablo Gösterimi:", ["İkisini de Göster", "Sadece Ana Tablo", "Sadece Teselli"])
+    tablo_filtresi = c_f2.selectbox("📊 Tablo Gösterimi:", ["İkisini de Göster", "Sadece Ana Tablo", "Sadece Teselli"])
 
     pdf_program_data = []
 
@@ -663,7 +662,6 @@ with tab_program:
                 if new_skor != bracket_score:
                     cat_d['scores'][m_id] = clean_html_text(new_skor)
             else:
-                # Kod bloğuna dönüşmemesi için baştaki tüm boşluklar (girintiler) temizlendi
                 tr_style = f" style='{bg_color_only}'" if bg_color_only else ""
                 html_rows += f"<tr{tr_style}><td><b>{label}</b></td><td>{ui_p1}</td><td>{ui_p2}</td><td>{saat_val}</td><td>{kort_val}</td><td>{skor_val}</td></tr>"
 
@@ -694,12 +692,10 @@ with tab_program:
         "4. GÜN": [("FINAL_MAIN", "Ana Tablo FİNAL (M15)"), ("FINAL_TESELLI", "3.-4.'lük Maçı (M28)"), ("MATCH_5_6", "5.-6.'lık Maçı (M29)")]
     }
 
-    kategoriler_to_show = ["Erkekler", "Kadınlar"] if secilen_kategori == "Tümü" else [secilen_kategori]
     gunler_to_show = ["1. GÜN", "2. GÜN", "3. GÜN", "4. GÜN"] if secilen_gun == "Tüm Günler" else [secilen_gun]
 
     for g_adi in gunler_to_show:
-        for k_adi in kategoriler_to_show:
-            draw_schedule(k_adi, g_maclar[g_adi], g_adi)
+        draw_schedule(active_cat, g_maclar[g_adi], g_adi)
             
     if st.session_state.admin_mi:
         st.markdown("<br><br>", unsafe_allow_html=True)
@@ -716,46 +712,41 @@ with tab_program:
         if secilen_gun != "Tüm Günler":
             gercek_tarih = format_date_tr(st.session_state.data['publish']['dates'].get(secilen_gun, ""))
             baslik_tarih = gercek_tarih if gercek_tarih else secilen_gun
-            pdf_baslik = f"{st.session_state.aktif_yas} - {baslik_tarih} Maç Programı"
+            pdf_baslik = f"{st.session_state.aktif_yas} ({active_cat}) - {baslik_tarih} Maç Programı"
         else:
-            pdf_baslik = f"{st.session_state.aktif_yas} Tüm Maçların Programı"
+            pdf_baslik = f"{st.session_state.aktif_yas} ({active_cat}) Tüm Maçların Programı"
 
         btn_pdf_prog = generate_pdf(pdf_prog_df, pdf_baslik, col_widths=prog_col_widths)
-        st.download_button("📥 Ekrandaki Maç Programını PDF Olarak İndir", data=btn_pdf_prog, file_name=f"{st.session_state.aktif_yas[:2]}_yas_program.pdf", mime="application/pdf")
+        st.download_button("📥 Ekrandaki Maç Programını PDF Olarak İndir", data=btn_pdf_prog, file_name=f"{st.session_state.aktif_yas[:2]}_yas_{active_cat}_program.pdf", mime="application/pdf")
 
 # ==========================================
 # TAB 3: SIRALAMA
 # ==========================================
 with tab_siralama:
-    st.subheader(f"🇹🇷 {st.session_state.aktif_yas} Kesin Sıralama")
-    
-    sira_kategori = st.radio("Sıralamasını Görmek İstediğiniz Kategori:", ["Erkekler", "Kadınlar", "Tümü"], horizontal=True)
-    kategoriler_sira = ["Erkekler", "Kadınlar"] if sira_kategori == "Tümü" else [sira_kategori]
+    st.subheader(f"🇹🇷 {st.session_state.aktif_yas} ({active_cat}) Kesin Sıralama")
     
     pdf_siralama_data = []
 
-    for k_adi in kategoriler_sira:
-        st.markdown(f"#### 🏆 {k_adi} Sıralaması")
-        res = st.session_state.data[k_adi]['res']
-        rankings = [("1.", "FINAL_MAIN", "w"), ("2.", "FINAL_MAIN", "l"), ("3.", "FINAL_TESELLI", "w"), ("4.", "FINAL_TESELLI", "l"), 
-                    ("5.", "MATCH_5_6", "w"), ("6.", "MATCH_5_6", "l"), ("7.", "MATCH_7_8", "w"), ("8.", "MATCH_7_8", "l")]
+    res = cat_data['res']
+    rankings = [("1.", "FINAL_MAIN", "w"), ("2.", "FINAL_MAIN", "l"), ("3.", "FINAL_TESELLI", "w"), ("4.", "FINAL_TESELLI", "l"), 
+                ("5.", "MATCH_5_6", "w"), ("6.", "MATCH_5_6", "l"), ("7.", "MATCH_7_8", "w"), ("8.", "MATCH_7_8", "l")]
+    
+    for rank, m_id, key in rankings:
+        player_name = res[m_id][key] if m_id in res and key in res[m_id] else "Belli Değil"
+        player_name = clean_html_text(player_name)
+        pdf_siralama_data.append({"Sıra": rank, "Kategori": active_cat, "Oyuncu Adı": player_name})
         
-        for rank, m_id, key in rankings:
-            player_name = res[m_id][key] if m_id in res and key in res[m_id] else "Belli Değil"
-            player_name = clean_html_text(player_name)
-            pdf_siralama_data.append({"Sıra": rank, "Kategori": k_adi, "Oyuncu Adı": player_name})
-            
-            c_no, c_isim = st.columns([0.5, 4])
-            c_no.markdown(f"<div style='font-size:16px; font-weight:bold; padding:5px; background:#e0e0e0; text-align:center; border-radius:5px;'>{rank}</div>", unsafe_allow_html=True)
-            c_isim.markdown(f"<div style='font-size:16px; padding:5px;'>{player_name}</div>", unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
+        c_no, c_isim = st.columns([0.5, 4])
+        c_no.markdown(f"<div style='font-size:16px; font-weight:bold; padding:5px; background:#e0e0e0; text-align:center; border-radius:5px;'>{rank}</div>", unsafe_allow_html=True)
+        c_isim.markdown(f"<div style='font-size:16px; padding:5px;'>{player_name}</div>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
         
     if pdf_siralama_data:
         st.divider()
         pdf_sir_df = pd.DataFrame(pdf_siralama_data)
         sir_col_widths = [15, 30, 145]
-        btn_pdf_sir = generate_pdf(pdf_sir_df, f"{st.session_state.aktif_yas} Siralamasi ({sira_kategori})", col_widths=sir_col_widths)
-        st.download_button("📥 Sıralamayı PDF Olarak İndir", data=btn_pdf_sir, file_name=f"{st.session_state.aktif_yas[:2]}_yas_siralama.pdf", mime="application/pdf")
+        btn_pdf_sir = generate_pdf(pdf_sir_df, f"{st.session_state.aktif_yas} Siralamasi ({active_cat})", col_widths=sir_col_widths)
+        st.download_button("📥 Sıralamayı PDF Olarak İndir", data=btn_pdf_sir, file_name=f"{st.session_state.aktif_yas[:2]}_yas_{active_cat}_siralama.pdf", mime="application/pdf")
 
 # ==========================================
 # TAB 4: YEDEKLEME VE DOSYA (Sadece Admin)
@@ -817,3 +808,18 @@ with tab_dosya:
             st.rerun()
     else:
         st.warning("🔒 Bu panel sadece Başhakem erişimine açıktır.")
+
+# ==============================================================================
+# 7. SAYFA SONU (ALT KISIM) - GERİ DÖNÜŞ BUTONU
+# ==============================================================================
+st.divider()
+st.markdown("<br>", unsafe_allow_html=True)
+c_bot1, c_bot2, c_bot3 = st.columns([1, 2, 1])
+
+with c_bot2:
+    if st.button("🏠 Başka Yaş Grubu Seç (Ana Sayfaya Dön)", use_container_width=True, key="btn_home_bottom"):
+        st.session_state.aktif_yas = "Seçilmedi"
+        st.session_state.admin_mi = False
+        if 'data' in st.session_state:
+            del st.session_state['data']
+        st.rerun()
