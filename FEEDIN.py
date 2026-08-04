@@ -135,7 +135,6 @@ if st.session_state.aktif_yas == "Seçilmedi":
         
     st.stop()
 
-
 # ==============================================================================
 # 3. VERİ YÜKLEME VE ORTAK FONKSİYONLAR
 # ==============================================================================
@@ -365,7 +364,6 @@ st.markdown("""
 # ==========================================
 st.title(f"🎾 {st.session_state.aktif_yas} Milli Takım Belirleme Turnuvası")
 
-# Ekran üzerine taşınan Kategori (Kadın/Erkek) Seçici
 secilen_kategori_radio = st.radio(
     "🎾 **Kategori Seçimi:**",
     ["Erkekler", "Kadınlar"],
@@ -397,31 +395,33 @@ with tab_fikstur:
         if not d.get("p2"): display_bracket_state[mid]["p2"] = SRC_MAP.get(f"{mid}_p2", "Bekleniyor...")
 
     with c_view2:
-        pdf_bytes = None
-        try:
-            original_compute = bracket_engine.compute_bracket_state
-            def display_compute(cat_d):
-                state = original_compute(cat_d)
-                for m_id, d_ in state.items():
-                    if not d_.get("p1"): d_["p1"] = SRC_MAP.get(f"{m_id}_p1", "Bekleniyor...")
-                    if not d_.get("p2"): d_["p2"] = SRC_MAP.get(f"{m_id}_p2", "Bekleniyor...")
-                return state
-                
-            bracket_engine.compute_bracket_state = display_compute
-            if hasattr(bracket_pdf, 'compute_bracket_state'):
-                bracket_pdf.compute_bracket_state = display_compute
-                
-            pdf_bytes = generate_bracket_pdf(cat_data, active_cat, TurnuvaFPDF, to_pdf_text, FONT_YUKLENDI)
-        except Exception as e:
-            st.caption(f"PDF oluşturulamadı: {e}")
-        finally:
-            if 'original_compute' in locals():
-                bracket_engine.compute_bracket_state = original_compute
+        # Sadece Yönetici İse PDF Butonunu Göster
+        if st.session_state.admin_mi:
+            pdf_bytes = None
+            try:
+                original_compute = bracket_engine.compute_bracket_state
+                def display_compute(cat_d):
+                    state = original_compute(cat_d)
+                    for m_id, d_ in state.items():
+                        if not d_.get("p1"): d_["p1"] = SRC_MAP.get(f"{m_id}_p1", "Bekleniyor...")
+                        if not d_.get("p2"): d_["p2"] = SRC_MAP.get(f"{m_id}_p2", "Bekleniyor...")
+                    return state
+                    
+                bracket_engine.compute_bracket_state = display_compute
                 if hasattr(bracket_pdf, 'compute_bracket_state'):
-                    bracket_pdf.compute_bracket_state = original_compute
-        
-        if pdf_bytes:
-            st.download_button("📄 Ağacı PDF İndir", data=pdf_bytes, file_name=f"{st.session_state.aktif_yas[:2]}_yas_{active_cat}_fikstur.pdf", mime="application/pdf", key="dl_bracket_pdf")
+                    bracket_pdf.compute_bracket_state = display_compute
+                    
+                pdf_bytes = generate_bracket_pdf(cat_data, active_cat, TurnuvaFPDF, to_pdf_text, FONT_YUKLENDI)
+            except Exception as e:
+                st.caption(f"PDF oluşturulamadı: {e}")
+            finally:
+                if 'original_compute' in locals():
+                    bracket_engine.compute_bracket_state = original_compute
+                    if hasattr(bracket_pdf, 'compute_bracket_state'):
+                        bracket_pdf.compute_bracket_state = original_compute
+            
+            if pdf_bytes:
+                st.download_button("📄 Ağacı PDF İndir", data=pdf_bytes, file_name=f"{st.session_state.aktif_yas[:2]}_yas_{active_cat}_fikstur.pdf", mime="application/pdf", key="dl_bracket_pdf")
 
     st.divider()
 
@@ -532,20 +532,25 @@ with tab_program:
                     st.rerun()
         
     dates_dict = st.session_state.data['publish'].get('dates', {})
-    gun_secenekleri = ["Tüm Günler"]
-    gun_map = {}
+    gun_secenekleri = ["Tüm Program"]
+    gun_map = {"Tüm Program": "Tüm Günler"}
     
+    # Sadece tarih varsa tarihi göster, yoksa sadece günü göster
     for g in ["1. GÜN", "2. GÜN", "3. GÜN", "4. GÜN"]:
         tarih_str = format_date_tr(dates_dict.get(g, ""))
-        label = f"{tarih_str} ({g})" if tarih_str else g
+        label = tarih_str if tarih_str else g
         gun_secenekleri.append(label)
         gun_map[label] = g
 
-    c_f1, c_f2 = st.columns(2)
-    secilen_gun_label = c_f1.selectbox("📅 Gün Seçimi:", gun_secenekleri)
-    secilen_gun = "Tüm Günler" if secilen_gun_label == "Tüm Günler" else gun_map[secilen_gun_label]
+    st.markdown("##### 📅 Hangi günün programını görmek istiyorsunuz?")
+    secilen_gun_label = st.radio("Program Tarihi", gun_secenekleri, horizontal=True, label_visibility="collapsed")
+    secilen_gun = gun_map[secilen_gun_label]
     
-    tablo_filtresi = c_f2.selectbox("📊 Tablo Gösterimi:", ["İkisini de Göster", "Sadece Ana Tablo", "Sadece Teselli"])
+    # Tablo Gösterimi Filtresi (Admin için göster, Misafir için sabit)
+    if st.session_state.admin_mi:
+        tablo_filtresi = st.selectbox("📊 Tablo Gösterimi (Yönetici Filtresi):", ["İkisini de Göster", "Sadece Ana Tablo", "Sadece Teselli"])
+    else:
+        tablo_filtresi = "İkisini de Göster"
 
     pdf_program_data = []
 
@@ -703,21 +708,22 @@ with tab_program:
             save_data()
             st.success("Maç programı başarıyla kaydedildi!")
 
-    if pdf_program_data:
-        st.divider()
-        pdf_prog_df = pd.DataFrame(pdf_program_data)
-        
-        prog_col_widths = [10, 26, 14, 14, 50, 50, 26] 
-        
-        if secilen_gun != "Tüm Günler":
-            gercek_tarih = format_date_tr(st.session_state.data['publish']['dates'].get(secilen_gun, ""))
-            baslik_tarih = gercek_tarih if gercek_tarih else secilen_gun
-            pdf_baslik = f"{st.session_state.aktif_yas} ({active_cat}) - {baslik_tarih} Maç Programı"
-        else:
-            pdf_baslik = f"{st.session_state.aktif_yas} ({active_cat}) Tüm Maçların Programı"
+        # YALNIZCA YÖNETİCİ PDF İNDİREBİLİR
+        if pdf_program_data:
+            st.divider()
+            pdf_prog_df = pd.DataFrame(pdf_program_data)
+            
+            prog_col_widths = [10, 26, 14, 14, 50, 50, 26] 
+            
+            if secilen_gun != "Tüm Günler":
+                gercek_tarih = format_date_tr(st.session_state.data['publish']['dates'].get(secilen_gun, ""))
+                baslik_tarih = gercek_tarih if gercek_tarih else secilen_gun
+                pdf_baslik = f"{st.session_state.aktif_yas} ({active_cat}) - {baslik_tarih} Maç Programı"
+            else:
+                pdf_baslik = f"{st.session_state.aktif_yas} ({active_cat}) Tüm Maçların Programı"
 
-        btn_pdf_prog = generate_pdf(pdf_prog_df, pdf_baslik, col_widths=prog_col_widths)
-        st.download_button("📥 Ekrandaki Maç Programını PDF Olarak İndir", data=btn_pdf_prog, file_name=f"{st.session_state.aktif_yas[:2]}_yas_{active_cat}_program.pdf", mime="application/pdf")
+            btn_pdf_prog = generate_pdf(pdf_prog_df, pdf_baslik, col_widths=prog_col_widths)
+            st.download_button("📥 Ekrandaki Maç Programını PDF Olarak İndir", data=btn_pdf_prog, file_name=f"{st.session_state.aktif_yas[:2]}_yas_{active_cat}_program.pdf", mime="application/pdf")
 
 # ==========================================
 # TAB 3: SIRALAMA
@@ -741,7 +747,8 @@ with tab_siralama:
         c_isim.markdown(f"<div style='font-size:16px; padding:5px;'>{player_name}</div>", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
         
-    if pdf_siralama_data:
+    # YALNIZCA YÖNETİCİ PDF İNDİREBİLİR
+    if st.session_state.admin_mi and pdf_siralama_data:
         st.divider()
         pdf_sir_df = pd.DataFrame(pdf_siralama_data)
         sir_col_widths = [15, 30, 145]
