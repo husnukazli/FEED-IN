@@ -4,18 +4,21 @@ from geometry import compute_main_bracket, compute_consolation_bracket, BOX_W, B
 def _esc(s):
     return _html.escape(str(s)) if s else ""
 
-def _box_svg(x, top, mid, label, match_no, p1, p2, winner, score):
+def _box_svg(x, top, mid, label, match_no, p1, p2, winner, score, p2_kaynak=None):
     p1n = _esc(p1) if p1 else "Bekleniyor..."
-    p2n = _esc(p2) if p2 else "Bekleniyor..."
-    b1 = "font-weight:700;" if (winner and p1 and winner == p1) else "fill:#444;"
-    b2 = "font-weight:700;" if (winner and p2 and winner == p2) else "fill:#444;"
+    if p2:
+        p2n = _esc(p2)
+    else:
+        p2n = _esc(f"Bekleniyor... ({p2_kaynak})") if p2_kaynak else "Bekleniyor..."
+    b1 = "font-weight:700;" if (winner and p1 and winner == p1) else "fill:#333;"
+    b2 = "font-weight:700;" if (winner and p2 and winner == p2) else "fill:#333;"
     title = f'<title>{_esc(score)}</title>' if score else ""
     return f'''
-    <g>{title}<rect x="{x}" y="{top}" width="{BOX_W}" height="{BOX_H}" rx="6" fill="#fff" stroke="#c8c8c8" stroke-width="1"/></g>
-    <text x="{x+12}" y="{top+18}" font-size="11" fill="#999">{label} · M{match_no}</text>
-    <line x1="{x}" y1="{top+24}" x2="{x+BOX_W}" y2="{top+24}" stroke="#eee" stroke-width="1"/>
-    <text x="{x+12}" y="{top+42}" font-size="15" style="{b1}">{p1n}</text>
-    <text x="{x+12}" y="{top+59}" font-size="15" style="{b2}">{p2n}</text>'''
+    <g>{title}<rect x="{x}" y="{top}" width="{BOX_W}" height="{BOX_H}" rx="6" fill="#fff" stroke="#b8b8b8" stroke-width="1.2"/></g>
+    <text x="{x+12}" y="{top+19}" font-size="12" font-weight="600" fill="#777">{label} · M{match_no}</text>
+    <line x1="{x}" y1="{top+25}" x2="{x+BOX_W}" y2="{top+25}" stroke="#e2e2e2" stroke-width="1"/>
+    <text x="{x+12}" y="{top+44}" font-size="16" style="{b1}">{p1n}</text>
+    <text x="{x+12}" y="{top+61}" font-size="16" style="{b2}">{p2n}</text>'''
 
 def _connector(x1, y1, x2, y2, y3, x4):
     """İki üst kutudan (y1,y2) tek bir alt kutuya (x4, y3) giden dirsek çizgisi."""
@@ -70,14 +73,9 @@ def render_consolation_bracket_svg(state):
         parts.append(_connector(X_CF+BOX_W, a["center"], X_CF+BOX_W, b["center"], m["center"], X_YF1))
     for k, m in enumerate(g["t_yf2"]):
         d = state[m["id"]]
-        parts.append(_box_svg(X_YF2, m["top"], m["center"], "T-YF2", k+26, d["p1"], d["p2"], d["winner"], d["score"]))
+        parts.append(_box_svg(X_YF2, m["top"], m["center"], "T-YF2", k+26, d["p1"], d["p2"], d["winner"], d["score"], p2_kaynak=f"M{k+13} Kaybedeni"))
         yf1 = g["t_yf1"][k]
-        # Girdi 1: T-YF1 kazananı (kutunun tam ortasına, 1. oyuncu satırı hizasına)
         parts.append(f'<line x1="{X_YF1+BOX_W}" y1="{yf1["center"]}" x2="{X_YF2}" y2="{m["top"]+BOX_H*0.35}" stroke="#b0b0b0" stroke-width="1.5"/>')
-        # Girdi 2: Yarı Final kaybedeni (dışarıdan gelen, 2. oyuncu satırı hizasına)
-        parts.append(f'<line x1="{X_YF2-24}" y1="{m["top"]-14}" x2="{X_YF2-24}" y2="{m["top"]+BOX_H*0.72}" stroke="#b0b0b0" stroke-width="1.5"/>')
-        parts.append(f'<line x1="{X_YF2-24}" y1="{m["top"]+BOX_H*0.72}" x2="{X_YF2}" y2="{m["top"]+BOX_H*0.72}" stroke="#b0b0b0" stroke-width="1.5"/>')
-        parts.append(f'<text x="{X_YF2-24}" y="{m["top"]-17}" font-size="9" fill="#aaa" text-anchor="middle">YF kaybedeni</text>')
 
     labels = [("FINAL_TESELLI", "3.-4.'LÜK", 28, g["final_teselli"]),
               ("MATCH_5_6", "5.-6.'LIK", 29, g["m56"]),
