@@ -52,7 +52,7 @@ def render_main_bracket_svg(state):
     parts.append(_connector(X_SF+BOX_W, g["sf"][0]["center"], X_SF+BOX_W, g["sf"][1]["center"], g["final"]["center"], X_F))
 
     svg_h = g["height"]
-    return f'<svg viewBox="0 0 760 {svg_h}" width="100%" style="max-width:760px">{"".join(parts)}</svg>'
+    return f'<div style="overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid #eee; border-radius:8px;"><svg viewBox="0 0 760 {svg_h}" width="760" height="{svg_h}">{"".join(parts)}</svg></div>'
 
 def render_consolation_bracket_svg(state):
     main = compute_main_bracket()
@@ -92,4 +92,4 @@ def render_consolation_bracket_svg(state):
     parts.append(_connector(X_YF1+BOX_W, a1["center"], X_YF1+BOX_W, b1["center"], g["m78"]["center"], X_F, xm=X_YF1+BOX_W+15))
 
     svg_h = max(main["height"], g["m78"]["top"] + BOX_H + 20)
-    return f'<svg viewBox="0 0 940 {svg_h}" width="100%" style="max-width:940px">{"".join(parts)}</svg>'
+    return f'<div style="overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid #eee; border-radius:8px;"><svg viewBox="0 0 940 {svg_h}" width="940" height="{svg_h}">{"".join(parts)}</svg></div>'
