@@ -15,7 +15,7 @@ import bracket_pdf
 from bracket_svg import render_main_bracket_svg, render_consolation_bracket_svg
 from bracket_pdf import generate_bracket_pdf
 
-st.set_page_config(layout="wide", page_title="Milli Takım Belirleme Turnuvası", initial_sidebar_state="expanded")
+st.set_page_config(layout="wide", page_title="Milli Takım Belirleme Turnuvaları", initial_sidebar_state="expanded")
 
 # ==============================================================================
 # 1. DOSYA, ŞİFRE, FPDF VE ALGORİTMA YARDIMCI FONKSİYONLARI
@@ -90,21 +90,57 @@ SRC_MAP = {
     "MATCH_7_8_p1": "M24 Kaybedeni", "MATCH_7_8_p2": "M25 Kaybedeni",
 }
 
+# Başlangıç durumu: Hiçbir yaş grubu seçilmedi (Ana Sayfa)
 if 'aktif_yas' not in st.session_state:
-    st.session_state.aktif_yas = "12 Yaş"
+    st.session_state.aktif_yas = "Seçilmedi"
 if "admin_mi" not in st.session_state:
     st.session_state.admin_mi = False
 
-with st.sidebar:
-    st.markdown("### 🏆 Turnuva Seçimi")
-    secilen_yas = st.selectbox("Yaş Grubu:", ["12 Yaş", "14 Yaş", "16 Yaş", "18 Yaş"])
+# ==============================================================================
+# 2. KARŞILAMA EKRANI (ANA SAYFA BUTONLARI)
+# ==============================================================================
+if st.session_state.aktif_yas == "Seçilmedi":
+    st.markdown("<br><h1 style='text-align: center; color: #1f77b4;'>🇹🇷 Milli Takım Belirleme Turnuvaları</h1>", unsafe_allow_html=True)
+    st.markdown("<h4 style='text-align: center; color: #555;'>Lütfen takip etmek istediğiniz yaş grubunu seçiniz</h4><br><br>", unsafe_allow_html=True)
     
-    if secilen_yas != st.session_state.aktif_yas:
-        st.session_state.aktif_yas = secilen_yas
-        st.session_state.admin_mi = False
-        if 'data' in st.session_state:
-            del st.session_state['data']
+    # Masaüstünde yan yana, mobilde alt alta inecek kolon yapısı
+    c1, c2, c3, c4 = st.columns(4)
+    
+    # CSS injection for bigger buttons on the home page
+    st.markdown("""
+    <style>
+    div[data-testid="column"] button {
+        height: 80px;
+        font-size: 20px !important;
+        font-weight: bold;
+        border-radius: 10px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
+    if c1.button("🎾 12 YAŞ", use_container_width=True):
+        st.session_state.aktif_yas = "12 Yaş"
+        st.rerun()
+    if c2.button("🎾 14 YAŞ", use_container_width=True):
+        st.session_state.aktif_yas = "14 Yaş"
+        st.rerun()
+    if c3.button("🎾 16 YAŞ", use_container_width=True):
+        st.session_state.aktif_yas = "16 Yaş"
+        st.rerun()
+    if c4.button("🎾 18 YAŞ", use_container_width=True):
+        st.session_state.aktif_yas = "18 Yaş"
+        st.rerun()
+        
+    with st.sidebar:
+        st.info("👈 Turnuva detaylarını görmek ve hakem girişi yapmak için ekranın ortasındaki yaş grubu butonlarına tıklayınız.")
+        
+    # Ana sayfadaysak, turnuva detay kodlarını çalıştırmadan durdur
+    st.stop()
+
+
+# ==============================================================================
+# 3. VERİ YÜKLEME VE ORTAK FONKSİYONLAR (SEÇİM YAPILDIKTAN SONRA)
+# ==============================================================================
 DB_FILE = f"turnuva_db_{st.session_state.aktif_yas[:2]}.json"
 
 def clean_html_text(text):
@@ -234,9 +270,16 @@ def generate_pdf(df, baslik, col_widths=None):
     return bytes(pdf.output())
 
 # ==============================================================================
-# 2. ŞİFRELİ GİRİŞ / MİSAFİR MODU
+# 4. SOL MENÜ YÖNETİMİ (ANA SAYFA SEÇİMİ SONRASI)
 # ==============================================================================
 with st.sidebar:
+    if st.button("🔙 Ana Sayfaya Dön", use_container_width=True):
+        st.session_state.aktif_yas = "Seçilmedi"
+        st.session_state.admin_mi = False
+        if 'data' in st.session_state:
+            del st.session_state['data']
+        st.rerun()
+        
     st.divider()
     st.markdown("### 👨‍⚖️ Turnuva Yönetimi")
     if not st.session_state.admin_mi:
@@ -265,7 +308,7 @@ with st.sidebar:
 cat_data = st.session_state.data[active_cat]
 
 # ==============================================================================
-# 3. ÖZEL CSS (Mobil Tablo Uyumları Eklenmiştir)
+# 5. ÖZEL CSS (Mobil Tablo Uyumları Eklenmiştir)
 # ==============================================================================
 st.markdown("""
 <style>
@@ -281,7 +324,6 @@ st.markdown("""
 .player-src { font-size: 11px; color: #444; font-weight: bold; font-style: italic; margin-top: -2px; margin-bottom: 2px; }
 .player-separator { border-top: 1px dashed #ccc; margin: 2px 0; }
 
-/* İzleyici Tablosu İçin Gelişmiş Mobil CSS */
 .mobile-table-container {
     width: 100%;
     overflow-x: auto;
@@ -337,7 +379,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# SEKME YÖNETİMİ
+# 6. SEKME YÖNETİMİ
 # ==========================================
 st.title(f"🎾 {st.session_state.aktif_yas} Milli Takım Belirleme Turnuvası")
 tab_fikstur, tab_program, tab_siralama, tab_dosya = st.tabs(["🏆 Fikstürler", "📅 Maç Programı", "🇹🇷 Sıralama", "⚙️ Veri Yönetimi"])
@@ -566,7 +608,6 @@ with tab_program:
             bracket_score = cat_d['scores'].get(m_id, "")
             data = cat_d['schedule_data'].get(m_id, {"saat": "", "kort": ""}) 
             
-            # Boş değerlerin tablolarda görünmez olmasını engellemek için güvenli atamalar
             g_saat = data.get("saat", "")
             g_kort = data.get("kort", "")
             saat_val = g_saat if g_saat else "-"
@@ -626,7 +667,6 @@ with tab_program:
                 if new_skor != bracket_score:
                     cat_d['scores'][m_id] = clean_html_text(new_skor)
             else:
-                # Boş style etiketleri (style='') yerine koşullu ekleme yapılıyor
                 tr_style = f" style='{bg_color_only}'" if bg_color_only else ""
                 html_rows += f"""
                 <tr{tr_style}>
