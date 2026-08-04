@@ -96,12 +96,14 @@ if "admin_mi" not in st.session_state:
     st.session_state.admin_mi = False
 if "active_cat" not in st.session_state:
     st.session_state.active_cat = "Erkekler"
+if "secilen_gun_tab2" not in st.session_state:
+    st.session_state.secilen_gun_tab2 = "Tüm Günler"
 
 # ==============================================================================
 # 2. KARŞILAMA EKRANI (ANA SAYFA BUTONLARI)
 # ==============================================================================
 if st.session_state.aktif_yas == "Seçilmedi":
-    st.markdown("<br><h1 style='text-align: center; color: #1f77b4;'>🇹🇷 Milli Takım Belirleme Turnuvası</h1>", unsafe_allow_html=True)
+    st.markdown("<br><h1 style='text-align: center; color: #1f77b4;'>🇹🇷 Milli Takım Belirleme Turnuvaları</h1>", unsafe_allow_html=True)
     st.markdown("<h4 style='text-align: center; color: #555;'>Lütfen takip etmek istediğiniz yaş grubunu seçiniz</h4><br><br>", unsafe_allow_html=True)
     
     c1, c2, c3, c4 = st.columns(4)
@@ -509,48 +511,99 @@ with tab_fikstur:
 with tab_program:
     st.subheader("📅 Ortak Maç Programı")
     
+    # ---------------------------------------------------------
+    # SADECE YÖNETİCİ: Tarih Belirleme ve "Yayınla" Kutucukları
+    # ---------------------------------------------------------
     if st.session_state.admin_mi:
         with st.expander("⚙️ Günlerin Gerçek Tarihlerini Belirle", expanded=False):
             with st.form("tarih_form"):
-                d_cols = st.columns(4)
                 gun_isimleri = ["1. GÜN", "2. GÜN", "3. GÜN", "4. GÜN"]
                 yeni_tarihler = {}
+                yeni_aktiflik = {}
                 
-                for i, d_name in enumerate(gun_isimleri):
-                    mevcut_tarih_str = st.session_state.data['publish']['dates'].get(d_name, "")
+                for d_name in gun_isimleri:
+                    c1, c2 = st.columns([1, 3])
+                    
+                    eski = st.session_state.data['publish']['dates'].get(d_name, {})
+                    eski_aktif = False
+                    eski_tarih_str = ""
+                    
+                    if isinstance(eski, str):
+                        eski_aktif = bool(eski)
+                        eski_tarih_str = eski
+                    else:
+                        eski_aktif = eski.get("aktif", False)
+                        eski_tarih_str = eski.get("tarih", "")
+                    
                     try:
-                        mevcut_tarih = datetime.datetime.strptime(mevcut_tarih_str, "%Y-%m-%d").date()
+                        eski_tarih = datetime.datetime.strptime(eski_tarih_str, "%Y-%m-%d").date()
                     except:
-                        mevcut_tarih = datetime.date.today() + datetime.timedelta(days=i)
-                    yeni_tarihler[d_name] = d_cols[i].date_input(d_name, value=mevcut_tarih)
+                        eski_tarih = datetime.date.today()
+                        
+                    yeni_aktiflik[d_name] = c1.checkbox(f"{d_name} Yayınla", value=eski_aktif)
+                    yeni_tarihler[d_name] = c2.date_input(f"{d_name} Tarihi", value=eski_tarih, label_visibility="collapsed")
                 
                 if st.form_submit_button("💾 Tarihleri Kaydet"):
                     for d_name in gun_isimleri:
-                        st.session_state.data['publish']['dates'][d_name] = str(yeni_tarihler[d_name])
+                        st.session_state.data['publish']['dates'][d_name] = {
+                            "aktif": yeni_aktiflik[d_name],
+                            "tarih": str(yeni_tarihler[d_name])
+                        }
                     save_data()
                     st.success("Tarihler başarıyla kaydedildi!")
                     st.rerun()
-        
-    dates_dict = st.session_state.data['publish'].get('dates', {})
-    gun_secenekleri = ["Tüm Program"]
-    gun_map = {"Tüm Program": "Tüm Günler"}
-    
-    # Sadece tarih varsa tarihi göster, yoksa sadece günü göster
-    for g in ["1. GÜN", "2. GÜN", "3. GÜN", "4. GÜN"]:
-        tarih_str = format_date_tr(dates_dict.get(g, ""))
-        label = tarih_str if tarih_str else g
-        gun_secenekleri.append(label)
-        gun_map[label] = g
-
-    st.markdown("##### 📅 Hangi günün programını görmek istiyorsunuz?")
-    secilen_gun_label = st.radio("Program Tarihi", gun_secenekleri, horizontal=True, label_visibility="collapsed")
-    secilen_gun = gun_map[secilen_gun_label]
-    
-    # Tablo Gösterimi Filtresi (Admin için göster, Misafir için sabit)
-    if st.session_state.admin_mi:
+                    
         tablo_filtresi = st.selectbox("📊 Tablo Gösterimi (Yönetici Filtresi):", ["İkisini de Göster", "Sadece Ana Tablo", "Sadece Teselli"])
     else:
         tablo_filtresi = "İkisini de Göster"
+        
+    # ---------------------------------------------------------
+    # AKILLI TARİH BUTONLARI (Misafir ve Yönetici Gösterimi)
+    # ---------------------------------------------------------
+    dates_dict = st.session_state.data['publish'].get('dates', {})
+    gosterilecek_gunler = []
+    
+    for g in ["1. GÜN", "2. GÜN", "3. GÜN", "4. GÜN"]:
+        g_data = dates_dict.get(g, {})
+        aktif = False
+        g_date = ""
+        
+        if isinstance(g_data, str):
+            aktif = bool(g_data)
+            g_date = g_data
+        else:
+            aktif = g_data.get("aktif", False)
+            g_date = g_data.get("tarih", "")
+            
+        # Yönetici her günü görür, misafir sadece "Yayınlananları"
+        if st.session_state.admin_mi or aktif:
+            tarih_str = format_date_tr(g_date)
+            if st.session_state.admin_mi:
+                label = f"{g} ({tarih_str})" if tarih_str else f"{g} (Tarih Yok)"
+            else:
+                # Misafir sadece net tarihi görür
+                label = tarih_str if tarih_str else g
+            gosterilecek_gunler.append({"key": g, "label": label})
+
+    if not st.session_state.admin_mi:
+        st.markdown("##### 📅 Hangi günün programını görmek istiyorsunuz?")
+    
+    cols = st.columns(len(gosterilecek_gunler) + 1)
+    
+    b_type = "primary" if st.session_state.secilen_gun_tab2 == "Tüm Günler" else "secondary"
+    if cols[0].button("Tüm Program", use_container_width=True, type=b_type):
+        st.session_state.secilen_gun_tab2 = "Tüm Günler"
+        st.rerun()
+        
+    for i, g_info in enumerate(gosterilecek_gunler):
+        k = g_info["key"]
+        l = g_info["label"]
+        bt = "primary" if st.session_state.secilen_gun_tab2 == k else "secondary"
+        if cols[i+1].button(l, use_container_width=True, type=bt):
+            st.session_state.secilen_gun_tab2 = k
+            st.rerun()
+            
+    secilen_gun = st.session_state.secilen_gun_tab2
 
     pdf_program_data = []
 
@@ -568,7 +621,12 @@ with tab_program:
         if not filtered_matches: return
 
         dates_dict_local = st.session_state.data['publish'].get('dates', {})
-        gercek_tarih_str = format_date_tr(dates_dict_local.get(day_name))
+        d_info = dates_dict_local.get(day_name, {})
+        gercek_tarih_str = ""
+        if isinstance(d_info, str):
+            gercek_tarih_str = format_date_tr(d_info)
+        else:
+            gercek_tarih_str = format_date_tr(d_info.get("tarih", ""))
         
         pdf_kategori = "E" if cat_name == "Erkekler" else "K"
         baslik_gun = f"{gercek_tarih_str} ({day_name})" if gercek_tarih_str else day_name
@@ -716,7 +774,13 @@ with tab_program:
             prog_col_widths = [10, 26, 14, 14, 50, 50, 26] 
             
             if secilen_gun != "Tüm Günler":
-                gercek_tarih = format_date_tr(st.session_state.data['publish']['dates'].get(secilen_gun, ""))
+                gercek_tarih = ""
+                d_info = st.session_state.data['publish']['dates'].get(secilen_gun, {})
+                if isinstance(d_info, str):
+                    gercek_tarih = format_date_tr(d_info)
+                else:
+                    gercek_tarih = format_date_tr(d_info.get("tarih", ""))
+                    
                 baslik_tarih = gercek_tarih if gercek_tarih else secilen_gun
                 pdf_baslik = f"{st.session_state.aktif_yas} ({active_cat}) - {baslik_tarih} Maç Programı"
             else:
