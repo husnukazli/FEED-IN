@@ -90,7 +90,6 @@ SRC_MAP = {
     "MATCH_7_8_p1": "M24 Kaybedeni", "MATCH_7_8_p2": "M25 Kaybedeni",
 }
 
-# Başlangıç durumu: Hiçbir yaş grubu seçilmedi (Ana Sayfa)
 if 'aktif_yas' not in st.session_state:
     st.session_state.aktif_yas = "Seçilmedi"
 if "admin_mi" not in st.session_state:
@@ -103,10 +102,8 @@ if st.session_state.aktif_yas == "Seçilmedi":
     st.markdown("<br><h1 style='text-align: center; color: #1f77b4;'>🇹🇷 Milli Takım Belirleme Turnuvaları</h1>", unsafe_allow_html=True)
     st.markdown("<h4 style='text-align: center; color: #555;'>Lütfen takip etmek istediğiniz yaş grubunu seçiniz</h4><br><br>", unsafe_allow_html=True)
     
-    # Masaüstünde yan yana, mobilde alt alta inecek kolon yapısı
     c1, c2, c3, c4 = st.columns(4)
     
-    # CSS injection for bigger buttons on the home page
     st.markdown("""
     <style>
     div[data-testid="column"] button {
@@ -134,12 +131,11 @@ if st.session_state.aktif_yas == "Seçilmedi":
     with st.sidebar:
         st.info("👈 Turnuva detaylarını görmek ve hakem girişi yapmak için ekranın ortasındaki yaş grubu butonlarına tıklayınız.")
         
-    # Ana sayfadaysak, turnuva detay kodlarını çalıştırmadan durdur
     st.stop()
 
 
 # ==============================================================================
-# 3. VERİ YÜKLEME VE ORTAK FONKSİYONLAR (SEÇİM YAPILDIKTAN SONRA)
+# 3. VERİ YÜKLEME VE ORTAK FONKSİYONLAR
 # ==============================================================================
 DB_FILE = f"turnuva_db_{st.session_state.aktif_yas[:2]}.json"
 
@@ -270,7 +266,7 @@ def generate_pdf(df, baslik, col_widths=None):
     return bytes(pdf.output())
 
 # ==============================================================================
-# 4. SOL MENÜ YÖNETİMİ (ANA SAYFA SEÇİMİ SONRASI)
+# 4. SOL MENÜ YÖNETİMİ
 # ==============================================================================
 with st.sidebar:
     if st.button("🔙 Ana Sayfaya Dön", use_container_width=True):
@@ -308,7 +304,7 @@ with st.sidebar:
 cat_data = st.session_state.data[active_cat]
 
 # ==============================================================================
-# 5. ÖZEL CSS (Mobil Tablo Uyumları Eklenmiştir)
+# 5. ÖZEL CSS
 # ==============================================================================
 st.markdown("""
 <style>
@@ -667,38 +663,28 @@ with tab_program:
                 if new_skor != bracket_score:
                     cat_d['scores'][m_id] = clean_html_text(new_skor)
             else:
+                # Kod bloğuna dönüşmemesi için baştaki tüm boşluklar (girintiler) temizlendi
                 tr_style = f" style='{bg_color_only}'" if bg_color_only else ""
-                html_rows += f"""
-                <tr{tr_style}>
-                    <td><b>{label}</b></td>
-                    <td>{ui_p1}</td>
-                    <td>{ui_p2}</td>
-                    <td>{saat_val}</td>
-                    <td>{kort_val}</td>
-                    <td>{skor_val}</td>
-                </tr>
-                """
+                html_rows += f"<tr{tr_style}><td><b>{label}</b></td><td>{ui_p1}</td><td>{ui_p2}</td><td>{saat_val}</td><td>{kort_val}</td><td>{skor_val}</td></tr>"
 
         if not st.session_state.admin_mi and html_rows:
-            html_table = f"""
-            <div class="mobile-table-container">
-                <table class="mobile-table">
-                    <thead>
-                        <tr>
-                            <th style="width:18%;">Maç Türü</th>
-                            <th style="width:23%;">Oyuncu 1</th>
-                            <th style="width:23%;">Oyuncu 2</th>
-                            <th style="width:10%;">Saat</th>
-                            <th style="width:10%;">Kort</th>
-                            <th style="width:16%;">Skor</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {html_rows}
-                    </tbody>
-                </table>
-            </div>
-            """
+            html_table = f"""<div class="mobile-table-container">
+<table class="mobile-table">
+<thead>
+<tr>
+<th style="width:18%;">Maç Türü</th>
+<th style="width:23%;">Oyuncu 1</th>
+<th style="width:23%;">Oyuncu 2</th>
+<th style="width:10%;">Saat</th>
+<th style="width:10%;">Kort</th>
+<th style="width:16%;">Skor</th>
+</tr>
+</thead>
+<tbody>
+{html_rows}
+</tbody>
+</table>
+</div>"""
             st.markdown(html_table, unsafe_allow_html=True)
 
     g_maclar = {
