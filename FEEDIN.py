@@ -22,7 +22,6 @@ st.set_page_config(layout="wide", page_title="Milli Takım Belirleme Turnuvası"
 # ==============================================================================
 FONT_YUKLENDI = os.path.exists("arial.ttf")
 
-# Kalın fontun olası isimlendirme farklılıklarını tarayarak bulalım
 BOLD_FONT_FILE = None
 for fname in ["arialbd.ttf", "ArialBD.ttf", "ARIALBD.TTF", "arial bd.ttf", "Arial BD.ttf"]:
     if os.path.exists(fname):
@@ -31,7 +30,6 @@ for fname in ["arialbd.ttf", "ArialBD.ttf", "ARIALBD.TTF", "arial bd.ttf", "Aria
 
 FONT_BOLD_YUKLENDI = BOLD_FONT_FILE is not None
 
-# AKILLI FPDF SINIFI: Tüm PDF çağrılarını zorla Arial Unicode'a (Türkçe) çevirir
 class TurnuvaFPDF(FPDF):
     def set_font(self, family=None, style='', size=0):
         if not hasattr(self, '_fonts_injected'):
@@ -72,28 +70,21 @@ SRC_MAP = {
     "MQF_1_p1": "M3 Kazananı", "MQF_1_p2": "M4 Kazananı",
     "MQF_2_p1": "M5 Kazananı", "MQF_2_p2": "M6 Kazananı",
     "MQF_3_p1": "M7 Kazananı", "MQF_3_p2": "M8 Kazananı",
-    
     "MSF_0_p1": "M9 Kazananı", "MSF_0_p2": "M10 Kazananı",
     "MSF_1_p1": "M11 Kazananı", "MSF_1_p2": "M12 Kazananı",
-    
     "FINAL_MAIN_p1": "M13 Kazananı", "FINAL_MAIN_p2": "M14 Kazananı",
-    
     "CR1_0_p1": "M1 Kaybedeni", "CR1_0_p2": "M2 Kaybedeni",
     "CR1_1_p1": "M3 Kaybedeni", "CR1_1_p2": "M4 Kaybedeni",
     "CR1_2_p1": "M5 Kaybedeni", "CR1_2_p2": "M6 Kaybedeni",
     "CR1_3_p1": "M7 Kaybedeni", "CR1_3_p2": "M8 Kaybedeni",
-    
     "CR2_0_p1": "M16 Kazananı", "CR2_0_p2": "M12 Kaybedeni",
     "CR2_1_p1": "M17 Kazananı", "CR2_1_p2": "M11 Kaybedeni",
     "CR2_2_p1": "M18 Kazananı", "CR2_2_p2": "M10 Kaybedeni",
     "CR2_3_p1": "M19 Kazananı", "CR2_3_p2": "M9 Kaybedeni",
-    
     "CR3_0_p1": "M20 Kazananı", "CR3_0_p2": "M21 Kazananı",
     "CR3_1_p1": "M22 Kazananı", "CR3_1_p2": "M23 Kazananı",
-    
     "CR4_0_p1": "M24 Kazananı", "CR4_0_p2": "M13 Kaybedeni",
     "CR4_1_p1": "M25 Kazananı", "CR4_1_p2": "M14 Kaybedeni",
-    
     "FINAL_TESELLI_p1": "M26 Kazananı", "FINAL_TESELLI_p2": "M27 Kazananı",
     "MATCH_5_6_p1": "M26 Kaybedeni", "MATCH_5_6_p2": "M27 Kaybedeni",
     "MATCH_7_8_p1": "M24 Kaybedeni", "MATCH_7_8_p2": "M25 Kaybedeni",
@@ -104,7 +95,6 @@ if 'aktif_yas' not in st.session_state:
 if "admin_mi" not in st.session_state:
     st.session_state.admin_mi = False
 
-# Sol menü
 with st.sidebar:
     st.markdown("### 🏆 Turnuva Seçimi")
     secilen_yas = st.selectbox("Yaş Grubu:", ["12 Yaş", "14 Yaş", "16 Yaş", "18 Yaş"])
@@ -275,7 +265,7 @@ with st.sidebar:
 cat_data = st.session_state.data[active_cat]
 
 # ==============================================================================
-# 3. ÖZEL CSS
+# 3. ÖZEL CSS (Mobil Tablo Uyumları Eklenmiştir)
 # ==============================================================================
 st.markdown("""
 <style>
@@ -290,7 +280,41 @@ st.markdown("""
 .player-name { font-size: 13px; font-weight: 500; color: #333; padding: 2px 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;}
 .player-src { font-size: 11px; color: #444; font-weight: bold; font-style: italic; margin-top: -2px; margin-bottom: 2px; }
 .player-separator { border-top: 1px dashed #ccc; margin: 2px 0; }
-.print-only-score { display: none; font-size: 10px; font-weight: bold; text-align: center; color: #1f77b4; margin-top: 3px; border-top: 1px dashed #bbb; padding-top: 3px; }
+
+/* İzleyici Tablosu İçin Gelişmiş Mobil CSS */
+.mobile-table-container {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 20px;
+    border-radius: 6px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    border: 1px solid #ddd;
+}
+.mobile-table {
+    width: 100%;
+    min-width: 650px;
+    border-collapse: collapse;
+    font-family: inherit;
+    font-size: 14px;
+    background-color: #fff;
+}
+.mobile-table th {
+    background-color: #f0f2f6;
+    color: #31333F;
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid #ddd;
+}
+.mobile-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    vertical-align: middle;
+}
+.mobile-table tr:last-child td {
+    border-bottom: none;
+}
 
 @media print {
     html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"], [data-testid="stMainView"], section {
@@ -308,7 +332,6 @@ st.markdown("""
     .match-wrapper { page-break-inside: avoid; }
     .match-card { border: 1px solid #000; background-color: #eee !important; margin-bottom: 2px !important; }
     .page-break { page-break-before: always !important; display: block !important; margin-top: 20px !important;} 
-    .print-only-score { display: block !important; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -470,7 +493,6 @@ with tab_program:
                     st.success("Tarihler başarıyla kaydedildi!")
                     st.rerun()
         
-    # Veli ve Oyuncular için Akıllı "Gün Seçimi" (Tarihleri de gösterir)
     dates_dict = st.session_state.data['publish'].get('dates', {})
     gun_secenekleri = ["Tüm Günler"]
     gun_map = {}
@@ -510,11 +532,15 @@ with tab_program:
         baslik_gun = f"{gercek_tarih_str} ({day_name})" if gercek_tarih_str else day_name
         
         st.markdown(f"<h5 style='color:#1f77b4; margin-top:10px;'>🎾 {cat_name} - {baslik_gun}</h5>", unsafe_allow_html=True)
-        h1, h2, h3, h4, h5, h6 = st.columns([1.5, 2, 2, 1, 1, 1])
-        h1.markdown("**Maç Türü**"); h2.markdown("**Oyuncu 1**"); h3.markdown("**Oyuncu 2**"); h4.markdown("**Saat**"); h5.markdown("**Kort**"); h6.markdown("**Skor**")
-        st.markdown("<div style='margin-top:-10px; margin-bottom:10px; border-bottom:1px solid #ddd;'></div>", unsafe_allow_html=True)
         
         day_key_safe = day_name.replace(" ", "_").replace(".", "")
+        html_rows = ""
+
+        # Sadece Yönetici İse Sütun Başlıklarını Çiz
+        if st.session_state.admin_mi:
+            h1, h2, h3, h4, h5, h6 = st.columns([1.5, 2, 2, 1, 1, 1])
+            h1.markdown("**Maç Türü**"); h2.markdown("**Oyuncu 1**"); h3.markdown("**Oyuncu 2**"); h4.markdown("**Saat**"); h5.markdown("**Kort**"); h6.markdown("**Skor**")
+            st.markdown("<div style='margin-top:-10px; margin-bottom:10px; border-bottom:1px solid #ddd;'></div>", unsafe_allow_html=True)
 
         for m_id, label in filtered_matches:
             match_data = b_state.get(m_id, {})
@@ -544,13 +570,13 @@ with tab_program:
             pdf_tur = label.replace("Ana Tablo", "AT").replace("T-", "FC ")
             pdf_tur = pdf_tur.replace("3.-4.'lük Maçı", "FC 3-4").replace("5.-6.'lık Maçı", "FC 5-6").replace("7.-8.'lik Maçı", "FC 7-8")
 
-            # Tarih/Gün Sütunu Çıkarıldı. Yeni ve Ferah Sütun Dağılımı.
             pdf_program_data.append({
                 "Kat.": pdf_kategori, "Tur": pdf_tur, "Saat": data.get("saat", "-"), "Kort": data.get("kort", "-"),
                 "Oyuncu 1": pdf_p1, "Oyuncu 2": pdf_p2, "Skor": bracket_score if bracket_score else "-"
             })
 
             bg_style = ""
+            bg_color_only = ""
             if m_id.startswith("MQF_") or m_id.startswith("CR1_"):
                 try:
                     mac_index = int(m_id.split("_")[1])
@@ -559,35 +585,32 @@ with tab_program:
                     bg_renk = renkler.get(color_idx, "")
                     if bg_renk:
                         bg_style = f"background-color: {bg_renk}; color: #000; padding: 4px; border-radius: 4px; margin-bottom: 2px;"
+                        bg_color_only = f"background-color: {bg_renk}; color: #000;"
                 except:
                     pass
             elif m_id.startswith("MSF_") or m_id.startswith("CR3_"):
                 try:
                     mac_index = int(m_id.split("_")[1])
-                    color_idx = mac_index
                     renkler = {0: "#d0ebff", 1: "#d3f9d8"}
-                    bg_renk = renkler.get(color_idx, "")
+                    bg_renk = renkler.get(mac_index, "")
                     if bg_renk:
                         bg_style = f"background-color: {bg_renk}; color: #000; padding: 4px; border-radius: 4px; margin-bottom: 2px;"
+                        bg_color_only = f"background-color: {bg_renk}; color: #000;"
                 except:
                     pass
 
-            c1, c2, c3, c4, c5, c6 = st.columns([1.5, 2, 2, 1, 1, 1])
-            
-            if bg_style:
-                c1.markdown(f"<div style='{bg_style}'><b>{label}</b></div>", unsafe_allow_html=True)
-                c2.markdown(f"<div style='{bg_style}'>{ui_p1}</div>", unsafe_allow_html=True)
-                c3.markdown(f"<div style='{bg_style}'>{ui_p2}</div>", unsafe_allow_html=True)
-            else:
-                c1.markdown(label, unsafe_allow_html=True)
-                c2.markdown(ui_p1, unsafe_allow_html=True)
-                c3.markdown(ui_p2, unsafe_allow_html=True)
-            
-            if not st.session_state.admin_mi:
-                c4.write(data.get("saat", "-"))
-                c5.write(data.get("kort", "-"))
-                c6.write(clean_html_text(bracket_score) if bracket_score else "-")
-            else:
+            if st.session_state.admin_mi:
+                c1, c2, c3, c4, c5, c6 = st.columns([1.5, 2, 2, 1, 1, 1])
+                
+                if bg_style:
+                    c1.markdown(f"<div style='{bg_style}'><b>{label}</b></div>", unsafe_allow_html=True)
+                    c2.markdown(f"<div style='{bg_style}'>{ui_p1}</div>", unsafe_allow_html=True)
+                    c3.markdown(f"<div style='{bg_style}'>{ui_p2}</div>", unsafe_allow_html=True)
+                else:
+                    c1.markdown(label, unsafe_allow_html=True)
+                    c2.markdown(ui_p1, unsafe_allow_html=True)
+                    c3.markdown(ui_p2, unsafe_allow_html=True)
+                
                 new_saat = c4.text_input("Saat", value=data.get("saat", ""), key=f"t_{cat_name}_{m_id}_{day_key_safe}", label_visibility="collapsed")
                 new_kort = c5.text_input("Kort", value=data.get("kort", ""), key=f"c_{cat_name}_{m_id}_{day_key_safe}", label_visibility="collapsed")
                 new_skor = c6.text_input("Skor", value=bracket_score, key=f"s_{cat_name}_{m_id}_{day_key_safe}", label_visibility="collapsed")
@@ -596,6 +619,40 @@ with tab_program:
                     cat_d['schedule_data'][m_id] = {"saat": new_saat, "kort": new_kort}
                 if new_skor != bracket_score:
                     cat_d['scores'][m_id] = clean_html_text(new_skor)
+            else:
+                html_rows += f"""
+                <tr style='{bg_color_only}'>
+                    <td><b>{label}</b></td>
+                    <td>{ui_p1}</td>
+                    <td>{ui_p2}</td>
+                    <td>{data.get("saat", "-")}</td>
+                    <td>{data.get("kort", "-")}</td>
+                    <td>{bracket_score if bracket_score else "-"}</td>
+                </tr>
+                """
+
+        # İzleyici Modu İçin Satır/Sütun Sabitleyici HTML Tablo
+        if not st.session_state.admin_mi and html_rows:
+            html_table = f"""
+            <div class="mobile-table-container">
+                <table class="mobile-table">
+                    <thead>
+                        <tr>
+                            <th style="width:18%;">Maç Türü</th>
+                            <th style="width:23%;">Oyuncu 1</th>
+                            <th style="width:23%;">Oyuncu 2</th>
+                            <th style="width:10%;">Saat</th>
+                            <th style="width:10%;">Kort</th>
+                            <th style="width:16%;">Skor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {html_rows}
+                    </tbody>
+                </table>
+            </div>
+            """
+            st.markdown(html_table, unsafe_allow_html=True)
 
     g_maclar = {
         "1. GÜN": [(f"MR1_{i}", f"Ana Tablo R1 (M{i+1})") for i in range(8)],
@@ -621,10 +678,8 @@ with tab_program:
         st.divider()
         pdf_prog_df = pd.DataFrame(pdf_program_data)
         
-        # Sütun Genişlikleri Yeniden Dağıtıldı (Tarih sütunu kaldırıldı, Toplam 190)
         prog_col_widths = [10, 26, 14, 14, 50, 50, 26] 
         
-        # PDF Başlığına Gerçek Tarih Ekleme
         if secilen_gun != "Tüm Günler":
             gercek_tarih = format_date_tr(st.session_state.data['publish']['dates'].get(secilen_gun, ""))
             baslik_tarih = gercek_tarih if gercek_tarih else secilen_gun
