@@ -1,44 +1,35 @@
 from geometry import compute_main_bracket, compute_consolation_bracket, BOX_W, BOX_H
 
-
 def _set_font(pdf, font_family, bold, size):
     pdf.set_font(font_family, 'B' if bold else "", size)
-
 
 def _draw_box(pdf, scale, ox, oy, x, top, label, match_no, p1, p2, winner, to_pdf_text, font_family):
     bx, by = ox + x * scale, oy + top * scale
     bw, bh = BOX_W * scale, BOX_H * scale
     
-    # Kutunun zeminini BEYAZ doldur ('DF' komutu), böylece arkadan geçen çizgiler görünmez
     pdf.set_fill_color(255, 255, 255)
     pdf.set_draw_color(160, 160, 160)
     pdf.rect(bx, by, bw, bh, 'DF')
 
-    # MAÇ NO VE ETİKET
     _set_font(pdf, font_family, True, 8)  
     pdf.set_xy(bx + 1.5, by + 1.5)
     pdf.set_text_color(50, 50, 50)  
     pdf.cell(bw - 3, 4, to_pdf_text(f"{label} - M{match_no}"), ln=0)
     
-    # OYUNCU İSİMLERİ 
     pdf.set_text_color(0, 0, 0)
     name1 = to_pdf_text(p1) if p1 else to_pdf_text("Bekleniyor...")
     name2 = to_pdf_text(p2) if p2 else to_pdf_text("Bekleniyor...")
     
-    # P1
     _set_font(pdf, font_family, bool(winner and p1 and winner == p1), 9) 
     pdf.set_xy(bx + 1.5, by + bh * 0.40)
     pdf.cell(bw - 3, 5, name1, ln=0)
     
-    # P2
     _set_font(pdf, font_family, bool(winner and p2 and winner == p2), 9) 
     pdf.set_xy(bx + 1.5, by + bh * 0.68)
     pdf.cell(bw - 3, 5, name2, ln=0)
 
-
 def _draw_connector(pdf, scale, ox, oy, x1, y1, y2, y3, x4, xm=None):
     pdf.set_draw_color(176, 176, 176)
-    # Eğer özel bir dönüş noktası (xm) verilmediyse tam ortadan dön
     if xm is None:
         xm = (x1 + x4) / 2
         
@@ -48,7 +39,6 @@ def _draw_connector(pdf, scale, ox, oy, x1, y1, y2, y3, x4, xm=None):
     pdf.line(*d, *c)
     pdf.line(*b, *c)
     pdf.line(*e, *f)
-
 
 def draw_bracket_page(pdf, state, section, cat_name, to_pdf_text, font_family, page_w=297, page_h=210):
     main = compute_main_bracket()
@@ -67,19 +57,19 @@ def draw_bracket_page(pdf, state, section, cat_name, to_pdf_text, font_family, p
 
         for i, m in enumerate(main["r1"]):
             d = state[m["id"]]
-            _draw_box(pdf, scale, ox, oy, X_R1, m["top"], "R1", i + 1, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family)
+            _draw_box(pdf, scale, ox, oy, X_R1, m["top"], "AT-R1", i + 1, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family)
         for j, m in enumerate(main["qf"]):
             d = state[m["id"]]
-            _draw_box(pdf, scale, ox, oy, X_QF, m["top"], "ÇF", j + 9, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family)
+            _draw_box(pdf, scale, ox, oy, X_QF, m["top"], "AT-ÇF", j + 9, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family)
             a, b = main["r1"][2*j], main["r1"][2*j+1]
             _draw_connector(pdf, scale, ox, oy, X_R1+BOX_W, a["center"], b["center"], m["center"], X_QF)
         for k, m in enumerate(main["sf"]):
             d = state[m["id"]]
-            _draw_box(pdf, scale, ox, oy, X_SF, m["top"], "YF", k + 13, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family)
+            _draw_box(pdf, scale, ox, oy, X_SF, m["top"], "AT-YF", k + 13, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family)
             a, b = main["qf"][2*k], main["qf"][2*k+1]
             _draw_connector(pdf, scale, ox, oy, X_QF+BOX_W, a["center"], b["center"], m["center"], X_SF)
         d = state["FINAL_MAIN"]
-        _draw_box(pdf, scale, ox, oy, X_F, main["final"]["top"], "FİNAL", 15, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family)
+        _draw_box(pdf, scale, ox, oy, X_F, main["final"]["top"], "AT-FİNAL", 15, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family)
         _draw_connector(pdf, scale, ox, oy, X_SF+BOX_W, main["sf"][0]["center"], main["sf"][1]["center"], main["final"]["center"], X_F)
 
     else:
@@ -91,39 +81,36 @@ def draw_bracket_page(pdf, state, section, cat_name, to_pdf_text, font_family, p
 
         for j, m in enumerate(g["t_r1"]):
             d = state[m["id"]]
-            _draw_box(pdf, scale, ox, oy, X_R1, m["top"], "T-R1", j + 16, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family)
+            _draw_box(pdf, scale, ox, oy, X_R1, m["top"], "FC-R1", j + 16, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family)
         for i, m in enumerate(g["t_cf"]):
             d = state[m["id"]]
-            _draw_box(pdf, scale, ox, oy, X_CF, m["top"], "T-ÇF", i + 20, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family)
+            _draw_box(pdf, scale, ox, oy, X_CF, m["top"], "FC-ÇF", i + 20, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family)
             r1 = g["t_r1"][i]
             pdf.set_draw_color(176, 176, 176)
             pdf.line(ox+(X_R1+BOX_W)*scale, oy+r1["center"]*scale, ox+X_CF*scale, oy+m["center"]*scale)
         for k, m in enumerate(g["t_yf1"]):
             d = state[m["id"]]
-            _draw_box(pdf, scale, ox, oy, X_YF1, m["top"], "T-YF1", k + 24, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family)
+            _draw_box(pdf, scale, ox, oy, X_YF1, m["top"], "FC-YF1", k + 24, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family)
             a, b = g["t_cf"][2*k], g["t_cf"][2*k+1]
             _draw_connector(pdf, scale, ox, oy, X_CF+BOX_W, a["center"], b["center"], m["center"], X_YF1)
         for k, m in enumerate(g["t_yf2"]):
             d = state[m["id"]]
-            _draw_box(pdf, scale, ox, oy, X_YF2, m["top"], "T-YF2", k + 26, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family)
+            _draw_box(pdf, scale, ox, oy, X_YF2, m["top"], "FC-YF2", k + 26, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family)
             yf1 = g["t_yf1"][k]
             pdf.set_draw_color(176, 176, 176)
             pdf.line(ox+(X_YF1+BOX_W)*scale, oy+yf1["center"]*scale, ox+X_YF2*scale, oy+m["center"]*scale)
 
-        for mid, lbl, no, m in [("FINAL_TESELLI", "3.-4.'LÜK", 28, g["final_teselli"]),
-                                  ("MATCH_5_6", "5.-6.'LIK", 29, g["m56"]),
-                                  ("MATCH_7_8", "7.-8.'LİK", 30, g["m78"])]:
+        for mid, lbl, no, m in [("FINAL_TESELLI", "FC-3/4", 28, g["final_teselli"]),
+                                  ("MATCH_5_6", "FC-5/6", 29, g["m56"]),
+                                  ("MATCH_7_8", "FC-7/8", 30, g["m78"])]:
             d = state[mid]
             _draw_box(pdf, scale, ox, oy, X_F, m["top"], lbl, no, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family)
 
         a, b = g["t_yf2"][0], g["t_yf2"][1]
         _draw_connector(pdf, scale, ox, oy, X_YF2+BOX_W, a["center"], b["center"], g["final_teselli"]["center"], X_F)
         _draw_connector(pdf, scale, ox, oy, X_YF2+BOX_W, a["center"], b["center"], g["m56"]["center"], X_F)
-        
-        # M30 (7.-8.'lik) maçının dirsek çizgisine, tıpkı SVG'deki gibi dışarıdan dolaşma rotası (xm) verildi
         a1, b1 = g["t_yf1"][0], g["t_yf1"][1]
         _draw_connector(pdf, scale, ox, oy, X_YF1+BOX_W, a1["center"], b1["center"], g["m78"]["center"], X_F, xm=X_YF1+BOX_W+15)
-
 
 def generate_bracket_pdf(cat_data, cat_name, FPDF, to_pdf_text, font_yuklendi):
     from bracket_engine import compute_bracket_state
