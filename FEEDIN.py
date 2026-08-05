@@ -463,20 +463,21 @@ with tab_fikstur:
 
     if show_ana:
         st.markdown(f"#### 🏆 {active_cat} Ana Tablosu")
-        st.markdown(render_main_bracket_svg(display_bracket_state), unsafe_allow_html=True)
+        # BURASI ÇOK ÖNEMLİ: SVG motoruna hangi kategoride olduğumuzu haber veriyoruz!
+        st.markdown(render_main_bracket_svg(display_bracket_state, active_cat), unsafe_allow_html=True)
 
     if show_ana and show_tes:
         st.markdown("<div class='page-break'></div><br class='no-print'><hr class='no-print' style='border: 2px dashed #1f77b4; margin: 20px 0;'><br class='no-print'>", unsafe_allow_html=True)
 
     if show_tes:
         st.markdown(f"#### 🔄 {active_cat} Teselli Tablosu")
-        st.markdown(render_consolation_bracket_svg(display_bracket_state), unsafe_allow_html=True)
+        # BURASI ÇOK ÖNEMLİ: SVG motoruna hangi kategoride olduğumuzu haber veriyoruz!
+        st.markdown(render_consolation_bracket_svg(display_bracket_state, active_cat), unsafe_allow_html=True)
 
     if st.session_state.admin_mi:
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("### ✏️ Günlük Skor Girişi")
         
-        # SIFIRDAN STANDARTLAŞTIRILMIŞ ETİKETLER (AT ve FC Bütünlüğü)
         GUNLUK_MACLAR = {
             "1. GÜN MAÇLARI": [
                 ("MR1_0","AT-R1","M1"),("MR1_1","AT-R1","M2"),("MR1_2","AT-R1","M3"),("MR1_3","AT-R1","M4"),
@@ -710,7 +711,6 @@ with tab_program:
             kort_val = g_kort if g_kort else "-"
             skor_val = bracket_score if bracket_score else "-"
             
-            # Artık ".replace()" komutu yok, çünkü etiketler en baştan standart kodlandı!
             ptur = label 
             
             pdf_program_data.append({
@@ -785,7 +785,6 @@ with tab_program:
 </div>"""
             st.markdown(html_table, unsafe_allow_html=True)
 
-    # SIFIRDAN STANDARTLAŞTIRILMIŞ ETİKETLER (Program Sekmesi İçin)
     g_maclar = {
         "1. GÜN": [(f"MR1_{i}", f"AT-R1 (M{i+1})") for i in range(8)],
         "2. GÜN": [(f"MQF_{i}", f"AT-ÇF (M{i+9})") for i in range(4)] + [(f"CR1_{i}", f"FC-R1 (M{i+16})") for i in range(4)] + [(f"CR2_{i}", f"FC-ÇF (M{i+20})") for i in range(4)],
@@ -826,7 +825,6 @@ with tab_program:
 
             btn_pdf_prog = generate_pdf(pdf_prog_df, pdf_baslik, col_widths=prog_col_widths, aligns=prog_aligns)
             
-            # --- YENİ BİRLEŞİK (ERKEKLER + KADINLAR) PDF VERİSİ ---
             combined_pdf_data = []
             for g_adi in gunler_to_show:
                 for cat_n in ["Erkekler", "Kadınlar"]:
@@ -860,7 +858,6 @@ with tab_program:
                         kv = kv if kv else "-"
                         scv = br_sc if br_sc else "-"
                         
-                        # ".replace()" YOK. Doğrudan standart etiketi basıyoruz.
                         ptur = label 
                         pkat = "E" if cat_n == "Erkekler" else "K"
                         
