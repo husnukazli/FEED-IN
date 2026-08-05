@@ -9,35 +9,39 @@ def _draw_box(pdf, scale, ox, oy, x, top, label, match_no, p1, p2, winner, to_pd
     bx, by = ox + x * scale, oy + top * scale
     bw, bh = BOX_W * scale, BOX_H * scale
     
-    # Kutu çerçevesi hafif belirginleştirildi
+    # Kutunun zeminini BEYAZ doldur ('DF' komutu), böylece arkadan geçen çizgiler görünmez
+    pdf.set_fill_color(255, 255, 255)
     pdf.set_draw_color(160, 160, 160)
-    pdf.rect(bx, by, bw, bh)
+    pdf.rect(bx, by, bw, bh, 'DF')
 
-    # MAÇ NO VE ETİKET (Daha büyük ve daha koyu)
-    _set_font(pdf, font_family, True, 8)  # Font 6'dan 8'e, Bold yapıldı
+    # MAÇ NO VE ETİKET
+    _set_font(pdf, font_family, True, 8)  
     pdf.set_xy(bx + 1.5, by + 1.5)
-    pdf.set_text_color(50, 50, 50)  # Renk soluk griden siyaha yakınlaştırıldı
+    pdf.set_text_color(50, 50, 50)  
     pdf.cell(bw - 3, 4, to_pdf_text(f"{label} - M{match_no}"), ln=0)
     
-    # OYUNCU İSİMLERİ (Puntolar Büyütüldü)
+    # OYUNCU İSİMLERİ 
     pdf.set_text_color(0, 0, 0)
     name1 = to_pdf_text(p1) if p1 else to_pdf_text("Bekleniyor...")
     name2 = to_pdf_text(p2) if p2 else to_pdf_text("Bekleniyor...")
     
     # P1
-    _set_font(pdf, font_family, bool(winner and p1 and winner == p1), 9) # 7.5'ten 9'a çıkarıldı
+    _set_font(pdf, font_family, bool(winner and p1 and winner == p1), 9) 
     pdf.set_xy(bx + 1.5, by + bh * 0.40)
     pdf.cell(bw - 3, 5, name1, ln=0)
     
     # P2
-    _set_font(pdf, font_family, bool(winner and p2 and winner == p2), 9) # 7.5'ten 9'a çıkarıldı
+    _set_font(pdf, font_family, bool(winner and p2 and winner == p2), 9) 
     pdf.set_xy(bx + 1.5, by + bh * 0.68)
     pdf.cell(bw - 3, 5, name2, ln=0)
 
 
-def _draw_connector(pdf, scale, ox, oy, x1, y1, y2, y3, x4):
+def _draw_connector(pdf, scale, ox, oy, x1, y1, y2, y3, x4, xm=None):
     pdf.set_draw_color(176, 176, 176)
-    xm = (x1 + x4) / 2
+    # Eğer özel bir dönüş noktası (xm) verilmediyse tam ortadan dön
+    if xm is None:
+        xm = (x1 + x4) / 2
+        
     def pt(x, y): return (ox + x * scale, oy + y * scale)
     a = pt(x1, y1); b = pt(xm, y1); c = pt(xm, y2); d = pt(x1, y2); e = pt(xm, y3); f = pt(x4, y3)
     pdf.line(*a, *b)
@@ -115,8 +119,10 @@ def draw_bracket_page(pdf, state, section, cat_name, to_pdf_text, font_family, p
         a, b = g["t_yf2"][0], g["t_yf2"][1]
         _draw_connector(pdf, scale, ox, oy, X_YF2+BOX_W, a["center"], b["center"], g["final_teselli"]["center"], X_F)
         _draw_connector(pdf, scale, ox, oy, X_YF2+BOX_W, a["center"], b["center"], g["m56"]["center"], X_F)
+        
+        # M30 (7.-8.'lik) maçının dirsek çizgisine, tıpkı SVG'deki gibi dışarıdan dolaşma rotası (xm) verildi
         a1, b1 = g["t_yf1"][0], g["t_yf1"][1]
-        _draw_connector(pdf, scale, ox, oy, X_YF1+BOX_W, a1["center"], b1["center"], g["m78"]["center"], X_F)
+        _draw_connector(pdf, scale, ox, oy, X_YF1+BOX_W, a1["center"], b1["center"], g["m78"]["center"], X_F, xm=X_YF1+BOX_W+15)
 
 
 def generate_bracket_pdf(cat_data, cat_name, FPDF, to_pdf_text, font_yuklendi):
