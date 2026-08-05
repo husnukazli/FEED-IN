@@ -205,7 +205,6 @@ def clean_ghost_data(data):
                 w = res_dict.get("w")
                 l = res_dict.get("l")
                 
-                # Kazanan VEYA Kaybeden güncel eşleşmede yoksa o sonucu SİL
                 if w and (w != p1 and w != p2):
                     keys_to_delete.append(mid)
                     cleaned_in_loop = True
@@ -824,7 +823,58 @@ with tab_program:
                 pdf_baslik = f"{st.session_state.aktif_yas} ({active_cat}) Tüm Maçların Programı"
 
             btn_pdf_prog = generate_pdf(pdf_prog_df, pdf_baslik, col_widths=prog_col_widths, aligns=prog_aligns)
-            st.download_button("📥 Ekrandaki Maç Programını PDF Olarak İndir", data=btn_pdf_prog, file_name=f"{st.session_state.aktif_yas[:2]}_yas_{active_cat}_program.pdf", mime="application/pdf")
+            
+            # --- YENİ BİRLEŞİK (ERKEKLER + KADINLAR) PDF VERİSİ ---
+            combined_pdf_data = []
+            for g_adi in gunler_to_show:
+                for cat_n in ["Erkekler", "Kadınlar"]:
+                    cat_d_local = st.session_state.data[cat_n]
+                    b_state_local = compute_bracket_state(cat_d_local)
+                    for m_id, label in g_maclar[g_adi]:
+                        is_cons = m_id.startswith("CR") or "TESELLI" in m_id or "5_6" in m_id or "7_8" in m_id
+                        if tablo_filtresi == "Sadece Ana Tablo" and is_cons: continue
+                        if tablo_filtresi == "Sadece Teselli" and not is_cons: continue
+                        
+                        m_data = b_state_local.get(m_id, {})
+                        p1_raw = m_data.get("p1")
+                        p2_raw = m_data.get("p2")
+                        p1_disp = p1_raw if p1_raw else SRC_MAP.get(f"{m_id}_p1", "Bekleniyor...")
+                        p2_disp = p2_raw if p2_raw else SRC_MAP.get(f"{m_id}_p2", "Bekleniyor...")
+                        
+                        win = cat_d_local['res'].get(m_id, {}).get("w", None)
+                        p1_cln = clean_html_text(p1_disp)
+                        p2_cln = clean_html_text(p2_disp)
+                        
+                        p1_pdf = f"**{p1_cln}**" if (win and p1_raw == win) else p1_cln
+                        p2_pdf = f"**{p2_cln}**" if (win and p2_raw == win) else p2_cln
+                        
+                        br_sc = cat_d_local['scores'].get(m_id, "")
+                        sd = cat_d_local['schedule_data'].get(m_id, {})
+                        sv = sd.get("saat", "")
+                        sv = sv if sv else "-"
+                        kv = sd.get("kort", "")
+                        kv = kv if kv else "-"
+                        scv = br_sc if br_sc else "-"
+                        
+                        ptur = label.replace("Ana Tablo", "AT").replace("T-", "FC ").replace("3.-4.'lük Maçı", "FC 3-4").replace("5.-6.'lık Maçı", "FC 5-6").replace("7.-8.'lik Maçı", "FC 7-8")
+                        pkat = "E" if cat_n == "Erkekler" else "K"
+                        
+                        combined_pdf_data.append({
+                            "Kat.": pkat, "Tur": ptur, "Saat": sv, "Kort": kv,
+                            "Oyuncu 1": p1_pdf, "Oyuncu 2": p2_pdf, "Skor": scv
+                        })
+            
+            combined_pdf_df = pd.DataFrame(combined_pdf_data)
+            if secilen_gun != "Tüm Günler":
+                pdf_baslik_comb = f"{st.session_state.aktif_yas} (Kızlar & Erkekler) - {baslik_tarih} Maç Programı"
+            else:
+                pdf_baslik_comb = f"{st.session_state.aktif_yas} (Kızlar & Erkekler) Tüm Maçların Programı"
+                
+            btn_pdf_prog_comb = generate_pdf(combined_pdf_df, pdf_baslik_comb, col_widths=prog_col_widths, aligns=prog_aligns)
+            
+            c_pdf1, c_pdf2 = st.columns(2)
+            c_pdf1.download_button(f"📥 {active_cat} Programını PDF İndir", data=btn_pdf_prog, file_name=f"{st.session_state.aktif_yas[:2]}_yas_{active_cat}_program.pdf", mime="application/pdf", use_container_width=True)
+            c_pdf2.download_button("📥 Erkekler & Kadınlar Ortak PDF İndir", data=btn_pdf_prog_comb, file_name=f"{st.session_state.aktif_yas[:2]}_yas_ortak_program.pdf", mime="application/pdf", use_container_width=True)
 
 # ==========================================
 # TAB 3: SIRALAMA
@@ -851,7 +901,6 @@ with tab_siralama:
             if key == "w":
                 player_name = w_name
             elif key == "l":
-                # Sıralama listesi artık körü körüne eski veriye güvenmek yerine GÜNCEL FİKSTÜRDEN canlı hesaplıyor.
                 if w_name == p1 and p2:
                     player_name = p2
                 elif w_name == p2 and p1:
