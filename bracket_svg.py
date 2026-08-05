@@ -13,10 +13,17 @@ def _box_svg(x, top, mid, label, match_no, p1, p2, winner, score, p2_kaynak=None
     b1 = "font-weight:700;" if (winner and p1 and winner == p1) else "fill:#333;"
     b2 = "font-weight:700;" if (winner and p2 and winner == p2) else "fill:#333;"
     title = f'<title>{_esc(score)}</title>' if score else ""
+    
+    # Kutu başlığı (FC-YF1 · M24 vb.) için açık mavi (#eaf4ff) ve üst köşeleri yuvarlatılmış özel zemin
+    header_bg = f'<path d="M {x+1} {top+6} Q {x+1} {top+1} {x+6} {top+1} L {x+BOX_W-6} {top+1} Q {x+BOX_W-1} {top+1} {x+BOX_W-1} {top+6} L {x+BOX_W-1} {top+25} L {x+1} {top+25} Z" fill="#eaf4ff"/>'
+    
     return f'''
-    <g>{title}<rect x="{x}" y="{top}" width="{BOX_W}" height="{BOX_H}" rx="6" fill="#fff" stroke="#b8b8b8" stroke-width="1.2"/></g>
-    <text x="{x+12}" y="{top+19}" font-size="12" font-weight="600" fill="#777">{label} · M{match_no}</text>
-    <line x1="{x}" y1="{top+25}" x2="{x+BOX_W}" y2="{top+25}" stroke="#e2e2e2" stroke-width="1"/>
+    <g>{title}
+        <rect x="{x}" y="{top}" width="{BOX_W}" height="{BOX_H}" rx="6" fill="#fff" stroke="#b8b8b8" stroke-width="1.2"/>
+        {header_bg}
+    </g>
+    <text x="{x+12}" y="{top+18}" font-size="11.5" font-weight="bold" fill="#0056b3">{label} · M{match_no}</text>
+    <line x1="{x}" y1="{top+25}" x2="{x+BOX_W}" y2="{top+25}" stroke="#c4ddf5" stroke-width="1.2"/>
     <text x="{x+12}" y="{top+44}" font-size="16" style="{b1}">{p1n}</text>
     <text x="{x+12}" y="{top+61}" font-size="16" style="{b2}">{p2n}</text>'''
 
