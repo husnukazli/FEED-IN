@@ -17,6 +17,9 @@ def _box_svg(x, top, mid, label, match_no, p1, p2, winner, score, bg_color, line
     # Dinamik Renkli Üst Başlık Zemini
     header_bg = f'<path d="M {x+1} {top+6} Q {x+1} {top+1} {x+6} {top+1} L {x+BOX_W-6} {top+1} Q {x+BOX_W-1} {top+1} {x+BOX_W-1} {top+6} L {x+BOX_W-1} {top+25} L {x+1} {top+25} Z" fill="{bg_color}"/>'
     
+    # SKOR METNİ: Kutunun tam altına, ortalanmış şekilde ve belirgin renkte ekleniyor
+    score_html = f'<text x="{x + BOX_W/2}" y="{top + BOX_H + 14}" font-size="12.5" font-weight="bold" fill="#d9534f" text-anchor="middle">{_esc(score)}</text>' if score else ""
+    
     return f'''
     <g>{title}
         <rect x="{x}" y="{top}" width="{BOX_W}" height="{BOX_H}" rx="6" fill="#fff" stroke="#b8b8b8" stroke-width="1.2"/>
@@ -25,7 +28,8 @@ def _box_svg(x, top, mid, label, match_no, p1, p2, winner, score, bg_color, line
     <text x="{x+12}" y="{top+18}" font-size="11.5" font-weight="bold" fill="{text_color}">{label} · M{match_no}</text>
     <line x1="{x}" y1="{top+25}" x2="{x+BOX_W}" y2="{top+25}" stroke="{line_color}" stroke-width="1.2"/>
     <text x="{x+12}" y="{top+44}" font-size="16" style="{b1}">{p1n}</text>
-    <text x="{x+12}" y="{top+61}" font-size="16" style="{b2}">{p2n}</text>'''
+    <text x="{x+12}" y="{top+61}" font-size="16" style="{b2}">{p2n}</text>
+    {score_html}'''
 
 def _connector(x1, y1, x2, y2, y3, x4, xm=None):
     if xm is None:
@@ -37,11 +41,10 @@ def _connector(x1, y1, x2, y2, y3, x4, xm=None):
     <line x1="{xm}" y1="{y3}" x2="{x4}" y2="{y3}" stroke="#b0b0b0" stroke-width="1.5"/>'''
 
 def render_main_bracket_svg(state, cat_name="Erkekler"):
-    # Kategoriye Göre Renk Ataması (Ana Tablo)
     if cat_name == "Kadınlar":
-        bg_color, line_color, text_color = "#fff0f6", "#ffc9c9", "#a61e4d" # Pembe
+        bg_color, line_color, text_color = "#fff0f6", "#ffc9c9", "#a61e4d" 
     else:
-        bg_color, line_color, text_color = "#eaf4ff", "#c4ddf5", "#0056b3" # Mavi
+        bg_color, line_color, text_color = "#eaf4ff", "#c4ddf5", "#0056b3" 
 
     g = compute_main_bracket()
     X_R1, X_QF, X_SF, X_F = 10, 200, 390, 580
@@ -67,11 +70,10 @@ def render_main_bracket_svg(state, cat_name="Erkekler"):
     return f'<div style="overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid #eee; border-radius:8px;"><svg viewBox="0 0 760 {svg_h}" width="760" height="{svg_h}">{"".join(parts)}</svg></div>'
 
 def render_consolation_bracket_svg(state, cat_name="Erkekler"):
-    # Kategoriye Göre Renk Ataması (Teselli Tablosu)
     if cat_name == "Kadınlar":
-        bg_color, line_color, text_color = "#f3f0ff", "#d0bfff", "#5f3dc4" # Lila
+        bg_color, line_color, text_color = "#f3f0ff", "#d0bfff", "#5f3dc4" 
     else:
-        bg_color, line_color, text_color = "#e8f5e9", "#b2f2bb", "#2b8a3e" # Yeşil
+        bg_color, line_color, text_color = "#e8f5e9", "#b2f2bb", "#2b8a3e" 
 
     main = compute_main_bracket()
     g = compute_consolation_bracket(main)
