@@ -50,7 +50,9 @@ def draw_bracket_page(pdf, state, section, cat_name, to_pdf_text, font_family, p
     main = compute_main_bracket()
     _set_font(pdf, font_family, True, 13)
     pdf.set_xy(10, 8)
-    baslik = "Ana Tablo" if section == "main" else "Teselli (Sıralama) Tablosu"
+    
+    # PDF Başlığı FEED IN Olarak Değiştirildi
+    baslik = "Ana Tablo" if section == "main" else "FEED IN Tablosu"
     pdf.cell(0, 8, to_pdf_text(f"{cat_name} - {baslik}"), ln=True)
 
     ox, oy = 10, 20
@@ -61,7 +63,6 @@ def draw_bracket_page(pdf, state, section, cat_name, to_pdf_text, font_family, p
         scale = min(avail_w / svg_w, avail_h / svg_h)
         X_R1, X_QF, X_SF, X_F = 10, 200, 390, 580
 
-        # ÇÖKÜŞ ENGELLEYİCİ (.get metodları ile güvenliğe alındı)
         for i, m in enumerate(main["r1"]):
             d = state.get(m["id"], {})
             _draw_box(pdf, scale, ox, oy, X_R1, m["top"], "AT-R1", i + 1, d.get("p1"), d.get("p2"), d.get("winner"), to_pdf_text, font_family, d.get("score", ""))
