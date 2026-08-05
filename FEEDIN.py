@@ -1,6 +1,7 @@
 import streamlit as st
 import json
 import os
+import shutil  # Dosya yedekleme işlemi için eklendi
 import pandas as pd
 import datetime
 import re
@@ -138,7 +139,7 @@ if st.session_state.aktif_yas == "Seçilmedi":
     st.stop()
 
 # ==============================================================================
-# 3. VERİ YÜKLEME VE ORTAK FONKSİYONLAR
+# 3. VERİ YÜKLEME VE GÜVENLİ KAYIT FONKSİYONLARI (SAFE SAVE & BACKUP)
 # ==============================================================================
 DB_FILE = f"turnuva_db_{st.session_state.aktif_yas[:2]}.json"
 
@@ -149,6 +150,12 @@ def clean_html_text(text):
     return t.strip()
 
 def load_data():
+    default_data = {
+        'Erkekler': {'players': [f"Oyuncu {i}" for i in range(1, 17)], 'res': {}, 'scores': {}, 'schedule_data': {}},
+        'Kadınlar': {'players': [f"Oyuncu {i}" for i in range(1, 17)], 'res': {}, 'scores': {}, 'schedule_data': {}},
+        'publish': {'gun': 'Tüm Günler', 'filtre': 'Tümü', 'kategori': 'Tümü', 'dates': {}}
+    }
+    
     if os.path.exists(DB_FILE):
         try:
             with open(DB_FILE, "r", encoding="utf-8") as f:
@@ -158,14 +165,30 @@ def load_data():
                 if 'dates' not in data['publish']:
                     data['publish']['dates'] = {}
                 return data
-        except: pass
-    return {
-        'Erkekler': {'players': [f"Oyuncu {i}" for i in range(1, 17)], 'res': {}, 'scores': {}, 'schedule_data': {}},
-        'Kadınlar': {'players': [f"Oyuncu {i}" for i in range(1, 17)], 'res': {}, 'scores': {}, 'schedule_data': {}},
-        'publish': {'gun': 'Tüm Günler', 'filtre': 'Tümü', 'kategori': 'Tümü', 'dates': {}}
-    }
+        except Exception:
+            # Ana dosya bozuksa yedekten (.bak) okumayı dene
+            bak_file = DB_FILE + ".bak"
+            if os.path.exists(bak_file):
+                try:
+                    with open(bak_file, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        if 'publish' not in data:
+                            data['publish'] = {'gun': 'Tüm Günler', 'filtre': 'Tümü', 'kategori': 'Tümü', 'dates': {}}
+                        if 'dates' not in data['publish']:
+                            data['publish']['dates'] = {}
+                        return data
+                except:
+                    pass
+    return default_data
 
 def save_data():
+    # Asıl dosyaya yazmadan önce yedeğini (.bak) al (Safe Save)
+    if os.path.exists(DB_FILE):
+        try:
+            shutil.copyfile(DB_FILE, DB_FILE + ".bak")
+        except:
+            pass
+            
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(st.session_state.data, f)
 
