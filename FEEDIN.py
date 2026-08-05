@@ -203,13 +203,21 @@ def clean_ghost_data(data):
                 if not match: continue
                 p1, p2 = match.get("p1"), match.get("p2")
                 w = res_dict.get("w")
+                l = res_dict.get("l")
+                
+                # Kazanan VEYA Kaybeden güncel eşleşmede yoksa o sonucu SİL
                 if w and (w != p1 and w != p2):
                     keys_to_delete.append(mid)
                     cleaned_in_loop = True
                     degisiklik_oldu = True
+                elif l and (l != p1 and l != p2):
+                    keys_to_delete.append(mid)
+                    cleaned_in_loop = True
+                    degisiklik_oldu = True
                     
-            for k in keys_to_delete:
-                del data[cat]['res'][k]
+            for k in set(keys_to_delete):
+                if k in data[cat]['res']:
+                    del data[cat]['res'][k]
                 
             if not cleaned_in_loop:
                 break
@@ -254,21 +262,17 @@ def generate_pdf(df, baslik, col_widths=None, aligns=None):
     pdf.ln(5)
     
     if not df.empty:
-        # Sütun genişlikleri girilmediyse eşit dağıt
         w = col_widths if col_widths else [190 / len(df.columns)] * len(df.columns)
         
-        # Hizalama girilmediyse hepsini ortala ('C')
         if not aligns:
             aligns = ['C'] * len(df.columns)
             
         pdf.set_font("ArialTR", 'B', 11)
         
-        # Başlıkları yazdır (sütun içeriğiyle aynı hizalamada)
         for i, col in enumerate(df.columns):
             pdf.cell(w[i], 10, to_pdf_text(col), border=1, align=aligns[i])
         pdf.ln()
         
-        # İçeriği yazdır
         for _, row in df.iterrows():
             for i, item in enumerate(row):
                 align = aligns[i]
@@ -286,7 +290,6 @@ def generate_pdf(df, baslik, col_widths=None, aligns=None):
                 pdf.set_font("ArialTR", cell_style, original_size)
                 current_size = original_size
                 
-                # Metin sığmazsa minimum 5 puntaya kadar küçült (Daha az kesilme)
                 while pdf.get_string_width(pdf_text) > (w[i] - 2) and current_size > 5:
                     current_size -= 0.5
                     pdf.set_font("ArialTR", cell_style, current_size)
@@ -432,9 +435,8 @@ with tab_fikstur:
         if st.session_state.admin_mi:
             pdf_bytes = None
             try:
-                original_compute = bracket_engine.compute_bracket_state
                 def display_compute(cat_d):
-                    state = original_compute(cat_d)
+                    state = compute_bracket_state(cat_d)
                     for m_id, d_ in state.items():
                         if not d_.get("p1"): d_["p1"] = SRC_MAP.get(f"{m_id}_p1", "Bekleniyor...")
                         if not d_.get("p2"): d_["p2"] = SRC_MAP.get(f"{m_id}_p2", "Bekleniyor...")
@@ -448,10 +450,9 @@ with tab_fikstur:
             except Exception as e:
                 st.caption(f"PDF oluşturulamadı: {e}")
             finally:
-                if 'original_compute' in locals():
-                    bracket_engine.compute_bracket_state = original_compute
-                    if hasattr(bracket_pdf, 'compute_bracket_state'):
-                        bracket_pdf.compute_bracket_state = original_compute
+                bracket_engine.compute_bracket_state = compute_bracket_state
+                if hasattr(bracket_pdf, 'compute_bracket_state'):
+                    bracket_pdf.compute_bracket_state = compute_bracket_state
             
             if pdf_bytes:
                 st.download_button("📄 Fikstürü PDF İndir", data=pdf_bytes, file_name=f"{st.session_state.aktif_yas[:2]}_yas_{active_cat}_fikstur.pdf", mime="application/pdf", key="dl_bracket_pdf")
@@ -755,15 +756,14 @@ with tab_program:
                 
                 new_saat = c4.text_input("Saat", value=g_saat, key=f"t_{cat_name}_{m_id}_{day_key_safe}", label_visibility="collapsed")
                 new_kort = c5.text_input("Kort", value=g_kort, key=f"c_{cat_name}_{m_id}_{day_key_safe}", label_visibility="collapsed")
-                new_skor = c6.text_input("Skor", value=bracket_score, key=f"s_{cat_name}_{m_id}_{day_key_safe}", label_visibility="collapsed")
+                
+                c6.markdown(f"<div style='padding-top: 8px; font-weight: bold; text-align: center;'>{skor_val}</div>", unsafe_allow_html=True)
                 
                 if new_saat != g_saat or new_kort != g_kort:
                     cat_d['schedule_data'][m_id] = {"saat": new_saat, "kort": new_kort}
-                if new_skor != bracket_score:
-                    cat_d['scores'][m_id] = clean_html_text(new_skor)
             else:
                 tr_style = f" style='{bg_color_only}'" if bg_color_only else ""
-                html_rows += f"<tr{tr_style}><td><b>{label}</b></td><td>{ui_p1}</td><td>{ui_p2}</td><td>{saat_val}</td><td>{kort_val}</td><td>{skor_val}</td></tr>"
+                html_rows += f"<tr{tr_style}><td><b>{label}</b></td><td>{ui_p1}</td><td>{ui_p2}</td><td style='text-align:center;'>{saat_val}</td><td style='text-align:center;'>{kort_val}</td><td style='text-align:center;'>{skor_val}</td></tr>"
 
         if not st.session_state.admin_mi and html_rows:
             html_table = f"""<div class="mobile-table-container">
@@ -807,7 +807,6 @@ with tab_program:
             st.divider()
             pdf_prog_df = pd.DataFrame(pdf_program_data)
             
-            # Sütun hizalamaları ve boyutları (İsimler Sola, Diğerleri Ortaya)
             prog_col_widths = [10, 22, 28, 16, 44, 44, 26] 
             prog_aligns = ['C', 'C', 'C', 'C', 'L', 'L', 'C']
             
@@ -836,11 +835,30 @@ with tab_siralama:
     pdf_siralama_data = []
 
     res = cat_data['res']
+    b_state = compute_bracket_state(cat_data)
+    
     rankings = [("1.", "FINAL_MAIN", "w"), ("2.", "FINAL_MAIN", "l"), ("3.", "FINAL_TESELLI", "w"), ("4.", "FINAL_TESELLI", "l"), 
                 ("5.", "MATCH_5_6", "w"), ("6.", "MATCH_5_6", "l"), ("7.", "MATCH_7_8", "w"), ("8.", "MATCH_7_8", "l")]
     
     for rank, m_id, key in rankings:
-        player_name = res[m_id][key] if m_id in res and key in res[m_id] else "Belli Değil"
+        player_name = "Belli Değil"
+        
+        if m_id in res and "w" in res[m_id]:
+            w_name = res[m_id]["w"]
+            p1 = b_state.get(m_id, {}).get("p1", "")
+            p2 = b_state.get(m_id, {}).get("p2", "")
+            
+            if key == "w":
+                player_name = w_name
+            elif key == "l":
+                # Sıralama listesi artık körü körüne eski veriye güvenmek yerine GÜNCEL FİKSTÜRDEN canlı hesaplıyor.
+                if w_name == p1 and p2:
+                    player_name = p2
+                elif w_name == p2 and p1:
+                    player_name = p1
+                else:
+                    player_name = res[m_id].get("l", "Belli Değil")
+        
         player_name = clean_html_text(player_name)
         pdf_siralama_data.append({"Sıra": rank, "Kategori": active_cat, "Oyuncu Adı": player_name})
         
