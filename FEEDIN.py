@@ -1,7 +1,7 @@
 import streamlit as st
 import json
 import os
-import shutil  # Dosya yedekleme işlemi için eklendi
+import shutil
 import pandas as pd
 import datetime
 import re
@@ -166,7 +166,6 @@ def load_data():
                     data['publish']['dates'] = {}
                 return data
         except Exception:
-            # Ana dosya bozuksa yedekten (.bak) okumayı dene
             bak_file = DB_FILE + ".bak"
             if os.path.exists(bak_file):
                 try:
@@ -182,7 +181,6 @@ def load_data():
     return default_data
 
 def save_data():
-    # Asıl dosyaya yazmadan önce yedeğini (.bak) al (Safe Save)
     if os.path.exists(DB_FILE):
         try:
             shutil.copyfile(DB_FILE, DB_FILE + ".bak")
@@ -247,7 +245,7 @@ def to_pdf_text(text):
                   .replace("Ö", "O").replace("ö", "o").replace("Ü", "U").replace("ü", "u")
     return t.encode('latin-1', 'replace').decode('latin-1')
 
-def generate_pdf(df, baslik, col_widths=None):
+def generate_pdf(df, baslik, col_widths=None, aligns=None):
     pdf = TurnuvaFPDF(orientation='P', unit='mm', format='A4')
     pdf.add_page()
     
@@ -256,15 +254,24 @@ def generate_pdf(df, baslik, col_widths=None):
     pdf.ln(5)
     
     if not df.empty:
-        pdf.set_font("ArialTR", 'B', 11)
+        # Sütun genişlikleri girilmediyse eşit dağıt
         w = col_widths if col_widths else [190 / len(df.columns)] * len(df.columns)
+        
+        # Hizalama girilmediyse hepsini ortala ('C')
+        if not aligns:
+            aligns = ['C'] * len(df.columns)
+            
+        pdf.set_font("ArialTR", 'B', 11)
+        
+        # Başlıkları yazdır (sütun içeriğiyle aynı hizalamada)
         for i, col in enumerate(df.columns):
-            pdf.cell(w[i], 10, to_pdf_text(col), border=1, align='C')
+            pdf.cell(w[i], 10, to_pdf_text(col), border=1, align=aligns[i])
         pdf.ln()
         
+        # İçeriği yazdır
         for _, row in df.iterrows():
             for i, item in enumerate(row):
-                align = 'C' if w[i] < 26 else 'L' 
+                align = aligns[i]
                 text = str(item)
                 
                 is_bold = False
@@ -279,9 +286,11 @@ def generate_pdf(df, baslik, col_widths=None):
                 pdf.set_font("ArialTR", cell_style, original_size)
                 current_size = original_size
                 
-                while pdf.get_string_width(pdf_text) > (w[i] - 2) and current_size > 6:
+                # Metin sığmazsa minimum 5 puntaya kadar küçült (Daha az kesilme)
+                while pdf.get_string_width(pdf_text) > (w[i] - 2) and current_size > 5:
                     current_size -= 0.5
                     pdf.set_font("ArialTR", cell_style, current_size)
+                    
                 if pdf.get_string_width(pdf_text) > (w[i] - 2):
                     while pdf.get_string_width(pdf_text + "..") > (w[i] - 2) and len(pdf_text) > 0:
                         pdf_text = pdf_text[:-1]
@@ -445,7 +454,7 @@ with tab_fikstur:
                         bracket_pdf.compute_bracket_state = original_compute
             
             if pdf_bytes:
-                st.download_button("📄 Ağacı PDF İndir", data=pdf_bytes, file_name=f"{st.session_state.aktif_yas[:2]}_yas_{active_cat}_fikstur.pdf", mime="application/pdf", key="dl_bracket_pdf")
+                st.download_button("📄 Fikstürü PDF İndir", data=pdf_bytes, file_name=f"{st.session_state.aktif_yas[:2]}_yas_{active_cat}_fikstur.pdf", mime="application/pdf", key="dl_bracket_pdf")
 
     st.divider()
 
@@ -761,12 +770,12 @@ with tab_program:
 <table class="mobile-table">
 <thead>
 <tr>
-<th style="width:18%;">Maç Türü</th>
-<th style="width:23%;">Oyuncu 1</th>
-<th style="width:23%;">Oyuncu 2</th>
-<th style="width:10%;">Saat</th>
-<th style="width:10%;">Kort</th>
-<th style="width:16%;">Skor</th>
+<th style="width:18%; text-align:center;">Maç Türü</th>
+<th style="width:23%; text-align:left;">Oyuncu 1</th>
+<th style="width:23%; text-align:left;">Oyuncu 2</th>
+<th style="width:10%; text-align:center;">Saat</th>
+<th style="width:10%; text-align:center;">Kort</th>
+<th style="width:16%; text-align:center;">Skor</th>
 </tr>
 </thead>
 <tbody>
@@ -798,7 +807,9 @@ with tab_program:
             st.divider()
             pdf_prog_df = pd.DataFrame(pdf_program_data)
             
-            prog_col_widths = [10, 26, 14, 14, 50, 50, 26] 
+            # Sütun hizalamaları ve boyutları (İsimler Sola, Diğerleri Ortaya)
+            prog_col_widths = [10, 22, 28, 16, 44, 44, 26] 
+            prog_aligns = ['C', 'C', 'C', 'C', 'L', 'L', 'C']
             
             if secilen_gun != "Tüm Günler":
                 gercek_tarih = ""
@@ -813,7 +824,7 @@ with tab_program:
             else:
                 pdf_baslik = f"{st.session_state.aktif_yas} ({active_cat}) Tüm Maçların Programı"
 
-            btn_pdf_prog = generate_pdf(pdf_prog_df, pdf_baslik, col_widths=prog_col_widths)
+            btn_pdf_prog = generate_pdf(pdf_prog_df, pdf_baslik, col_widths=prog_col_widths, aligns=prog_aligns)
             st.download_button("📥 Ekrandaki Maç Programını PDF Olarak İndir", data=btn_pdf_prog, file_name=f"{st.session_state.aktif_yas[:2]}_yas_{active_cat}_program.pdf", mime="application/pdf")
 
 # ==========================================
@@ -842,7 +853,8 @@ with tab_siralama:
         st.divider()
         pdf_sir_df = pd.DataFrame(pdf_siralama_data)
         sir_col_widths = [15, 30, 145]
-        btn_pdf_sir = generate_pdf(pdf_sir_df, f"{st.session_state.aktif_yas} Siralamasi ({active_cat})", col_widths=sir_col_widths)
+        sir_aligns = ['C', 'C', 'L']
+        btn_pdf_sir = generate_pdf(pdf_sir_df, f"{st.session_state.aktif_yas} Siralamasi ({active_cat})", col_widths=sir_col_widths, aligns=sir_aligns)
         st.download_button("📥 Sıralamayı PDF Olarak İndir", data=btn_pdf_sir, file_name=f"{st.session_state.aktif_yas[:2]}_yas_{active_cat}_siralama.pdf", mime="application/pdf")
 
 # ==========================================
