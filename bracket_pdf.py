@@ -28,10 +28,9 @@ def _draw_box(pdf, scale, ox, oy, x, top, label, match_no, p1, p2, winner, to_pd
     pdf.set_xy(bx + 1.5, by + bh * 0.68)
     pdf.cell(bw - 3, 5, name2, ln=0)
     
-    # PDF SKOR METNİ: Kutunun tam altına yazılır.
     if score:
         _set_font(pdf, font_family, True, 8)
-        pdf.set_text_color(80, 80, 80) # Siyah-Beyaz çıktılarda güzel görünmesi için koyu gri
+        pdf.set_text_color(80, 80, 80)
         pdf.set_xy(bx, by + bh + 0.5)
         pdf.cell(bw, 4, to_pdf_text(score), ln=0, align='C')
 
@@ -62,21 +61,22 @@ def draw_bracket_page(pdf, state, section, cat_name, to_pdf_text, font_family, p
         scale = min(avail_w / svg_w, avail_h / svg_h)
         X_R1, X_QF, X_SF, X_F = 10, 200, 390, 580
 
+        # ÇÖKÜŞ ENGELLEYİCİ (.get metodları ile güvenliğe alındı)
         for i, m in enumerate(main["r1"]):
-            d = state[m["id"]]
-            _draw_box(pdf, scale, ox, oy, X_R1, m["top"], "AT-R1", i + 1, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family, d.get("score", ""))
+            d = state.get(m["id"], {})
+            _draw_box(pdf, scale, ox, oy, X_R1, m["top"], "AT-R1", i + 1, d.get("p1"), d.get("p2"), d.get("winner"), to_pdf_text, font_family, d.get("score", ""))
         for j, m in enumerate(main["qf"]):
-            d = state[m["id"]]
-            _draw_box(pdf, scale, ox, oy, X_QF, m["top"], "AT-ÇF", j + 9, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family, d.get("score", ""))
+            d = state.get(m["id"], {})
+            _draw_box(pdf, scale, ox, oy, X_QF, m["top"], "AT-ÇF", j + 9, d.get("p1"), d.get("p2"), d.get("winner"), to_pdf_text, font_family, d.get("score", ""))
             a, b = main["r1"][2*j], main["r1"][2*j+1]
             _draw_connector(pdf, scale, ox, oy, X_R1+BOX_W, a["center"], b["center"], m["center"], X_QF)
         for k, m in enumerate(main["sf"]):
-            d = state[m["id"]]
-            _draw_box(pdf, scale, ox, oy, X_SF, m["top"], "AT-YF", k + 13, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family, d.get("score", ""))
+            d = state.get(m["id"], {})
+            _draw_box(pdf, scale, ox, oy, X_SF, m["top"], "AT-YF", k + 13, d.get("p1"), d.get("p2"), d.get("winner"), to_pdf_text, font_family, d.get("score", ""))
             a, b = main["qf"][2*k], main["qf"][2*k+1]
             _draw_connector(pdf, scale, ox, oy, X_QF+BOX_W, a["center"], b["center"], m["center"], X_SF)
-        d = state["FINAL_MAIN"]
-        _draw_box(pdf, scale, ox, oy, X_F, main["final"]["top"], "AT-FİNAL", 15, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family, d.get("score", ""))
+        d = state.get("FINAL_MAIN", {})
+        _draw_box(pdf, scale, ox, oy, X_F, main["final"]["top"], "AT-FİNAL", 15, d.get("p1"), d.get("p2"), d.get("winner"), to_pdf_text, font_family, d.get("score", ""))
         _draw_connector(pdf, scale, ox, oy, X_SF+BOX_W, main["sf"][0]["center"], main["sf"][1]["center"], main["final"]["center"], X_F)
 
     else:
@@ -87,22 +87,22 @@ def draw_bracket_page(pdf, state, section, cat_name, to_pdf_text, font_family, p
         X_R1, X_CF, X_YF1, X_YF2, X_F = 10, 200, 390, 580, 770
 
         for j, m in enumerate(g["t_r1"]):
-            d = state[m["id"]]
-            _draw_box(pdf, scale, ox, oy, X_R1, m["top"], "FC-R1", j + 16, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family, d.get("score", ""))
+            d = state.get(m["id"], {})
+            _draw_box(pdf, scale, ox, oy, X_R1, m["top"], "FC-R1", j + 16, d.get("p1"), d.get("p2"), d.get("winner"), to_pdf_text, font_family, d.get("score", ""))
         for i, m in enumerate(g["t_cf"]):
-            d = state[m["id"]]
-            _draw_box(pdf, scale, ox, oy, X_CF, m["top"], "FC-ÇF", i + 20, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family, d.get("score", ""))
+            d = state.get(m["id"], {})
+            _draw_box(pdf, scale, ox, oy, X_CF, m["top"], "FC-ÇF", i + 20, d.get("p1"), d.get("p2"), d.get("winner"), to_pdf_text, font_family, d.get("score", ""))
             r1 = g["t_r1"][i]
             pdf.set_draw_color(176, 176, 176)
             pdf.line(ox+(X_R1+BOX_W)*scale, oy+r1["center"]*scale, ox+X_CF*scale, oy+m["center"]*scale)
         for k, m in enumerate(g["t_yf1"]):
-            d = state[m["id"]]
-            _draw_box(pdf, scale, ox, oy, X_YF1, m["top"], "FC-YF1", k + 24, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family, d.get("score", ""))
+            d = state.get(m["id"], {})
+            _draw_box(pdf, scale, ox, oy, X_YF1, m["top"], "FC-YF1", k + 24, d.get("p1"), d.get("p2"), d.get("winner"), to_pdf_text, font_family, d.get("score", ""))
             a, b = g["t_cf"][2*k], g["t_cf"][2*k+1]
             _draw_connector(pdf, scale, ox, oy, X_CF+BOX_W, a["center"], b["center"], m["center"], X_YF1)
         for k, m in enumerate(g["t_yf2"]):
-            d = state[m["id"]]
-            _draw_box(pdf, scale, ox, oy, X_YF2, m["top"], "FC-YF2", k + 26, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family, d.get("score", ""))
+            d = state.get(m["id"], {})
+            _draw_box(pdf, scale, ox, oy, X_YF2, m["top"], "FC-YF2", k + 26, d.get("p1"), d.get("p2"), d.get("winner"), to_pdf_text, font_family, d.get("score", ""))
             yf1 = g["t_yf1"][k]
             pdf.set_draw_color(176, 176, 176)
             pdf.line(ox+(X_YF1+BOX_W)*scale, oy+yf1["center"]*scale, ox+X_YF2*scale, oy+m["center"]*scale)
@@ -110,8 +110,8 @@ def draw_bracket_page(pdf, state, section, cat_name, to_pdf_text, font_family, p
         for mid, lbl, no, m in [("FINAL_TESELLI", "FC-3/4", 28, g["final_teselli"]),
                                   ("MATCH_5_6", "FC-5/6", 29, g["m56"]),
                                   ("MATCH_7_8", "FC-7/8", 30, g["m78"])]:
-            d = state[mid]
-            _draw_box(pdf, scale, ox, oy, X_F, m["top"], lbl, no, d["p1"], d["p2"], d["winner"], to_pdf_text, font_family, d.get("score", ""))
+            d = state.get(mid, {})
+            _draw_box(pdf, scale, ox, oy, X_F, m["top"], lbl, no, d.get("p1"), d.get("p2"), d.get("winner"), to_pdf_text, font_family, d.get("score", ""))
 
         a, b = g["t_yf2"][0], g["t_yf2"][1]
         _draw_connector(pdf, scale, ox, oy, X_YF2+BOX_W, a["center"], b["center"], g["final_teselli"]["center"], X_F)
