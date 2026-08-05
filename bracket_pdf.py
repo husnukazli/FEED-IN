@@ -8,23 +8,31 @@ def _set_font(pdf, font_family, bold, size):
 def _draw_box(pdf, scale, ox, oy, x, top, label, match_no, p1, p2, winner, to_pdf_text, font_family):
     bx, by = ox + x * scale, oy + top * scale
     bw, bh = BOX_W * scale, BOX_H * scale
-    pdf.set_draw_color(200, 200, 200)
+    
+    # Kutu çerçevesi hafif belirginleştirildi
+    pdf.set_draw_color(160, 160, 160)
     pdf.rect(bx, by, bw, bh)
 
-    _set_font(pdf, font_family, False, 6)
-    pdf.set_xy(bx + 1.5, by + 1)
-    pdf.set_text_color(150, 150, 150)
-    pdf.cell(bw - 3, 3, to_pdf_text(f"{label} - M{match_no}"), ln=0)
+    # MAÇ NO VE ETİKET (Daha büyük ve daha koyu)
+    _set_font(pdf, font_family, True, 8)  # Font 6'dan 8'e, Bold yapıldı
+    pdf.set_xy(bx + 1.5, by + 1.5)
+    pdf.set_text_color(50, 50, 50)  # Renk soluk griden siyaha yakınlaştırıldı
+    pdf.cell(bw - 3, 4, to_pdf_text(f"{label} - M{match_no}"), ln=0)
+    
+    # OYUNCU İSİMLERİ (Puntolar Büyütüldü)
     pdf.set_text_color(0, 0, 0)
-
     name1 = to_pdf_text(p1) if p1 else to_pdf_text("Bekleniyor...")
     name2 = to_pdf_text(p2) if p2 else to_pdf_text("Bekleniyor...")
-    _set_font(pdf, font_family, bool(winner and p1 and winner == p1), 7.5)
-    pdf.set_xy(bx + 1.5, by + bh * 0.42)
-    pdf.cell(bw - 3, 4, name1, ln=0)
-    _set_font(pdf, font_family, bool(winner and p2 and winner == p2), 7.5)
-    pdf.set_xy(bx + 1.5, by + bh * 0.72)
-    pdf.cell(bw - 3, 4, name2, ln=0)
+    
+    # P1
+    _set_font(pdf, font_family, bool(winner and p1 and winner == p1), 9) # 7.5'ten 9'a çıkarıldı
+    pdf.set_xy(bx + 1.5, by + bh * 0.40)
+    pdf.cell(bw - 3, 5, name1, ln=0)
+    
+    # P2
+    _set_font(pdf, font_family, bool(winner and p2 and winner == p2), 9) # 7.5'ten 9'a çıkarıldı
+    pdf.set_xy(bx + 1.5, by + bh * 0.68)
+    pdf.cell(bw - 3, 5, name2, ln=0)
 
 
 def _draw_connector(pdf, scale, ox, oy, x1, y1, y2, y3, x4):
