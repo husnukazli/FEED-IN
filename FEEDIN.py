@@ -830,6 +830,8 @@ with tab_program:
                 for cat_n in ["Erkekler", "Kadınlar"]:
                     cat_d_local = st.session_state.data[cat_n]
                     b_state_local = compute_bracket_state(cat_d_local)
+                    
+                    temp_matches = []
                     for m_id, label in g_maclar[g_adi]:
                         is_cons = m_id.startswith("CR") or "TESELLI" in m_id or "5_6" in m_id or "7_8" in m_id
                         if tablo_filtresi == "Sadece Ana Tablo" and is_cons: continue
@@ -859,16 +861,31 @@ with tab_program:
                         ptur = label.replace("Ana Tablo", "AT").replace("T-", "FC ").replace("3.-4.'lük Maçı", "FC 3-4").replace("5.-6.'lık Maçı", "FC 5-6").replace("7.-8.'lik Maçı", "FC 7-8")
                         pkat = "E" if cat_n == "Erkekler" else "K"
                         
-                        combined_pdf_data.append({
+                        temp_matches.append({
                             "Kat.": pkat, "Tur": ptur, "Saat": sv, "Kort": kv,
                             "Oyuncu 1": p1_pdf, "Oyuncu 2": p2_pdf, "Skor": scv
+                        })
+                        
+                    if temp_matches:
+                        # Erkekler / Kadınlar geçişini belli eden ARA SATIR
+                        combined_pdf_data.append({
+                            "Kat.": "-", "Tur": "-", "Saat": "-", "Kort": "-",
+                            "Oyuncu 1": f"**--- {cat_n.upper()} MAÇLARI ---**", "Oyuncu 2": "-", "Skor": "-"
+                        })
+                        
+                        combined_pdf_data.extend(temp_matches)
+                        
+                        # Kategoriler arasına tamamen boş bir satır (görsel ferahlık için)
+                        combined_pdf_data.append({
+                            "Kat.": "", "Tur": "", "Saat": "", "Kort": "",
+                            "Oyuncu 1": "", "Oyuncu 2": "", "Skor": ""
                         })
             
             combined_pdf_df = pd.DataFrame(combined_pdf_data)
             if secilen_gun != "Tüm Günler":
-                pdf_baslik_comb = f"{st.session_state.aktif_yas} (Kızlar & Erkekler) - {baslik_tarih} Maç Programı"
+                pdf_baslik_comb = f"{st.session_state.aktif_yas} (Kadınlar & Erkekler) - {baslik_tarih} Maç Programı"
             else:
-                pdf_baslik_comb = f"{st.session_state.aktif_yas} (Kızlar & Erkekler) Tüm Maçların Programı"
+                pdf_baslik_comb = f"{st.session_state.aktif_yas} (Kadınlar & Erkekler) Tüm Maçların Programı"
                 
             btn_pdf_prog_comb = generate_pdf(combined_pdf_df, pdf_baslik_comb, col_widths=prog_col_widths, aligns=prog_aligns)
             
