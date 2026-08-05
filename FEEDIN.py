@@ -476,24 +476,25 @@ with tab_fikstur:
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("### ✏️ Günlük Skor Girişi")
         
+        # SIFIRDAN STANDARTLAŞTIRILMIŞ ETİKETLER (AT ve FC Bütünlüğü)
         GUNLUK_MACLAR = {
             "1. GÜN MAÇLARI": [
-                ("MR1_0","Ana R1","M1"),("MR1_1","Ana R1","M2"),("MR1_2","Ana R1","M3"),("MR1_3","Ana R1","M4"),
-                ("MR1_4","Ana R1","M5"),("MR1_5","Ana R1","M6"),("MR1_6","Ana R1","M7"),("MR1_7","Ana R1","M8")
+                ("MR1_0","AT-R1","M1"),("MR1_1","AT-R1","M2"),("MR1_2","AT-R1","M3"),("MR1_3","AT-R1","M4"),
+                ("MR1_4","AT-R1","M5"),("MR1_5","AT-R1","M6"),("MR1_6","AT-R1","M7"),("MR1_7","AT-R1","M8")
             ],
             "2. GÜN MAÇLARI": [
-                ("MQF_0","Ana ÇF","M9"),("MQF_1","Ana ÇF","M10"),("MQF_2","Ana ÇF","M11"),("MQF_3","Ana ÇF","M12"),
-                ("CR1_0","T-R1","M16"),("CR1_1","T-R1","M17"),("CR1_2","T-R1","M18"),("CR1_3","T-R1","M19"),
-                ("CR2_0","T-ÇF","M20"),("CR2_1","T-ÇF","M21"),("CR2_2","T-ÇF","M22"),("CR2_3","T-ÇF","M23")
+                ("MQF_0","AT-ÇF","M9"),("MQF_1","AT-ÇF","M10"),("MQF_2","AT-ÇF","M11"),("MQF_3","AT-ÇF","M12"),
+                ("CR1_0","FC-R1","M16"),("CR1_1","FC-R1","M17"),("CR1_2","FC-R1","M18"),("CR1_3","FC-R1","M19"),
+                ("CR2_0","FC-ÇF","M20"),("CR2_1","FC-ÇF","M21"),("CR2_2","FC-ÇF","M22"),("CR2_3","FC-ÇF","M23")
             ],
             "3. GÜN MAÇLARI": [
-                ("MSF_0","Ana YF","M13"),("MSF_1","Ana YF","M14"),
-                ("CR3_0","T-YF1","M24"),("CR3_1","T-YF1","M25"),
-                ("CR4_0","T-YF2","M26"),("CR4_1","T-YF2","M27"),
-                ("MATCH_7_8","7.-8.'LİK","M30")
+                ("MSF_0","AT-YF","M13"),("MSF_1","AT-YF","M14"),
+                ("CR3_0","FC-YF1","M24"),("CR3_1","FC-YF1","M25"),
+                ("CR4_0","FC-YF2","M26"),("CR4_1","FC-YF2","M27"),
+                ("MATCH_7_8","FC-7/8","M30")
             ],
             "4. GÜN MAÇLARI": [
-                ("FINAL_MAIN","FİNAL","M15"),("FINAL_TESELLI","3.-4.'LÜK","M28"),("MATCH_5_6","5.-6.'LIK","M29")
+                ("FINAL_MAIN","AT-FİNAL","M15"),("FINAL_TESELLI","FC-3/4","M28"),("MATCH_5_6","FC-5/6","M29")
             ]
         }
 
@@ -709,11 +710,11 @@ with tab_program:
             kort_val = g_kort if g_kort else "-"
             skor_val = bracket_score if bracket_score else "-"
             
-            pdf_tur = label.replace("Ana Tablo", "AT").replace("T-", "FC ")
-            pdf_tur = pdf_tur.replace("3.-4.'lük Maçı", "FC 3-4").replace("5.-6.'lık Maçı", "FC 5-6").replace("7.-8.'lik Maçı", "FC 7-8")
-
+            # Artık ".replace()" komutu yok, çünkü etiketler en baştan standart kodlandı!
+            ptur = label 
+            
             pdf_program_data.append({
-                "Kat.": pdf_kategori, "Tur": pdf_tur, "Saat": saat_val, "Kort": kort_val,
+                "Kat.": pdf_kategori, "Tur": ptur, "Saat": saat_val, "Kort": kort_val,
                 "Oyuncu 1": pdf_p1, "Oyuncu 2": pdf_p2, "Skor": skor_val
             })
 
@@ -784,11 +785,12 @@ with tab_program:
 </div>"""
             st.markdown(html_table, unsafe_allow_html=True)
 
+    # SIFIRDAN STANDARTLAŞTIRILMIŞ ETİKETLER (Program Sekmesi İçin)
     g_maclar = {
-        "1. GÜN": [(f"MR1_{i}", f"Ana Tablo R1 (M{i+1})") for i in range(8)],
-        "2. GÜN": [(f"MQF_{i}", f"Ana Tablo ÇF (M{i+9})") for i in range(4)] + [(f"CR1_{i}", f"T-R1 (M{i+16})") for i in range(4)] + [(f"CR2_{i}", f"T-ÇF (M{i+20})") for i in range(4)],
-        "3. GÜN": [(f"MSF_{i}", f"Ana Tablo YF (M{i+13})") for i in range(2)] + [(f"CR3_{i}", f"T-YF1 (M{i+24})") for i in range(2)] + [(f"CR4_{i}", f"T-YF2 (M{i+26})") for i in range(2)] + [("MATCH_7_8", "7.-8.'lik Maçı (M30)")],
-        "4. GÜN": [("FINAL_MAIN", "Ana Tablo FİNAL (M15)"), ("FINAL_TESELLI", "3.-4.'lük Maçı (M28)"), ("MATCH_5_6", "5.-6.'lık Maçı (M29)")]
+        "1. GÜN": [(f"MR1_{i}", f"AT-R1 (M{i+1})") for i in range(8)],
+        "2. GÜN": [(f"MQF_{i}", f"AT-ÇF (M{i+9})") for i in range(4)] + [(f"CR1_{i}", f"FC-R1 (M{i+16})") for i in range(4)] + [(f"CR2_{i}", f"FC-ÇF (M{i+20})") for i in range(4)],
+        "3. GÜN": [(f"MSF_{i}", f"AT-YF (M{i+13})") for i in range(2)] + [(f"CR3_{i}", f"FC-YF1 (M{i+24})") for i in range(2)] + [(f"CR4_{i}", f"FC-YF2 (M{i+26})") for i in range(2)] + [("MATCH_7_8", "FC-7/8 (M30)")],
+        "4. GÜN": [("FINAL_MAIN", "AT-FİNAL (M15)"), ("FINAL_TESELLI", "FC-3/4 (M28)"), ("MATCH_5_6", "FC-5/6 (M29)")]
     }
 
     if st.session_state.admin_mi or gosterilecek_gunler:
@@ -858,7 +860,8 @@ with tab_program:
                         kv = kv if kv else "-"
                         scv = br_sc if br_sc else "-"
                         
-                        ptur = label.replace("Ana Tablo", "AT").replace("T-", "FC ").replace("3.-4.'lük Maçı", "FC 3-4").replace("5.-6.'lık Maçı", "FC 5-6").replace("7.-8.'lik Maçı", "FC 7-8")
+                        # ".replace()" YOK. Doğrudan standart etiketi basıyoruz.
+                        ptur = label 
                         pkat = "E" if cat_n == "Erkekler" else "K"
                         
                         temp_matches.append({
@@ -867,7 +870,6 @@ with tab_program:
                         })
                         
                     if temp_matches:
-                        # Erkekler / Kadınlar geçişini belli eden ARA SATIR
                         combined_pdf_data.append({
                             "Kat.": "-", "Tur": "-", "Saat": "-", "Kort": "-",
                             "Oyuncu 1": f"**--- {cat_n.upper()} MAÇLARI ---**", "Oyuncu 2": "-", "Skor": "-"
@@ -875,7 +877,6 @@ with tab_program:
                         
                         combined_pdf_data.extend(temp_matches)
                         
-                        # Kategoriler arasına tamamen boş bir satır (görsel ferahlık için)
                         combined_pdf_data.append({
                             "Kat.": "", "Tur": "", "Saat": "", "Kort": "",
                             "Oyuncu 1": "", "Oyuncu 2": "", "Skor": ""
