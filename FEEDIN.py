@@ -1041,7 +1041,7 @@ with tab_siralama:
     rankings = [("1.", "FINAL_MAIN", "w"), ("2.", "FINAL_MAIN", "l"), ("3.", "FINAL_TESELLI", "w"), ("4.", "FINAL_TESELLI", "l"), 
                 ("5.", "MATCH_5_6", "w"), ("6.", "MATCH_5_6", "l"), ("7.", "MATCH_7_8", "w"), ("8.", "MATCH_7_8", "l")]
     
-    # MOBİL UYUMLU, ŞIK HTML LİSTE TASARIMI (Streamlit Kolonları Yerine)
+    # MOBİL UYUMLU, ŞIK HTML LİSTE TASARIMI (Güvenli dize birleştirme)
     html_rankings = "<div style='max-width: 600px; margin: 0 auto;'>"
     
     for rank_idx, (rank, m_id, key) in enumerate(rankings):
@@ -1065,20 +1065,16 @@ with tab_siralama:
         player_name = clean_html_text(player_name)
         pdf_siralama_data.append({"Sıra": rank, "Kategori": active_cat, "Oyuncu Adı": player_name})
         
-        # UI içi Zebra Deseni Arka Planı
         bg_color = "#ffffff" if rank_idx % 2 == 0 else "#f8f9fa"
         rank_num = rank.replace(".", "")
         
-        html_rankings += f"""
-        <div style='display: flex; align-items: center; justify-content: flex-start; padding: 10px; margin-bottom: 6px; background-color: {bg_color}; border: 1px solid #e0e0e0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
-            <div style='width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; background-color: #1f77b4; color: white; font-weight: bold; font-size: 16px; border-radius: 50%; margin-right: 15px; flex-shrink: 0;'>
-                {rank_num}
-            </div>
-            <div style='font-size: 16px; font-weight: 500; color: #333; text-align: left;'>
-                {player_name}
-            </div>
-        </div>
-        """
+        # HTML kodlarını yan yana birleştirerek Markdown parser'ın kafasını karıştırmasını önledik
+        html_rankings += (
+            f"<div style='display: flex; align-items: center; justify-content: flex-start; padding: 10px; margin-bottom: 6px; background-color: {bg_color}; border: 1px solid #e0e0e0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>"
+            f"<div style='width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; background-color: #1f77b4; color: white; font-weight: bold; font-size: 16px; border-radius: 50%; margin-right: 15px; flex-shrink: 0;'>{rank_num}</div>"
+            f"<div style='font-size: 16px; font-weight: 500; color: #333; text-align: left;'>{player_name}</div>"
+            "</div>"
+        )
         
     html_rankings += "</div>"
     st.markdown(html_rankings, unsafe_allow_html=True)
