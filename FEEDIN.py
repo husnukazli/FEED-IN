@@ -87,6 +87,7 @@ class TurnuvaFPDF(FPDF):
         
         super().set_font(family, style, size)
 
+# Şifreleri koda sabitledik (Streamlit Cloud güvenliğine takılmaması için)
 SIFRELER = {
     "12 Yaş": "hakem12",
     "14 Yaş": "hakem14",
@@ -127,8 +128,6 @@ if "active_cat" not in st.session_state:
     st.session_state.active_cat = "Erkekler"
 if "secilen_gun_tab2" not in st.session_state:
     st.session_state.secilen_gun_tab2 = "Tüm Günler"
-if "sort_by" not in st.session_state:
-    st.session_state.sort_by = "match_no"
 
 def get_base64_image(image_path):
     if os.path.exists(image_path):
@@ -139,23 +138,23 @@ def get_base64_image(image_path):
 # Akıllı Metin Avcısı Sıralama Algoritması
 def get_sorted_matches(matches_list, cat_d, filtre):
     filtered = []
+    sort_pref = st.session_state.data['publish'].get('sort_by', 'match_no')
+    
     for idx, (m_id, label) in enumerate(matches_list):
         is_cons = m_id.startswith("CR") or "TESELLI" in m_id or "5_6" in m_id or "7_8" in m_id
         if filtre == "Sadece Ana Tablo" and is_cons: continue
         if filtre == "Sadece FEED IN" and not is_cons: continue
         
-        time_val = 999999 # Saati olmayanları en alta atmak için yüksek bir değer
-        if st.session_state.sort_by == "time":
+        time_val = 999999 
+        if sort_pref == "time":
             saat_str = cat_d['schedule_data'].get(m_id, {}).get("saat", "")
-            # İçinde HH:MM veya HH.MM geçen kısmı bul (örn: Dinlendikten sonra NB 14.30)
             m = re.search(r'(\d{1,2})[:.](\d{2})', saat_str)
             if m:
                 time_val = int(m.group(1)) * 60 + int(m.group(2))
         
         filtered.append((m_id, label, idx, time_val))
         
-    # Sıralama: Önce saate göre, saatleri aynıysa orijinal maç numarasına göre (idx)
-    if st.session_state.sort_by == "time":
+    if sort_pref == "time":
         filtered.sort(key=lambda x: (x[3], x[2]))
     else:
         filtered.sort(key=lambda x: x[2])
@@ -220,7 +219,7 @@ def load_data():
     default_data = {
         'Erkekler': {'players': [f"Oyuncu {i}" for i in range(1, 17)], 'res': {}, 'scores': {}, 'schedule_data': {}},
         'Kadınlar': {'players': [f"Oyuncu {i}" for i in range(1, 17)], 'res': {}, 'scores': {}, 'schedule_data': {}},
-        'publish': {'gun': 'Tüm Günler', 'filtre': 'Tümü', 'kategori': 'Tümü', 'dates': {}, 'ikort_link': ''}
+        'publish': {'gun': 'Tüm Günler', 'filtre': 'Tümü', 'kategori': 'Tümü', 'dates': {}, 'ikort_link': '', 'sort_by': 'match_no'}
     }
     
     if os.path.exists(DB_FILE):
@@ -228,11 +227,13 @@ def load_data():
             with open(DB_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 if 'publish' not in data:
-                    data['publish'] = {'gun': 'Tüm Günler', 'filtre': 'Tümü', 'kategori': 'Tümü', 'dates': {}, 'ikort_link': ''}
+                    data['publish'] = {'gun': 'Tüm Günler', 'filtre': 'Tümü', 'kategori': 'Tümü', 'dates': {}, 'ikort_link': '', 'sort_by': 'match_no'}
                 if 'dates' not in data['publish']:
                     data['publish']['dates'] = {}
                 if 'ikort_link' not in data['publish']:
                     data['publish']['ikort_link'] = ""
+                if 'sort_by' not in data['publish']:
+                    data['publish']['sort_by'] = "match_no"
                 return data
         except Exception:
             bak_file = DB_FILE + ".bak"
@@ -241,11 +242,13 @@ def load_data():
                     with open(bak_file, "r", encoding="utf-8") as f:
                         data = json.load(f)
                         if 'publish' not in data:
-                            data['publish'] = {'gun': 'Tüm Günler', 'filtre': 'Tümü', 'kategori': 'Tümü', 'dates': {}, 'ikort_link': ''}
+                            data['publish'] = {'gun': 'Tüm Günler', 'filtre': 'Tümü', 'kategori': 'Tümü', 'dates': {}, 'ikort_link': '', 'sort_by': 'match_no'}
                         if 'dates' not in data['publish']:
                             data['publish']['dates'] = {}
                         if 'ikort_link' not in data['publish']:
                             data['publish']['ikort_link'] = ""
+                        if 'sort_by' not in data['publish']:
+                            data['publish']['sort_by'] = "match_no"
                         return data
                 except:
                     pass
@@ -672,7 +675,20 @@ with tab_program:
                     st.success("Tarihler başarıyla kaydedildi!")
                     st.rerun()
                     
-        tablo_filtresi = st.selectbox("📊 Tablo Gösterimi (Yönetici Filtresi):", ["İkisini de Göster", "Sadece Ana Tablo", "Sadece FEED IN"])
+        # YÖNETİCİYE ÖZEL ŞIK VE SESSİZ AYAR MENÜLERİ (Tablo Filtresi ve Sıralama Ölçütü Yan Yana)
+        c_ayar1, c_ayar2 = st.columns(2)
+        tablo_filtresi = c_ayar1.selectbox("📊 Tablo Gösterimi:", ["İkisini de Göster", "Sadece Ana Tablo", "Sadece FEED IN"])
+        
+        mevcut_siralama = st.session_state.data['publish'].get('sort_by', 'match_no')
+        sec_sir = c_ayar2.selectbox("↕️ Yayın Sıralaması (Herkese Uygulanır):", ["🔢 Maç Numarasına Göre", "🕒 Maç Saatine Göre"], index=0 if mevcut_siralama == 'match_no' else 1)
+        
+        # Seçim yapıldığı an otomatik kaydedip sayfayı yenileyen tetikleyici
+        yeni_sort_val = 'match_no' if "Numarasına" in sec_sir else 'time'
+        if yeni_sort_val != mevcut_siralama:
+            st.session_state.data['publish']['sort_by'] = yeni_sort_val
+            save_data()
+            st.rerun()
+            
     else:
         tablo_filtresi = "İkisini de Göster"
         
@@ -698,17 +714,6 @@ with tab_program:
             else:
                 label = tarih_str if tarih_str else g
             gosterilecek_gunler.append({"key": g, "label": label})
-
-    # DİNAMİK SIRALAMA BUTONLARI BURADA!
-    st.markdown("##### ↕️ Sıralama Ölçütü")
-    c_sort1, c_sort2 = st.columns(2)
-    if c_sort1.button("🔢 Maç Numarasına Göre Sırala", type="primary" if st.session_state.sort_by == "match_no" else "secondary", use_container_width=True):
-        st.session_state.sort_by = "match_no"
-        st.rerun()
-    if c_sort2.button("🕒 Maç Saatine Göre Sırala", type="primary" if st.session_state.sort_by == "time" else "secondary", use_container_width=True):
-        st.session_state.sort_by = "time"
-        st.rerun()
-    st.markdown("<br>", unsafe_allow_html=True)
 
     if st.session_state.admin_mi:
         cols = st.columns(len(gosterilecek_gunler) + 1)
@@ -750,7 +755,6 @@ with tab_program:
         cat_d = st.session_state.data[cat_name]
         b_state = compute_bracket_state(cat_d)
         
-        # Filtreleme ve Sıralama İşlemini Akıllı Fonksiyondan Alıyoruz
         filtered_matches = get_sorted_matches(matches, cat_d, tablo_filtresi)
         
         if not filtered_matches: return
@@ -927,7 +931,6 @@ with tab_program:
                     cat_d_local = st.session_state.data[cat_n]
                     b_state_local = compute_bracket_state(cat_d_local)
                     
-                    # PDF İÇİN DE AYNI AKILLI SIRALAMA ÇAĞRILIYOR
                     sorted_m = get_sorted_matches(g_maclar[g_adi], cat_d_local, tablo_filtresi)
                     temp_matches = []
                     
