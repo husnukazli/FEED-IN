@@ -88,12 +88,11 @@ class TurnuvaFPDF(FPDF):
         super().set_font(family, style, size)
 
 SIFRELER = {
-    "12 Yaş": st.secrets.get("sifre_12", "hakem12"),
-    "14 Yaş": st.secrets.get("sifre_14", "hakem14"),
-    "16 Yaş": st.secrets.get("sifre_16", "hakem16"),
-    "18 Yaş": st.secrets.get("sifre_18", "hakem18")
+    "12 Yaş": "hakem12",
+    "14 Yaş": "hakem14",
+    "16 Yaş": "hakem16",
+    "18 Yaş": "hakem18"
 }
-
 SRC_MAP = {
     "MQF_0_p1": "M1 Kazananı", "MQF_0_p2": "M2 Kazananı",
     "MQF_1_p1": "M3 Kazananı", "MQF_1_p2": "M4 Kazananı",
