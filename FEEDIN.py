@@ -781,12 +781,12 @@ with tab_program:
 
             bg_style = ""
             bg_color_only = ""
-            # YENİ RENKLER BURADA: Buz Mavisi, Açık Gri, Krem Rengi, Soluk Yeşil (Gökkuşağı algısı kaldırıldı)
+            # YENİ RENKLER BURADA: Belirgin Mavi, Net Gri, Krem/Somon, Soluk Yeşil
             if m_id.startswith("MQF_") or m_id.startswith("CR1_"):
                 try:
                     mac_index = int(m_id.split("_")[1])
                     color_idx = 3 - mac_index if m_id.startswith("MQF_") else mac_index
-                    renkler = {0: "#eaf4ff", 1: "#f1f3f5", 2: "#fff4e6", 3: "#e8f5e9"}
+                    renkler = {0: "#cce3f6", 1: "#e0e0e0", 2: "#fce4d6", 3: "#d5ebd9"}
                     bg_renk = renkler.get(color_idx, "")
                     if bg_renk:
                         bg_style = f"background-color: {bg_renk}; color: #000; padding: 4px; border-radius: 4px; margin-bottom: 2px;"
@@ -796,7 +796,7 @@ with tab_program:
             elif m_id.startswith("MSF_") or m_id.startswith("CR3_"):
                 try:
                     mac_index = int(m_id.split("_")[1])
-                    renkler = {0: "#eaf4ff", 1: "#f1f3f5"}
+                    renkler = {0: "#cce3f6", 1: "#e0e0e0"}
                     bg_renk = renkler.get(mac_index, "")
                     if bg_renk:
                         bg_style = f"background-color: {bg_renk}; color: #000; padding: 4px; border-radius: 4px; margin-bottom: 2px;"
