@@ -8,7 +8,15 @@ import re
 import html
 import copy
 import base64
+import io
 from fpdf import FPDF
+
+# PDF Okuyucu Kütüphanesi Kontrolü
+try:
+    import PyPDF2
+    PYPDF2_AVAILABLE = True
+except ImportError:
+    PYPDF2_AVAILABLE = False
 
 import bracket_engine
 from bracket_engine import compute_bracket_state
@@ -82,7 +90,7 @@ SRC_MAP = {
     "CR2_0_p1": "M16 Kazananı", "CR2_0_p2": "M12 Kaybedeni",
     "CR2_1_p1": "M17 Kazananı", "CR2_1_p2": "M11 Kaybedeni",
     "CR2_2_p1": "M18 Kazananı", "CR2_2_p2": "M10 Kaybedeni",
-    "CR2_3_p1": "M19 Kazananı", "CR2_3_p2": "M9 Kaybedeni",
+    "CR2_3_p1": "M19 Kazananı", "CR2_3_p2": "M9 Kazananı",
     "CR3_0_p1": "M20 Kazananı", "CR3_0_p2": "M21 Kazananı",
     "CR3_1_p1": "M22 Kazananı", "CR3_1_p2": "M23 Kazananı",
     "CR4_0_p1": "M24 Kazananı", "CR4_0_p2": "M13 Kaybedeni",
@@ -102,7 +110,6 @@ if "secilen_gun_tab2" not in st.session_state:
     st.session_state.secilen_gun_tab2 = "Tüm Günler"
 
 def get_base64_image(image_path):
-    """Logoları HTML'de güvenle göstermek için Base64'e çevirir"""
     if os.path.exists(image_path):
         with open(image_path, "rb") as img_file:
             return base64.b64encode(img_file.read()).decode()
@@ -113,7 +120,6 @@ def get_base64_image(image_path):
 # ==============================================================================
 if st.session_state.aktif_yas == "Seçilmedi":
     
-    # Eğer TTF logosu varsa Karşılama ekranında merkeze bas
     ttf_b64 = get_base64_image("ttf_logo.png")
     if ttf_b64:
         st.markdown(f'<div style="text-align: center; margin-bottom: 10px;"><img src="data:image/png;base64,{ttf_b64}" width="150"></div>', unsafe_allow_html=True)
@@ -417,7 +423,6 @@ st.markdown("""
 # 6. ÜST BÖLÜM (LOGOLAR, LİNKLER VE KATEGORİ)
 # ==========================================
 
-# Dinamik Logo ve Başlık Bölümü
 c_logo, c_title = st.columns([1, 8])
 with c_logo:
     ttf_b64 = get_base64_image("ttf_logo.png")
@@ -426,7 +431,6 @@ with c_logo:
 with c_title:
     st.title(f"{st.session_state.aktif_yas} Milli Takım Belirleme Turnuvası")
     
-    # i-Kort Linki ve Logosu
     ikort_url = st.session_state.data['publish'].get('ikort_link', '')
     if ikort_url:
         ikort_b64 = get_base64_image("ikort_logo.png")
@@ -447,7 +451,6 @@ cat_data = st.session_state.data[active_cat]
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- DİNAMİK SEKMELER (MİSAFİRDEN GİZLEME MANTIĞI) ---
 if st.session_state.admin_mi:
     tab_fikstur, tab_program, tab_siralama, tab_dosya = st.tabs(["🏆 Fikstürler", "📅 Maç Programı", "🇹🇷 Sıralama", "⚙️ Veri Yönetimi"])
 else:
@@ -462,7 +465,6 @@ p = cat_data['players']
 with tab_fikstur:
     c_view1, c_view2 = st.columns([3, 1])
     with c_view1:
-        # Menü adı Teselli'den FEED IN'e çevrildi, Emojiler sadeleştirildi
         gorunum = st.radio("Görünüm:", ["İkisini de Göster", "Sadece Ana Tablo", "Sadece FEED IN"], horizontal=True, label_visibility="collapsed")
     
     bracket_state = compute_bracket_state(cat_data)
@@ -1000,21 +1002,117 @@ if st.session_state.admin_mi and tab_dosya:
         
         st.markdown(f"**2. Esame Listesini Güncelle ({active_cat})**")
         
-        mevcut_isimler = [clean_html_text(x) for x in cat_data['players']]
-        txt = st.text_area("16 Oyuncu girin (1. Seribaşı en üstte):", value="\n".join(mevcut_isimler), height=150)
+        giris_sekli = st.radio("Giriş Yöntemi Seçiniz:", ["📝 Tek Tek Numaralı Giriş", "📋 Excel'den Toplu Kopyala/Yapıştır", "📄 PDF'den Otomatik Çek (YENİ)"], horizontal=True)
         
-        if st.button("👥 Listeyi Kaydet"):
-            temiz_isimler = []
-            for name in txt.splitlines():
-                temiz = clean_html_text(name)
-                if temiz:
-                    temiz_isimler.append(temiz)
+        mevcut_isimler = [clean_html_text(x) for x in cat_data['players']]
+        while len(mevcut_isimler) < 16:
+            mevcut_isimler.append("")
+            
+        if giris_sekli == "📝 Tek Tek Numaralı Giriş":
+            st.caption("Oyuncuları kura numaralarına (1-16) göre kutucuklara yazabilirsiniz. Kimin hangi sırada olduğunu net olarak görebilirsiniz.")
+            with st.form("numarali_giris_form"):
+                c1, c2 = st.columns(2)
+                yeni_liste = []
+                for i in range(16):
+                    lbl = f"{i+1}. Sıra / Oyuncu"
+                    if i < 8:
+                        val = c1.text_input(lbl, value=mevcut_isimler[i], key=f"p_{active_cat}_{i}")
+                    else:
+                        val = c2.text_input(lbl, value=mevcut_isimler[i], key=f"p_{active_cat}_{i}")
+                    yeni_liste.append(val)
+                
+                if st.form_submit_button("👥 Numaralı Listeyi Kaydet"):
+                    temiz_isimler = []
+                    for i, name in enumerate(yeni_liste):
+                        t = clean_html_text(name)
+                        temiz_isimler.append(t if t else f"Oyuncu {i+1}")
+                        
+                    cat_data['players'] = temiz_isimler
+                    clean_ghost_data(st.session_state.data)
+                    save_data()
+                    st.success("Oyuncu listesi sırasıyla kaydedildi!")
+                    st.rerun()
                     
-            cat_data['players'] = temiz_isimler
-            clean_ghost_data(st.session_state.data)
-            save_data()
-            st.success("Liste güncellendi!")
-            st.rerun()
+        elif giris_sekli == "📋 Excel'den Toplu Kopyala/Yapıştır":
+            st.caption("Excel gibi bir programdan 16 oyuncuyu alt alta kopyalayıp aşağıdaki alana yapıştırabilirsiniz. (En üstteki isim 1. sıraya yerleşir)")
+            txt = st.text_area("Oyuncu Listesi (Her satıra bir isim):", value="\n".join(mevcut_isimler), height=350)
+            
+            if st.button("👥 Toplu Listeyi Kaydet"):
+                temiz_isimler = []
+                for name in txt.splitlines():
+                    temiz = clean_html_text(name)
+                    if temiz:
+                        temiz_isimler.append(temiz)
+                
+                while len(temiz_isimler) < 16:
+                    temiz_isimler.append(f"Oyuncu {len(temiz_isimler)+1}")
+                    
+                cat_data['players'] = temiz_isimler[:16]
+                clean_ghost_data(st.session_state.data)
+                save_data()
+                st.success("Toplu liste başarıyla kaydedildi!")
+                st.rerun()
+                
+        elif giris_sekli == "📄 PDF'den Otomatik Çek (YENİ)":
+            if not PYPDF2_AVAILABLE:
+                st.error("⚠️ Bu özelliği kullanabilmek için PyPDF2 kütüphanesi gereklidir. Lütfen terminalinize `pip install PyPDF2` yazarak kurun ve uygulamayı yeniden başlatın.")
+            else:
+                st.caption("i-Kort'tan indirdiğiniz 32'lik Ana Tablo PDF dosyasını yükleyin. Sistem, 2. tura geçen 16 kazananı tespit edip listeye dökecektir.")
+                uploaded_pdf = st.file_uploader("Ana Tablo Fikstür PDF'ini Yükle", type="pdf")
+                
+                if uploaded_pdf:
+                    try:
+                        reader = PyPDF2.PdfReader(uploaded_pdf)
+                        pdf_text = ""
+                        for page in reader.pages:
+                            pdf_text += page.extract_text() + "\n"
+                            
+                        # Metni satır satır böl ve temizle
+                        lines = [l.strip() for l in pdf_text.split('\n') if l.strip()]
+                        
+                        # Kurallar: İsimler genellikle en az 2 kelime, büyük harftir ve altlarında skor bulunur.
+                        name_pattern = re.compile(r'^[A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜ\s]{3,}$')
+                        score_pattern = re.compile(r'\d/\d|WO|RET', re.IGNORECASE)
+                        
+                        extracted_names = []
+                        for i, line in enumerate(lines):
+                            if score_pattern.search(line):
+                                # Skorun hemen üstündeki (1-3 satır arası) ilk büyük harfli ismi kazanan kabul et
+                                for j in range(1, 4):
+                                    if i-j >= 0 and name_pattern.match(lines[i-j]):
+                                        found_name = lines[i-j].strip()
+                                        # Kulüp, turnuva adı gibi yanlış kelimeleri filtrele
+                                        if found_name not in extracted_names and "KULÜB" not in found_name and "TURNUVA" not in found_name and "TABLO" not in found_name:
+                                            extracted_names.append(found_name)
+                                        break
+                        
+                        # İkinci tura kalan sadece ilk 16 kişiyi al (çünkü PDF'te çeyrek/yarı finallerin de kazananları var)
+                        while len(extracted_names) < 16:
+                            extracted_names.append("")
+                        extracted_names = extracted_names[:16]
+                        
+                        st.success("✅ PDF okuma tamamlandı! Lütfen listeyi kontrol edip eksik veya hatalı harf varsa düzeltin.")
+                        
+                        txt_pdf = st.text_area("Düzenlenebilir 16 Oyuncu Listesi:", value="\n".join(extracted_names), height=350)
+                        
+                        if st.button("💾 Çıkarılan Listeyi Kaydet"):
+                            temiz_isimler = []
+                            for name in txt_pdf.splitlines():
+                                temiz = clean_html_text(name)
+                                if temiz:
+                                    temiz_isimler.append(temiz)
+                            
+                            while len(temiz_isimler) < 16:
+                                temiz_isimler.append(f"Oyuncu {len(temiz_isimler)+1}")
+                                
+                            cat_data['players'] = temiz_isimler[:16]
+                            clean_ghost_data(st.session_state.data)
+                            save_data()
+                            st.success("PDF'den çekilen liste başarıyla onaylandı ve kaydedildi!")
+                            st.rerun()
+                            
+                    except Exception as e:
+                        st.error(f"PDF okunurken bir hata oluştu: {e}")
             
         st.divider()
         st.markdown("**3. Sistemi Yedekle / Geri Yükle**")
