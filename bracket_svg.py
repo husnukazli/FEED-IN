@@ -1,5 +1,8 @@
 import html as _html
-from geometry import compute_main_bracket, compute_consolation_bracket, BOX_W, BOX_H
+from geometry import compute_main_bracket, compute_consolation_bracket, BOX_H
+
+# YENİ TASARIM: Kutu genişliğini 160'tan 195'e çıkararak uzun isimlere yer açtık!
+BOX_W = 195
 
 def _esc(s):
     return _html.escape(str(s)) if s else ""
@@ -17,7 +20,6 @@ def _box_svg(x, top, mid, label, match_no, p1, p2, winner, score, bg_color, line
     header_bg = f'<path d="M {x+1} {top+6} Q {x+1} {top+1} {x+6} {top+1} L {x+BOX_W-6} {top+1} Q {x+BOX_W-1} {top+1} {x+BOX_W-1} {top+6} L {x+BOX_W-1} {top+25} L {x+1} {top+25} Z" fill="{bg_color}"/>'
     score_html = f'<text x="{x + BOX_W/2}" y="{top + BOX_H + 14}" font-size="12.5" font-weight="bold" fill="#d9534f" text-anchor="middle">{_esc(score)}</text>' if score else ""
     
-    # Streamlit şaşırmasın diye tüm HTML/SVG yapısını tek satıra sıkıştırdık (Boşluksuz)
     return f'<g>{title}<rect x="{x}" y="{top}" width="{BOX_W}" height="{BOX_H}" rx="6" fill="#fff" stroke="#b8b8b8" stroke-width="1.2"/>{header_bg}</g><text x="{x+12}" y="{top+18}" font-size="11.5" font-weight="bold" fill="{text_color}">{label} · M{match_no}</text><line x1="{x}" y1="{top+25}" x2="{x+BOX_W}" y2="{top+25}" stroke="{line_color}" stroke-width="1.2"/><text x="{x+12}" y="{top+44}" font-size="16" style="{b1}">{p1n}</text><text x="{x+12}" y="{top+61}" font-size="16" style="{b2}">{p2n}</text>{score_html}'
 
 def _connector(x1, y1, x2, y2, y3, x4, xm=None):
@@ -32,7 +34,10 @@ def render_main_bracket_svg(state, cat_name="Erkekler"):
         bg_color, line_color, text_color = "#eaf4ff", "#c4ddf5", "#0056b3" 
 
     g = compute_main_bracket()
-    X_R1, X_QF, X_SF, X_F = 10, 200, 390, 580
+    
+    # Yeni genişliğe göre X koordinatları (Boşlukları güncelledik)
+    X_R1, X_QF, X_SF, X_F = 10, 230, 450, 670
+    
     parts = []
     for i, m in enumerate(g["r1"]):
         d = state.get(m["id"], {})
@@ -51,8 +56,8 @@ def render_main_bracket_svg(state, cat_name="Erkekler"):
     parts.append(_box_svg(X_F, g["final"]["top"], g["final"]["center"], "AT-FİNAL", 15, d.get("p1"), d.get("p2"), d.get("winner"), d.get("score", ""), bg_color, line_color, text_color))
     parts.append(_connector(X_SF+BOX_W, g["sf"][0]["center"], X_SF+BOX_W, g["sf"][1]["center"], g["final"]["center"], X_F))
 
-    svg_h = g["height"] + 20 # Alt kısımda skorlara pay bırakıldı
-    return f'<div style="overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid #eee; border-radius:8px;"><svg viewBox="0 0 760 {svg_h}" width="760" height="{svg_h}">{"".join(parts)}</svg></div>'
+    svg_h = g["height"] + 20 
+    return f'<div style="overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid #eee; border-radius:8px;"><svg viewBox="0 0 880 {svg_h}" width="880" height="{svg_h}">{"".join(parts)}</svg></div>'
 
 def render_consolation_bracket_svg(state, cat_name="Erkekler"):
     if cat_name == "Kadınlar":
@@ -62,7 +67,10 @@ def render_consolation_bracket_svg(state, cat_name="Erkekler"):
 
     main = compute_main_bracket()
     g = compute_consolation_bracket(main)
-    X_R1, X_CF, X_YF1, X_YF2, X_F = 10, 200, 390, 580, 770
+    
+    # Yeni genişliğe göre X koordinatları (Boşlukları güncelledik)
+    X_R1, X_CF, X_YF1, X_YF2, X_F = 10, 230, 450, 670, 890
+    
     parts = []
     for j, m in enumerate(g["t_r1"]):
         d = state.get(m["id"], {})
@@ -94,7 +102,9 @@ def render_consolation_bracket_svg(state, cat_name="Erkekler"):
     parts.append(_connector(X_YF2+BOX_W, a["center"], X_YF2+BOX_W, b["center"], g["final_teselli"]["center"], X_F))
     parts.append(_connector(X_YF2+BOX_W, a["center"], X_YF2+BOX_W, b["center"], g["m56"]["center"], X_F))
     a1, b1 = g["t_yf1"][0], g["t_yf1"][1]
+    
+    # Çizgi kordinatını da yeni genişliğe göre güncelledik (xm=660 ortalaması)
     parts.append(_connector(X_YF1+BOX_W, a1["center"], X_YF1+BOX_W, b1["center"], g["m78"]["center"], X_F, xm=X_YF1+BOX_W+15))
 
-    svg_h = max(main["height"], g["m78"]["top"] + BOX_H + 30) # Alt kısıma biraz daha pay bıraktık
-    return f'<div style="overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid #eee; border-radius:8px;"><svg viewBox="0 0 940 {svg_h}" width="940" height="{svg_h}">{"".join(parts)}</svg></div>'
+    svg_h = max(main["height"], g["m78"]["top"] + BOX_H + 30) 
+    return f'<div style="overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid #eee; border-radius:8px;"><svg viewBox="0 0 1100 {svg_h}" width="1100" height="{svg_h}">{"".join(parts)}</svg></div>'
