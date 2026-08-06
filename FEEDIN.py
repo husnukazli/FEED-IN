@@ -1,6 +1,24 @@
+import sys
+import subprocess
+import os
+
+# ==============================================================================
+# 0. OTOMATİK KÜTÜPHANE YÜKLEYİCİ (Kullanıcıyı Terminalden Kurtarır)
+# ==============================================================================
+try:
+    import PyPDF2
+    PYPDF2_AVAILABLE = True
+except ImportError:
+    try:
+        # Arka planda sessizce PyPDF2 kurmayı dener
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "PyPDF2"])
+        import PyPDF2
+        PYPDF2_AVAILABLE = True
+    except:
+        PYPDF2_AVAILABLE = False
+
 import streamlit as st
 import json
-import os
 import shutil
 import pandas as pd
 import datetime
@@ -10,13 +28,6 @@ import copy
 import base64
 import io
 from fpdf import FPDF
-
-# PDF Okuyucu Kütüphanesi Kontrolü
-try:
-    import PyPDF2
-    PYPDF2_AVAILABLE = True
-except ImportError:
-    PYPDF2_AVAILABLE = False
 
 import bracket_engine
 from bracket_engine import compute_bracket_state
@@ -1002,7 +1013,6 @@ if st.session_state.admin_mi and tab_dosya:
         
         st.markdown(f"**2. Esame Listesini Güncelle ({active_cat})**")
         
-        # ŞIK AÇIKLAMA BALONU BURAYA EKLENDİ (help parametresi ile)
         giris_sekli = st.radio(
             "Giriş Yöntemi Seçiniz:", 
             ["📝 Tek Tek Numaralı Giriş", "📋 Excel'den Toplu Kopyala/Yapıştır", "📄 PDF'den Otomatik Çek"], 
@@ -1061,11 +1071,10 @@ if st.session_state.admin_mi and tab_dosya:
                 
         elif giris_sekli == "📄 PDF'den Otomatik Çek":
             if not PYPDF2_AVAILABLE:
-                st.error("⚠️ Bu özelliği kullanabilmek için PyPDF2 kütüphanesi gereklidir. Lütfen terminalinize `pip install PyPDF2` yazarak kurun ve uygulamayı yeniden başlatın.")
+                st.error("⚠️ Bu özelliği kullanabilmek için PyPDF2 kütüphanesi gereklidir. Sistem arka planda yüklemeyi denedi ancak başarısız oldu. Lütfen terminalinize `pip install PyPDF2` yazarak kurun ve uygulamayı yeniden başlatın.")
             else:
                 st.caption("i-Kort'tan indirdiğiniz 32'lik Ana Tablo PDF dosyasını yükleyin. Sistem, 2. tura geçen 16 kazananı tespit edip listeye dökecektir.")
                 
-                # İKİNCİ ŞIK BALON DA BURAYA EKLENDİ
                 uploaded_pdf = st.file_uploader(
                     "Ana Tablo Fikstür PDF'ini Yükle", 
                     type="pdf",
