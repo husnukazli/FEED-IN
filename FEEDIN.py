@@ -70,20 +70,17 @@ FONT_BOLD_YUKLENDI = BOLD_FONT_FILE is not None
 
 class TurnuvaFPDF(FPDF):
     def header(self):
-        # Arka plana şık ve soluk Su İzi (Watermark) Logosu ekleme
         try:
             if os.path.exists("ttf_logo.png"):
                 wm_path = "ttf_logo_wm.png"
                 if not os.path.exists(wm_path):
                     from PIL import Image
                     img = Image.open("ttf_logo.png").convert("RGBA")
-                    # Logonun opaklığını %5'e düşürüyoruz (Siyah beyaz baskı için daha soluk)
                     alpha = img.split()[3]
                     alpha = alpha.point(lambda p: p * 0.05)
                     img.putalpha(alpha)
                     img.save(wm_path, "PNG")
                 
-                # Logoyu sayfanın tam ortasına yerleştir
                 img_w = 110
                 x = (self.w - img_w) / 2
                 y = (self.h - img_w) / 2
@@ -368,24 +365,21 @@ def generate_pdf(df, baslik, col_widths=None, aligns=None):
         if not aligns:
             aligns = ['C'] * len(df.columns)
             
-        # Şık Kurumsal Tablo Başlığı (Mavi Arka Plan, Beyaz Yazı)
         pdf.set_fill_color(31, 119, 180) 
         pdf.set_text_color(255, 255, 255)
         pdf.set_font("ArialTR", 'B', 11)
         
         for i, col in enumerate(df.columns):
-            # Başlık hücre yüksekliğini 10'dan 8'e düşürdük (Sıkıştırma)
             pdf.cell(w[i], 8, to_pdf_text(col), border=1, align=aligns[i], fill=True)
         pdf.ln()
         
-        pdf.set_text_color(0, 0, 0) # Yazı rengini normale (siyah) döndür
+        pdf.set_text_color(0, 0, 0)
         
-        # Zebra Deseni Satırları
         for row_idx, row in df.iterrows():
             if row_idx % 2 == 0:
-                pdf.set_fill_color(255, 255, 255) # Çift Satırlar: Beyaz
+                pdf.set_fill_color(255, 255, 255)
             else:
-                pdf.set_fill_color(242, 246, 250) # Tek Satırlar: Çok Açık Buz Mavisi / Gri
+                pdf.set_fill_color(242, 246, 250)
                 
             for i, item in enumerate(row):
                 align = aligns[i]
@@ -412,7 +406,6 @@ def generate_pdf(df, baslik, col_widths=None, aligns=None):
                         pdf_text = pdf_text[:-1]
                     pdf_text += ".."
                 
-                # Satır hücre yüksekliğini 9'dan 7.5'e düşürdük. Yazı fontu aynı ama aradaki boşluk azaldı (2. güne tam sığma garantisi)
                 pdf.cell(w[i], 7.5, pdf_text, border=1, align=align, fill=True)
             pdf.ln()
     return bytes(pdf.output())
@@ -1010,9 +1003,6 @@ with tab_program:
                         })
                         
                         combined_pdf_data.extend(temp_matches)
-                        
-            # PDF TASARRUF VE SIKIŞTIRMA MÜDAHALESİ: 
-            # Eskiden Kadınlar ve Erkekler arasına eklenen o tamamen boş satırı sildik. (Sayfadan tasarruf)
             
             combined_pdf_df = pd.DataFrame(combined_pdf_data)
             if secilen_gun != "Tüm Günler":
@@ -1107,7 +1097,7 @@ if st.session_state.admin_mi and tab_dosya:
         
         giris_sekli = st.radio(
             "Giriş Yöntemi Seçiniz:", 
-            ["📝 Tek Tek Numaralı Giriş", "📋 Excel'den Toplu Kopyala/Yapıştır", "📄 PDF'den Otomatik Çek"], 
+            ["📝 Tek Tek Numaralı Giriş", "📋 Excel'den Toplu Kopyala/Yapıştır", "📄 PDF'den Otomatik Çek (Çift Motor)"], 
             horizontal=True,
             help="İlgili turnuvaya ait 32'lik ana tablo fikstürünü i-Kort'tan PDF formatında indirip sisteme tanıtabilirsiniz."
         )
@@ -1161,33 +1151,41 @@ if st.session_state.admin_mi and tab_dosya:
                 st.success("Toplu liste başarıyla kaydedildi!")
                 st.rerun()
                 
-        elif giris_sekli == "📄 PDF'den Otomatik Çek":
+        # --- YENİ ÇİFT MOTORLU (HİBRİT) PDF OKUMA SİSTEMİ ---
+        elif giris_sekli == "📄 PDF'den Otomatik Çek (Çift Motor)":
             if PDF_LIB is None:
                 st.error("⚠️ Sistem arka planda kütüphane yüklemeyi denedi ancak başarısız oldu. Lütfen GitHub deponuzdaki requirements.txt dosyasına pdfplumber yazıp kaydedin.")
             else:
-                st.caption("i-Kort'tan indirdiğiniz 32'lik Ana Tablo PDF dosyasını yükleyin. Sistem, 2. tura geçen 16 kazananı tespit edip listeye dökecektir.")
+                st.caption("i-Kort'tan indirdiğiniz PDF dosyasını yükleyin. Sistem önce sıralı isimleri bulur, ardından gözden kaçanları listenin sonuna ekler. Lütfen numaralı listeyi kontrol edip eksikleri tamamlayın.")
                 
                 uploaded_pdf = st.file_uploader(
                     "Ana Tablo Fikstür PDF'ini Yükle", 
-                    type="pdf",
-                    help="İlgili turnuvaya ait 32'lik ana tablo fikstürünü i-Kort'tan PDF formatında indirip buradan sisteme tanıtabilirsiniz."
+                    type="pdf"
                 )
                 
                 if uploaded_pdf:
                     try:
+                        ordered_names = []
+                        all_names = []
+                        
                         if PDF_LIB == "pdfplumber":
                             import pdfplumber
                             with pdfplumber.open(uploaded_pdf) as pdf:
                                 page = pdf.pages[0]
                                 words = page.extract_words()
+                                raw_text = page.extract_text() + "\n"
+                                
+                                for p in pdf.pages[1:]:
+                                    raw_text += p.extract_text() + "\n"
                             
+                            # --- 1. MOTOR: X/Y Koordinat (Sıralı ama eksik olabilir) ---
                             lines_dict = {}
                             for w in words:
                                 y = round(w['top'] / 4) * 4
                                 if y not in lines_dict: lines_dict[y] = []
                                 lines_dict[y].append(w)
                                 
-                            found_names = []
+                            found_names_xy = []
                             for y in sorted(lines_dict.keys()):
                                 ws = sorted(lines_dict[y], key=lambda x: x['x0'])
                                 phrase = ""
@@ -1199,26 +1197,26 @@ if st.session_state.admin_mi and tab_dosya:
                                         phrase += (" " if phrase else "") + w['text']
                                         last_x1 = w['x1']
                                     else:
-                                        if phrase: found_names.append({"text": phrase.strip(), "x0": start_x, "top": y})
+                                        if phrase: found_names_xy.append({"text": phrase.strip(), "x0": start_x, "top": y})
                                         start_x = w['x0']
                                         phrase = w['text']
                                         last_x1 = w['x1']
                                 if phrase:
-                                    found_names.append({"text": phrase.strip(), "x0": start_x, "top": y})
+                                    found_names_xy.append({"text": phrase.strip(), "x0": start_x, "top": y})
                                     
-                            valid_names = []
-                            for n in found_names:
+                            valid_xy = []
+                            bad_words = ["KULÜB", "TURNUVA", "TABLO", "SEÇİMİ", "YAZDIR", "BAŞHAKEM", "MİLLİ", "TAKIM", "BELİRLEME", "KATEGORİ", "ERKEK", "KADIN", "KIZ", "YAŞ", "TEK", "ÇİFT", "TARİH", "İSİM", "PUAN", "KORT"]
+                            
+                            for n in found_names_xy:
                                 t = n['text']
-                                t = re.sub(r'^(\d+|S\d*|E\d*|WCK?|LL|Q\d*)\s+', '', t)
-                                t = re.sub(r'^(\d+|S\d*|E\d*|WCK?|LL|Q\d*)\s+', '', t)
-                                t = t.strip()
-                                if re.match(r'^[A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜ\s\.\']+$', t) and len(t) > 4:
-                                    bad_words = ["KULÜB", "TURNUVA", "TABLO", "SEÇİMİ", "YAZDIR", "BAŞHAKEM", "MİLLİ", "TAKIM", "BELİRLEME", "KATEGORİ", "ERKEK", "KADIN", "KIZ", "YAŞ", "TEK", "ÇİFT"]
-                                    if not any(b in t for b in bad_words):
-                                        valid_names.append({"text": t, "x0": n['x0'], "top": n['top']})
+                                t = re.sub(r'^(\d+|S\d*|E\d*|WCK?|LL|Q\d*|\[\d+\])\s*', '', t).strip()
+                                t = re.sub(r'^(\d+|S\d*|E\d*|WCK?|LL|Q\d*|\[\d+\])\s*', '', t).strip()
+                                if re.match(r'^[A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜa-zçğıöşü\s\.\']+$', t) and len(t) > 4:
+                                    if not any(b in t.upper() for b in bad_words):
+                                        valid_xy.append({"text": t, "x0": n['x0'], "top": n['top']})
                             
                             cols_dict = {}
-                            for n in valid_names:
+                            for n in valid_xy:
                                 found_col = None
                                 for c_x in cols_dict.keys():
                                     if abs(c_x - n['x0']) < 50:
@@ -1233,43 +1231,62 @@ if st.session_state.admin_mi and tab_dosya:
                             if len(sorted_col_keys) > 1:
                                 col2_names = cols_dict[sorted_col_keys[1]]
                                 col2_names = sorted(col2_names, key=lambda x: x['top'])
-                                extracted_names = [n['text'] for n in col2_names]
+                                ordered_names = [n['text'] for n in col2_names]
                             else:
-                                extracted_names = [n['text'] for n in valid_names]
+                                ordered_names = [n['text'] for n in valid_xy]
                                 
-                        else:
+                            # --- 2. MOTOR: Kaba Kuvvet (Sırasız ama tam tarama) ---
+                            lines = [l.strip() for l in raw_text.split('\n') if l.strip()]
+                            for line in lines:
+                                t = re.sub(r'^(\d+|S\d*|E\d*|WCK?|LL|Q\d*|\[\d+\])\s*', '', line).strip()
+                                t = re.sub(r'^(\d+|S\d*|E\d*|WCK?|LL|Q\d*|\[\d+\])\s*', '', t).strip()
+                                if re.match(r'^[A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜa-zçğıöşü\s\.\']+$', t) and len(t) > 4:
+                                    if not any(b in t.upper() for b in bad_words):
+                                        if t not in all_names:
+                                            all_names.append(t)
+                                            
+                        else: # Sadece PyPDF2 varsa (pdfplumber yüklenemediyse) mecburen sadece kaba kuvvet
                             import PyPDF2
                             reader = PyPDF2.PdfReader(uploaded_pdf)
-                            pdf_text = ""
+                            raw_text = ""
                             for page in reader.pages:
-                                pdf_text += page.extract_text() + "\n"
+                                raw_text += page.extract_text() + "\n"
                                 
-                            lines = [l.strip() for l in pdf_text.split('\n') if l.strip()]
-                            name_pattern = re.compile(r'^[A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜ\s]{3,}$')
-                            score_pattern = re.compile(r'\d/\d|WO|RET', re.IGNORECASE)
-                            
-                            extracted_names = []
-                            for i, line in enumerate(lines):
-                                if score_pattern.search(line):
-                                    for j in range(1, 4):
-                                        if i-j >= 0 and name_pattern.match(lines[i-j]):
-                                            found_name = lines[i-j].strip()
-                                            if found_name not in extracted_names and "KULÜB" not in found_name and "TURNUVA" not in found_name and "TABLO" not in found_name:
-                                                extracted_names.append(found_name)
-                                            break
+                            lines = [l.strip() for l in raw_text.split('\n') if l.strip()]
+                            bad_words = ["KULÜB", "TURNUVA", "TABLO", "SEÇİMİ", "YAZDIR", "BAŞHAKEM", "MİLLİ", "TAKIM", "BELİRLEME", "KATEGORİ", "ERKEK", "KADIN", "KIZ", "YAŞ", "TEK", "ÇİFT", "TARİH", "İSİM", "PUAN", "KORT"]
+                            for line in lines:
+                                t = re.sub(r'^(\d+|S\d*|E\d*|WCK?|LL|Q\d*|\[\d+\])\s*', '', line).strip()
+                                t = re.sub(r'^(\d+|S\d*|E\d*|WCK?|LL|Q\d*|\[\d+\])\s*', '', t).strip()
+                                if re.match(r'^[A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜa-zçğıöşü\s\.\']+$', t) and len(t) > 4:
+                                    if not any(b in t.upper() for b in bad_words):
+                                        if t not in all_names:
+                                            all_names.append(t)
 
-                        while len(extracted_names) < 16:
-                            extracted_names.append("")
-                        extracted_names = extracted_names[:16]
+                        # HİBRİT BİRLEŞTİRME (Sıralı + Kaçırılanlar)
+                        final_extracted = list(ordered_names)
+                        for fn in all_names:
+                            if not any(fn.upper() == ex.upper() for ex in final_extracted):
+                                final_extracted.append(fn)
+
+                        # UI Gösterimi İçin Numaralandır (Kontrolü kolaylaştırmak için)
+                        numbered_list = []
+                        for idx, name in enumerate(final_extracted):
+                            numbered_list.append(f"{idx+1}. {name}")
+                            
+                        # Görsel olarak eğer 16'dan azsa boş numaralar ekle
+                        while len(numbered_list) < 16:
+                            numbered_list.append(f"{len(numbered_list)+1}. ")
+                            
+                        st.success(f"✅ PDF taraması tamamlandı! Çift motor (Koordinat + Süpürge) kullanıldı. Toplam {len([x for x in final_extracted if x])} isim bulundu.")
                         
-                        st.success("✅ PDF okuma tamamlandı! Lütfen listeyi kontrol edip eksik veya hatalı harf varsa düzeltin.")
-                        
-                        txt_pdf = st.text_area("Düzenlenebilir 16 Oyuncu Listesi:", value="\n".join(extracted_names), height=350)
+                        txt_pdf = st.text_area("Düzenlenebilir Oyuncu Listesi (Sırayı düzenleyebilir, fazlalıkları silebilirsiniz):", value="\n".join(numbered_list), height=400)
                         
                         if st.button("💾 Çıkarılan Listeyi Kaydet"):
                             temiz_isimler = []
-                            for name in txt_pdf.splitlines():
-                                temiz = clean_html_text(name)
+                            for line in txt_pdf.splitlines():
+                                # Kullanıcının gördüğü baştaki numarayı sil (örn: "1. Ahmet" -> "Ahmet")
+                                t = re.sub(r'^\d+[\.\-]\s*', '', line).strip()
+                                temiz = clean_html_text(t)
                                 if temiz:
                                     temiz_isimler.append(temiz)
                             
@@ -1279,7 +1296,7 @@ if st.session_state.admin_mi and tab_dosya:
                             cat_data['players'] = temiz_isimler[:16]
                             clean_ghost_data(st.session_state.data)
                             save_data()
-                            st.success("PDF'den çekilen liste başarıyla onaylandı ve kaydedildi!")
+                            st.success("PDF listesi başarıyla kaydedildi!")
                             st.rerun()
                             
                     except Exception as e:
