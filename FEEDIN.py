@@ -93,6 +93,7 @@ SIFRELER = {
     "16 Yaş": "hakem16",
     "18 Yaş": "hakem18"
 }
+
 SRC_MAP = {
     "MQF_0_p1": "M1 Kazananı", "MQF_0_p2": "M2 Kazananı",
     "MQF_1_p1": "M3 Kazananı", "MQF_1_p2": "M4 Kazananı",
@@ -780,11 +781,12 @@ with tab_program:
 
             bg_style = ""
             bg_color_only = ""
+            # YENİ RENKLER BURADA: Buz Mavisi, Açık Gri, Krem Rengi, Soluk Yeşil (Gökkuşağı algısı kaldırıldı)
             if m_id.startswith("MQF_") or m_id.startswith("CR1_"):
                 try:
                     mac_index = int(m_id.split("_")[1])
                     color_idx = 3 - mac_index if m_id.startswith("MQF_") else mac_index
-                    renkler = {0: "#d0ebff", 1: "#d3f9d8", 2: "#fff3bf", 3: "#ffc9c9"}
+                    renkler = {0: "#eaf4ff", 1: "#f1f3f5", 2: "#fff4e6", 3: "#e8f5e9"}
                     bg_renk = renkler.get(color_idx, "")
                     if bg_renk:
                         bg_style = f"background-color: {bg_renk}; color: #000; padding: 4px; border-radius: 4px; margin-bottom: 2px;"
@@ -794,7 +796,7 @@ with tab_program:
             elif m_id.startswith("MSF_") or m_id.startswith("CR3_"):
                 try:
                     mac_index = int(m_id.split("_")[1])
-                    renkler = {0: "#d0ebff", 1: "#d3f9d8"}
+                    renkler = {0: "#eaf4ff", 1: "#f1f3f5"}
                     bg_renk = renkler.get(mac_index, "")
                     if bg_renk:
                         bg_style = f"background-color: {bg_renk}; color: #000; padding: 4px; border-radius: 4px; margin-bottom: 2px;"
@@ -1019,7 +1021,6 @@ if st.session_state.admin_mi and tab_dosya:
         
         st.markdown(f"**2. Esame Listesini Güncelle ({active_cat})**")
         
-        # İLK BİLGİ BALONU BURAYA EKLENDİ
         giris_sekli = st.radio(
             "Giriş Yöntemi Seçiniz:", 
             ["📝 Tek Tek Numaralı Giriş", "📋 Excel'den Toplu Kopyala/Yapıştır", "📄 PDF'den Otomatik Çek"], 
@@ -1082,7 +1083,6 @@ if st.session_state.admin_mi and tab_dosya:
             else:
                 st.caption("i-Kort'tan indirdiğiniz 32'lik Ana Tablo PDF dosyasını yükleyin. Sistem, 2. tura geçen 16 kazananı tespit edip listeye dökecektir.")
                 
-                # İKİNCİ BİLGİ BALONU BURAYA EKLENDİ
                 uploaded_pdf = st.file_uploader(
                     "Ana Tablo Fikstür PDF'ini Yükle", 
                     type="pdf",
