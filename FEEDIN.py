@@ -5,7 +5,6 @@ import os
 # ==============================================================================
 # 0. OTOMATİK KÜTÜPHANE YÜKLEYİCİ (Kullanıcıyı Terminalden Kurtarır)
 # ==============================================================================
-# Sadece PyPDF2 kullanıyoruz (pdfplumber tamamen kaldırıldı)
 try:
     import PyPDF2
 except ImportError:
@@ -67,7 +66,7 @@ class TurnuvaFPDF(FPDF):
                     from PIL import Image
                     img = Image.open("ttf_logo.png").convert("RGBA")
                     alpha = img.split()[3]
-                    alpha = alpha.point(lambda p: p * 0.05) # Siyah-beyaz dostu soluk watermark
+                    alpha = alpha.point(lambda p: p * 0.05)
                     img.putalpha(alpha)
                     img.save(wm_path, "PNG")
                 
@@ -1087,7 +1086,7 @@ if st.session_state.admin_mi and tab_dosya:
         
         giris_sekli = st.radio(
             "Giriş Yöntemi Seçiniz:", 
-            ["📝 Tek Tek Numaralı Giriş", "📋 Excel'den Toplu Kopyala/Yapıştır", "📄 PDF'den Otomatik Çek (Güvenli Mod)"], 
+            ["📝 Tek Tek Numaralı Giriş", "📋 Excel'den Toplu Kopyala/Yapıştır", "📄 PDF'den Otomatik Çek (Akıllı Mod)"], 
             horizontal=True,
             help="İlgili turnuvaya ait 32'lik ana tablo fikstürünü i-Kort'tan PDF formatında indirip sisteme tanıtabilirsiniz."
         )
@@ -1141,9 +1140,9 @@ if st.session_state.admin_mi and tab_dosya:
                 st.success("Toplu liste başarıyla kaydedildi!")
                 st.rerun()
                 
-        # --- YENİ BASİTLEŞTİRİLMİŞ, GÜVENLİ VE ZORUNLU ONAYLI PDF OKUYUCU ---
-        elif giris_sekli == "📄 PDF'den Otomatik Çek (Güvenli Mod)":
-            st.caption("i-Kort'tan indirdiğiniz PDF dosyasını yükleyin. Sistem belgedeki tüm isimleri bulup aşağıdaki numaralı kutulara yerleştirecektir. **PDF'in okunma yapısı sebebiyle oyuncuların kura sırası karışmış olabilir**, lütfen orijinal kura sırasına göre isimleri doğru kutulara taşıyın.")
+        # --- YENİ AKILLI (AÇILIR MENÜLÜ VE YAN YANA GÖRÜNÜMLÜ) PDF OKUYUCU ---
+        elif giris_sekli == "📄 PDF'den Otomatik Çek (Akıllı Mod)":
+            st.caption("i-Kort'tan indirdiğiniz PDF dosyasını yükleyin. Sol tarafta PDF'i canlı inceleyebilir, sağ tarafta isimlerin orijinal kura numaralarını (1-16) açılır menüden atayarak düzeltebilirsiniz.")
             
             uploaded_pdf = st.file_uploader(
                 "Ana Tablo Fikstür PDF'ini Yükle", 
@@ -1173,43 +1172,68 @@ if st.session_state.admin_mi and tab_dosya:
                     while len(all_names) < 16:
                         all_names.append("")
                         
-                    st.warning("⚠️ **DİKKAT:** PDF'in okuma akışından dolayı oyuncu sırası orijinal fikstürden farklı olabilir! Lütfen kutulardaki isimleri kes/yapıştır yaparak doğru kura numarasına taşıyın.")
+                    st.warning("⚠️ **DİKKAT:** PDF okuma akışı sebebiyle oyuncu listesi karışık olabilir! Lütfen sol taraftan orijinal PDF'e bakarak, her oyuncunun GERÇEK kura sırasını yanındaki açılır menüden seçin.")
                     
-                    # Numaralı kutular (sıra karışmasını engellemek için metin alanı yerine sabit kutular)
-                    with st.form("pdf_onay_form"):
-                        c1, c2 = st.columns(2)
-                        yeni_liste_pdf = []
-                        for i in range(16):
-                            lbl = f"{i+1}. Sıra / Oyuncu"
-                            val_to_show = all_names[i] if i < len(all_names) else ""
-                            if i < 8:
-                                val = c1.text_input(lbl, value=val_to_show, key=f"pdf_p_{active_cat}_{i}")
-                            else:
-                                val = c2.text_input(lbl, value=val_to_show, key=f"pdf_p_{active_cat}_{i}")
-                            yeni_liste_pdf.append(val)
+                    # YAN YANA GÖRÜNÜM İÇİN 2 KOLON OLUŞTURUYORUZ
+                    col_pdf, col_list = st.columns([1, 1])
+                    
+                    with col_pdf:
+                        # Sol Tarafta PDF'i göster
+                        uploaded_pdf.seek(0)
+                        base64_pdf = base64.b64encode(uploaded_pdf.read()).decode('utf-8')
+                        pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="750" type="application/pdf"></iframe>'
+                        st.markdown(pdf_display, unsafe_allow_html=True)
                         
-                        st.markdown("---")
-                        # Zorunlu Onay Kutusu
-                        onay_kutu = st.checkbox("✅ PDF formatından dolayı listenin sıralaması karışmış olabilir. Listeyi kontrol ettim, eksikleri tamamladım ve orijinal kura sırasına göre düzelttiğimi onaylıyorum.")
-                        
-                        submitted = st.form_submit_button("💾 Çıkarılan Listeyi Kaydet")
-                        if submitted:
-                            if not onay_kutu:
-                                st.error("❌ Kayıt başarısız! Lütfen önce yukarıdaki 'Listeyi kontrol ettim...' kutucuğunu işaretleyin.")
-                            else:
-                                temiz_isimler = []
-                                for i, name in enumerate(yeni_liste_pdf):
-                                    t = clean_html_text(name)
-                                    temiz_isimler.append(t if t else f"Oyuncu {i+1}")
-                                    
-                                cat_data['players'] = temiz_isimler[:16]
-                                clean_ghost_data(st.session_state.data)
-                                save_data()
-                                st.success("PDF listesi başarıyla onaylandı ve kaydedildi!")
-                                st.rerun()
+                    with col_list:
+                        # Sağ Tarafta Akıllı Eşleştirme Formu
+                        with st.form("pdf_sira_form"):
+                            st.markdown("##### 🎾 Kura Sırası Eşleştirme")
+                            c_bas_1, c_bas_2 = st.columns([1.2, 3])
+                            c_bas_1.markdown("**Orijinal Sıra (Seç)**")
+                            c_bas_2.markdown("**Oyuncu İsimleri**")
+                            
+                            yeni_liste_datalar = []
+                            for i in range(16):
+                                c_sira, c_isim = st.columns([1.2, 3])
+                                val_to_show = all_names[i] if i < len(all_names) else ""
+                                
+                                # Sıra seçimi (Kullanıcı 1'den 16'ya kadar menüden atama yapar)
+                                sira_secim = c_sira.selectbox(f"Sıra {i}", range(1, 17), index=i, key=f"pdf_pos_{active_cat}_{i}", label_visibility="collapsed")
+                                # İsim kutusu (Gerekirse isimde harf hatasını da düzeltebilir)
+                                isim_yazi = c_isim.text_input(f"İsim {i}", value=val_to_show, key=f"pdf_name_{active_cat}_{i}", label_visibility="collapsed")
+                                
+                                yeni_liste_datalar.append((sira_secim, isim_yazi))
+                            
+                            st.markdown("---")
+                            # Zorunlu Onay Kutusu
+                            onay_kutu = st.checkbox("✅ PDF'i inceledim, oyuncuların orijinal sıralarını yandaki menülerden doğru atadığımı ve eksik/çift numara bırakmadığımı onaylıyorum.")
+                            
+                            submitted = st.form_submit_button("💾 Onayla ve Sıralamayı Kaydet", use_container_width=True)
+                            
+                            if submitted:
+                                if not onay_kutu:
+                                    st.error("❌ Kayıt başarısız! Lütfen önce yukarıdaki 'PDF'i inceledim...' kutucuğunu işaretleyin.")
+                                else:
+                                    # Sistem numaraların benzersiz (çift numara yok) olup olmadığını kontrol eder
+                                    kullanilan_siralar = [x[0] for x in yeni_liste_datalar]
+                                    if len(set(kullanilan_siralar)) != 16:
+                                        st.error("❌ HATA: Aynı kura numarasını birden fazla kez kullandınız! (Lütfen seçtiğiniz sıraların 1'den 16'ya kadar benzersiz olduğuna emin olun).")
+                                    else:
+                                        # Numaralara göre sistemi jilet gibi kendi içinde sıralayıp kaydet
+                                        sorted_data = sorted(yeni_liste_datalar, key=lambda x: x[0])
+                                        temiz_isimler = []
+                                        for sira_num, name in sorted_data:
+                                            t = clean_html_text(name)
+                                            temiz_isimler.append(t if t else f"Oyuncu {sira_num}")
+                                            
+                                        cat_data['players'] = temiz_isimler[:16]
+                                        clean_ghost_data(st.session_state.data)
+                                        save_data()
+                                        st.success("PDF listesi başarıyla numaralandırıldı ve kaydedildi!")
+                                        st.rerun()
                                 
                 except Exception as e:
-                    st.error(f"PDF okunurken bir hata oluştu: {e}")
+                    st.error(f"PDF okunurken bir hata veya tarayıcı kısıtlaması oluştu. Alternatif kopyalama yöntemini kullanabilirsiniz. Hata: {e}")
             
         st.divider()
         st.markdown("**3. Sistemi Yedekle / Geri Yükle**")
