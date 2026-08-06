@@ -121,3 +121,16 @@ def draw_bracket_page(pdf, state, section, cat_name, to_pdf_text, font_family, p
         _draw_connector(pdf, scale, ox, oy, X_YF2+BOX_W, a["center"], b["center"], g["m56"]["center"], X_F)
         a1, b1 = g["t_yf1"][0], g["t_yf1"][1]
         _draw_connector(pdf, scale, ox, oy, X_YF1+BOX_W, a1["center"], b1["center"], g["m78"]["center"], X_F, xm=X_YF1+BOX_W+15)
+
+# İŞTE KESİLEN HAYATİ KISIM BURASI:
+def generate_bracket_pdf(cat_data, cat_name, FPDF, to_pdf_text, font_yuklendi):
+    from bracket_engine import compute_bracket_state
+    state = compute_bracket_state(cat_data)
+    font_family = "ArialTR" if font_yuklendi else "Arial"
+    pdf = FPDF(orientation='L', unit='mm', format='A4')
+    pdf.set_auto_page_break(False)
+    pdf.add_page()
+    draw_bracket_page(pdf, state, "main", cat_name, to_pdf_text, font_family)
+    pdf.add_page()
+    draw_bracket_page(pdf, state, "consolation", cat_name, to_pdf_text, font_family)
+    return bytes(pdf.output())
