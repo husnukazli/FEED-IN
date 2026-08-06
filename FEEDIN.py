@@ -5,6 +5,7 @@ import os
 # ==============================================================================
 # 0. OTOMATİK KÜTÜPHANE YÜKLEYİCİ (Kullanıcıyı Terminalden Kurtarır)
 # ==============================================================================
+# Metin okuma için
 try:
     import PyPDF2
 except ImportError:
@@ -14,7 +15,17 @@ except ImportError:
     except:
         pass
 
-# Su İzi (Watermark) yapabilmek için Pillow garantisi
+# PDF'i fotoğrafa çevirmek için (Tarayıcı engellerini aşar)
+try:
+    import fitz  # PyMuPDF
+except ImportError:
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "PyMuPDF"])
+        import fitz
+    except:
+        pass
+
+# Su İzi (Watermark) yapabilmek için Pillow
 try:
     from PIL import Image
 except ImportError:
@@ -1140,9 +1151,9 @@ if st.session_state.admin_mi and tab_dosya:
                 st.success("Toplu liste başarıyla kaydedildi!")
                 st.rerun()
                 
-        # --- YENİ AKILLI (AÇILIR MENÜLÜ VE YAN YANA GÖRÜNÜMLÜ) PDF OKUYUCU ---
+        # --- BROWSER ENGELİNE TAKILMAYAN GÖRSEL ÇEVİRİCİ MOTORU ---
         elif giris_sekli == "📄 PDF'den Otomatik Çek (Akıllı Mod)":
-            st.caption("i-Kort'tan indirdiğiniz PDF dosyasını yükleyin. Sol tarafta PDF'i canlı inceleyebilir, sağ tarafta isimlerin orijinal kura numaralarını (1-16) açılır menüden atayarak düzeltebilirsiniz.")
+            st.caption("i-Kort'tan indirdiğiniz PDF dosyasını yükleyin. Sistem, PDF'i anında **fotoğrafa (PNG)** dönüştürecektir. Böylece tarayıcı engeline takılmadan orijinal listeyi görebilirsiniz.")
             
             uploaded_pdf = st.file_uploader(
                 "Ana Tablo Fikstür PDF'ini Yükle", 
@@ -1172,20 +1183,27 @@ if st.session_state.admin_mi and tab_dosya:
                     while len(all_names) < 16:
                         all_names.append("")
                         
-                    st.warning("⚠️ **DİKKAT:** PDF okuma akışı sebebiyle oyuncu listesi karışık olabilir! Lütfen sol taraftan orijinal PDF'e bakarak, her oyuncunun GERÇEK kura sırasını yanındaki açılır menüden seçin.")
+                    st.warning("⚠️ **DİKKAT:** Orijinal sıralamayı sol taraftaki fotoğraftan kontrol ederek, her oyuncunun GERÇEK kura sırasını sağdaki açılır menüden seçiniz.")
                     
-                    # YAN YANA GÖRÜNÜM İÇİN 2 KOLON OLUŞTURUYORUZ
                     col_pdf, col_list = st.columns([1, 1])
                     
                     with col_pdf:
-                        # Sol Tarafta PDF'i göster
-                        uploaded_pdf.seek(0)
-                        base64_pdf = base64.b64encode(uploaded_pdf.read()).decode('utf-8')
-                        pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="750" type="application/pdf"></iframe>'
-                        st.markdown(pdf_display, unsafe_allow_html=True)
+                        st.markdown("##### 📄 Orijinal PDF Görseli (Güvenli)")
+                        st.info("Tarayıcı engeline takılmaması için PDF dosyası anında resme dönüştürülmüştür. Gerçek kura sırasını buradan net olarak görebilirsiniz.")
+                        try:
+                            if "fitz" in sys.modules:
+                                uploaded_pdf.seek(0)
+                                doc = fitz.open(stream=uploaded_pdf.read(), filetype="pdf")
+                                page = doc.load_page(0)
+                                pix = page.get_pixmap(dpi=150)
+                                # Container genişliğine göre resmi ekrana sığdır (use_container_width)
+                                st.image(pix.tobytes("png"), use_container_width=True)
+                            else:
+                                st.warning("Görsel dönüştürücü (PyMuPDF) arka planda yüklenemedi. Lütfen PDF'i bilgisayarınızdan ayrıca açarak kontrol ediniz.")
+                        except Exception as e:
+                            st.error(f"Görsel oluşturulamadı: {e}")
                         
                     with col_list:
-                        # Sağ Tarafta Akıllı Eşleştirme Formu
                         with st.form("pdf_sira_form"):
                             st.markdown("##### 🎾 Kura Sırası Eşleştirme")
                             c_bas_1, c_bas_2 = st.columns([1.2, 3])
@@ -1197,29 +1215,24 @@ if st.session_state.admin_mi and tab_dosya:
                                 c_sira, c_isim = st.columns([1.2, 3])
                                 val_to_show = all_names[i] if i < len(all_names) else ""
                                 
-                                # Sıra seçimi (Kullanıcı 1'den 16'ya kadar menüden atama yapar)
                                 sira_secim = c_sira.selectbox(f"Sıra {i}", range(1, 17), index=i, key=f"pdf_pos_{active_cat}_{i}", label_visibility="collapsed")
-                                # İsim kutusu (Gerekirse isimde harf hatasını da düzeltebilir)
                                 isim_yazi = c_isim.text_input(f"İsim {i}", value=val_to_show, key=f"pdf_name_{active_cat}_{i}", label_visibility="collapsed")
                                 
                                 yeni_liste_datalar.append((sira_secim, isim_yazi))
                             
                             st.markdown("---")
-                            # Zorunlu Onay Kutusu
-                            onay_kutu = st.checkbox("✅ PDF'i inceledim, oyuncuların orijinal sıralarını yandaki menülerden doğru atadığımı ve eksik/çift numara bırakmadığımı onaylıyorum.")
+                            onay_kutu = st.checkbox("✅ Sol taraftaki fotoğrafı inceledim, oyuncuların orijinal sıralarını yandaki menülerden doğru atadığımı ve eksik numara bırakmadığımı onaylıyorum.")
                             
                             submitted = st.form_submit_button("💾 Onayla ve Sıralamayı Kaydet", use_container_width=True)
                             
                             if submitted:
                                 if not onay_kutu:
-                                    st.error("❌ Kayıt başarısız! Lütfen önce yukarıdaki 'PDF'i inceledim...' kutucuğunu işaretleyin.")
+                                    st.error("❌ Kayıt başarısız! Lütfen önce yukarıdaki 'Fotoğrafı inceledim...' kutucuğunu işaretleyin.")
                                 else:
-                                    # Sistem numaraların benzersiz (çift numara yok) olup olmadığını kontrol eder
                                     kullanilan_siralar = [x[0] for x in yeni_liste_datalar]
                                     if len(set(kullanilan_siralar)) != 16:
                                         st.error("❌ HATA: Aynı kura numarasını birden fazla kez kullandınız! (Lütfen seçtiğiniz sıraların 1'den 16'ya kadar benzersiz olduğuna emin olun).")
                                     else:
-                                        # Numaralara göre sistemi jilet gibi kendi içinde sıralayıp kaydet
                                         sorted_data = sorted(yeni_liste_datalar, key=lambda x: x[0])
                                         temiz_isimler = []
                                         for sira_num, name in sorted_data:
@@ -1233,7 +1246,7 @@ if st.session_state.admin_mi and tab_dosya:
                                         st.rerun()
                                 
                 except Exception as e:
-                    st.error(f"PDF okunurken bir hata veya tarayıcı kısıtlaması oluştu. Alternatif kopyalama yöntemini kullanabilirsiniz. Hata: {e}")
+                    st.error(f"Dosya okunurken bir hata oluştu: {e}")
             
         st.divider()
         st.markdown("**3. Sistemi Yedekle / Geri Yükle**")
