@@ -5,25 +5,15 @@ import os
 # ==============================================================================
 # 0. OTOMATİK KÜTÜPHANE YÜKLEYİCİ (Kullanıcıyı Terminalden Kurtarır)
 # ==============================================================================
+# Sadece PyPDF2 kullanıyoruz (pdfplumber tamamen kaldırıldı)
 try:
-    import pdfplumber
-    PDF_LIB = "pdfplumber"
+    import PyPDF2
 except ImportError:
     try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "pdfplumber"])
-        import pdfplumber
-        PDF_LIB = "pdfplumber"
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "PyPDF2"])
+        import PyPDF2
     except:
-        try:
-            import PyPDF2
-            PDF_LIB = "pypdf2"
-        except ImportError:
-            try:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "PyPDF2"])
-                import PyPDF2
-                PDF_LIB = "pypdf2"
-            except:
-                PDF_LIB = None
+        pass
 
 # Su İzi (Watermark) yapabilmek için Pillow garantisi
 try:
@@ -77,7 +67,7 @@ class TurnuvaFPDF(FPDF):
                     from PIL import Image
                     img = Image.open("ttf_logo.png").convert("RGBA")
                     alpha = img.split()[3]
-                    alpha = alpha.point(lambda p: p * 0.05)
+                    alpha = alpha.point(lambda p: p * 0.05) # Siyah-beyaz dostu soluk watermark
                     img.putalpha(alpha)
                     img.save(wm_path, "PNG")
                 
@@ -1097,7 +1087,7 @@ if st.session_state.admin_mi and tab_dosya:
         
         giris_sekli = st.radio(
             "Giriş Yöntemi Seçiniz:", 
-            ["📝 Tek Tek Numaralı Giriş", "📋 Excel'den Toplu Kopyala/Yapıştır", "📄 PDF'den Otomatik Çek (Çift Motor)"], 
+            ["📝 Tek Tek Numaralı Giriş", "📋 Excel'den Toplu Kopyala/Yapıştır", "📄 PDF'den Otomatik Çek (Güvenli Mod)"], 
             horizontal=True,
             help="İlgili turnuvaya ait 32'lik ana tablo fikstürünü i-Kort'tan PDF formatında indirip sisteme tanıtabilirsiniz."
         )
@@ -1151,156 +1141,75 @@ if st.session_state.admin_mi and tab_dosya:
                 st.success("Toplu liste başarıyla kaydedildi!")
                 st.rerun()
                 
-        # --- YENİ ÇİFT MOTORLU (HİBRİT) PDF OKUMA SİSTEMİ ---
-        elif giris_sekli == "📄 PDF'den Otomatik Çek (Çift Motor)":
-            if PDF_LIB is None:
-                st.error("⚠️ Sistem arka planda kütüphane yüklemeyi denedi ancak başarısız oldu. Lütfen GitHub deponuzdaki requirements.txt dosyasına pdfplumber yazıp kaydedin.")
-            else:
-                st.caption("i-Kort'tan indirdiğiniz PDF dosyasını yükleyin. Sistem önce sıralı isimleri bulur, ardından gözden kaçanları listenin sonuna ekler. Lütfen numaralı listeyi kontrol edip eksikleri tamamlayın.")
-                
-                uploaded_pdf = st.file_uploader(
-                    "Ana Tablo Fikstür PDF'ini Yükle", 
-                    type="pdf"
-                )
-                
-                if uploaded_pdf:
-                    try:
-                        ordered_names = []
-                        all_names = []
+        # --- YENİ BASİTLEŞTİRİLMİŞ, GÜVENLİ VE ZORUNLU ONAYLI PDF OKUYUCU ---
+        elif giris_sekli == "📄 PDF'den Otomatik Çek (Güvenli Mod)":
+            st.caption("i-Kort'tan indirdiğiniz PDF dosyasını yükleyin. Sistem belgedeki tüm isimleri bulup aşağıdaki numaralı kutulara yerleştirecektir. **PDF'in okunma yapısı sebebiyle oyuncuların kura sırası karışmış olabilir**, lütfen orijinal kura sırasına göre isimleri doğru kutulara taşıyın.")
+            
+            uploaded_pdf = st.file_uploader(
+                "Ana Tablo Fikstür PDF'ini Yükle", 
+                type="pdf"
+            )
+            
+            if uploaded_pdf:
+                try:
+                    import PyPDF2
+                    reader = PyPDF2.PdfReader(uploaded_pdf)
+                    raw_text = ""
+                    for page in reader.pages:
+                        raw_text += page.extract_text() + "\n"
                         
-                        if PDF_LIB == "pdfplumber":
-                            import pdfplumber
-                            with pdfplumber.open(uploaded_pdf) as pdf:
-                                page = pdf.pages[0]
-                                words = page.extract_words()
-                                raw_text = page.extract_text() + "\n"
-                                
-                                for p in pdf.pages[1:]:
-                                    raw_text += p.extract_text() + "\n"
-                            
-                            # --- 1. MOTOR: X/Y Koordinat (Sıralı ama eksik olabilir) ---
-                            lines_dict = {}
-                            for w in words:
-                                y = round(w['top'] / 4) * 4
-                                if y not in lines_dict: lines_dict[y] = []
-                                lines_dict[y].append(w)
-                                
-                            found_names_xy = []
-                            for y in sorted(lines_dict.keys()):
-                                ws = sorted(lines_dict[y], key=lambda x: x['x0'])
-                                phrase = ""
-                                start_x = -1
-                                last_x1 = -1
-                                for w in ws:
-                                    if last_x1 == -1 or (w['x0'] - last_x1) < 15:
-                                        if start_x == -1: start_x = w['x0']
-                                        phrase += (" " if phrase else "") + w['text']
-                                        last_x1 = w['x1']
-                                    else:
-                                        if phrase: found_names_xy.append({"text": phrase.strip(), "x0": start_x, "top": y})
-                                        start_x = w['x0']
-                                        phrase = w['text']
-                                        last_x1 = w['x1']
-                                if phrase:
-                                    found_names_xy.append({"text": phrase.strip(), "x0": start_x, "top": y})
-                                    
-                            valid_xy = []
-                            bad_words = ["KULÜB", "TURNUVA", "TABLO", "SEÇİMİ", "YAZDIR", "BAŞHAKEM", "MİLLİ", "TAKIM", "BELİRLEME", "KATEGORİ", "ERKEK", "KADIN", "KIZ", "YAŞ", "TEK", "ÇİFT", "TARİH", "İSİM", "PUAN", "KORT"]
-                            
-                            for n in found_names_xy:
-                                t = n['text']
-                                t = re.sub(r'^(\d+|S\d*|E\d*|WCK?|LL|Q\d*|\[\d+\])\s*', '', t).strip()
-                                t = re.sub(r'^(\d+|S\d*|E\d*|WCK?|LL|Q\d*|\[\d+\])\s*', '', t).strip()
-                                if re.match(r'^[A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜa-zçğıöşü\s\.\']+$', t) and len(t) > 4:
-                                    if not any(b in t.upper() for b in bad_words):
-                                        valid_xy.append({"text": t, "x0": n['x0'], "top": n['top']})
-                            
-                            cols_dict = {}
-                            for n in valid_xy:
-                                found_col = None
-                                for c_x in cols_dict.keys():
-                                    if abs(c_x - n['x0']) < 50:
-                                        found_col = c_x
-                                        break
-                                if found_col is None:
-                                    cols_dict[n['x0']] = [n]
-                                else:
-                                    cols_dict[found_col].append(n)
-                                    
-                            sorted_col_keys = sorted(cols_dict.keys())
-                            if len(sorted_col_keys) > 1:
-                                col2_names = cols_dict[sorted_col_keys[1]]
-                                col2_names = sorted(col2_names, key=lambda x: x['top'])
-                                ordered_names = [n['text'] for n in col2_names]
+                    lines = [l.strip() for l in raw_text.split('\n') if l.strip()]
+                    bad_words = ["KULÜB", "TURNUVA", "TABLO", "SEÇİMİ", "YAZDIR", "BAŞHAKEM", "MİLLİ", "TAKIM", "BELİRLEME", "KATEGORİ", "ERKEK", "KADIN", "KIZ", "YAŞ", "TEK", "ÇİFT", "TARİH", "İSİM", "PUAN", "KORT"]
+                    
+                    all_names = []
+                    for line in lines:
+                        t = re.sub(r'^(\d+|S\d*|E\d*|WCK?|LL|Q\d*|\[\d+\])\s*', '', line).strip()
+                        t = re.sub(r'^(\d+|S\d*|E\d*|WCK?|LL|Q\d*|\[\d+\])\s*', '', t).strip()
+                        if re.match(r'^[A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜa-zçğıöşü\s\.\']+$', t) and len(t) > 4:
+                            if not any(b in t.upper() for b in bad_words):
+                                if t not in all_names:
+                                    all_names.append(t)
+                    
+                    while len(all_names) < 16:
+                        all_names.append("")
+                        
+                    st.warning("⚠️ **DİKKAT:** PDF'in okuma akışından dolayı oyuncu sırası orijinal fikstürden farklı olabilir! Lütfen kutulardaki isimleri kes/yapıştır yaparak doğru kura numarasına taşıyın.")
+                    
+                    # Numaralı kutular (sıra karışmasını engellemek için metin alanı yerine sabit kutular)
+                    with st.form("pdf_onay_form"):
+                        c1, c2 = st.columns(2)
+                        yeni_liste_pdf = []
+                        for i in range(16):
+                            lbl = f"{i+1}. Sıra / Oyuncu"
+                            val_to_show = all_names[i] if i < len(all_names) else ""
+                            if i < 8:
+                                val = c1.text_input(lbl, value=val_to_show, key=f"pdf_p_{active_cat}_{i}")
                             else:
-                                ordered_names = [n['text'] for n in valid_xy]
-                                
-                            # --- 2. MOTOR: Kaba Kuvvet (Sırasız ama tam tarama) ---
-                            lines = [l.strip() for l in raw_text.split('\n') if l.strip()]
-                            for line in lines:
-                                t = re.sub(r'^(\d+|S\d*|E\d*|WCK?|LL|Q\d*|\[\d+\])\s*', '', line).strip()
-                                t = re.sub(r'^(\d+|S\d*|E\d*|WCK?|LL|Q\d*|\[\d+\])\s*', '', t).strip()
-                                if re.match(r'^[A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜa-zçğıöşü\s\.\']+$', t) and len(t) > 4:
-                                    if not any(b in t.upper() for b in bad_words):
-                                        if t not in all_names:
-                                            all_names.append(t)
-                                            
-                        else: # Sadece PyPDF2 varsa (pdfplumber yüklenemediyse) mecburen sadece kaba kuvvet
-                            import PyPDF2
-                            reader = PyPDF2.PdfReader(uploaded_pdf)
-                            raw_text = ""
-                            for page in reader.pages:
-                                raw_text += page.extract_text() + "\n"
-                                
-                            lines = [l.strip() for l in raw_text.split('\n') if l.strip()]
-                            bad_words = ["KULÜB", "TURNUVA", "TABLO", "SEÇİMİ", "YAZDIR", "BAŞHAKEM", "MİLLİ", "TAKIM", "BELİRLEME", "KATEGORİ", "ERKEK", "KADIN", "KIZ", "YAŞ", "TEK", "ÇİFT", "TARİH", "İSİM", "PUAN", "KORT"]
-                            for line in lines:
-                                t = re.sub(r'^(\d+|S\d*|E\d*|WCK?|LL|Q\d*|\[\d+\])\s*', '', line).strip()
-                                t = re.sub(r'^(\d+|S\d*|E\d*|WCK?|LL|Q\d*|\[\d+\])\s*', '', t).strip()
-                                if re.match(r'^[A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜa-zçğıöşü\s\.\']+$', t) and len(t) > 4:
-                                    if not any(b in t.upper() for b in bad_words):
-                                        if t not in all_names:
-                                            all_names.append(t)
-
-                        # HİBRİT BİRLEŞTİRME (Sıralı + Kaçırılanlar)
-                        final_extracted = list(ordered_names)
-                        for fn in all_names:
-                            if not any(fn.upper() == ex.upper() for ex in final_extracted):
-                                final_extracted.append(fn)
-
-                        # UI Gösterimi İçin Numaralandır (Kontrolü kolaylaştırmak için)
-                        numbered_list = []
-                        for idx, name in enumerate(final_extracted):
-                            numbered_list.append(f"{idx+1}. {name}")
-                            
-                        # Görsel olarak eğer 16'dan azsa boş numaralar ekle
-                        while len(numbered_list) < 16:
-                            numbered_list.append(f"{len(numbered_list)+1}. ")
-                            
-                        st.success(f"✅ PDF taraması tamamlandı! Çift motor (Koordinat + Süpürge) kullanıldı. Toplam {len([x for x in final_extracted if x])} isim bulundu.")
+                                val = c2.text_input(lbl, value=val_to_show, key=f"pdf_p_{active_cat}_{i}")
+                            yeni_liste_pdf.append(val)
                         
-                        txt_pdf = st.text_area("Düzenlenebilir Oyuncu Listesi (Sırayı düzenleyebilir, fazlalıkları silebilirsiniz):", value="\n".join(numbered_list), height=400)
+                        st.markdown("---")
+                        # Zorunlu Onay Kutusu
+                        onay_kutu = st.checkbox("✅ PDF formatından dolayı listenin sıralaması karışmış olabilir. Listeyi kontrol ettim, eksikleri tamamladım ve orijinal kura sırasına göre düzelttiğimi onaylıyorum.")
                         
-                        if st.button("💾 Çıkarılan Listeyi Kaydet"):
-                            temiz_isimler = []
-                            for line in txt_pdf.splitlines():
-                                # Kullanıcının gördüğü baştaki numarayı sil (örn: "1. Ahmet" -> "Ahmet")
-                                t = re.sub(r'^\d+[\.\-]\s*', '', line).strip()
-                                temiz = clean_html_text(t)
-                                if temiz:
-                                    temiz_isimler.append(temiz)
-                            
-                            while len(temiz_isimler) < 16:
-                                temiz_isimler.append(f"Oyuncu {len(temiz_isimler)+1}")
+                        submitted = st.form_submit_button("💾 Çıkarılan Listeyi Kaydet")
+                        if submitted:
+                            if not onay_kutu:
+                                st.error("❌ Kayıt başarısız! Lütfen önce yukarıdaki 'Listeyi kontrol ettim...' kutucuğunu işaretleyin.")
+                            else:
+                                temiz_isimler = []
+                                for i, name in enumerate(yeni_liste_pdf):
+                                    t = clean_html_text(name)
+                                    temiz_isimler.append(t if t else f"Oyuncu {i+1}")
+                                    
+                                cat_data['players'] = temiz_isimler[:16]
+                                clean_ghost_data(st.session_state.data)
+                                save_data()
+                                st.success("PDF listesi başarıyla onaylandı ve kaydedildi!")
+                                st.rerun()
                                 
-                            cat_data['players'] = temiz_isimler[:16]
-                            clean_ghost_data(st.session_state.data)
-                            save_data()
-                            st.success("PDF listesi başarıyla kaydedildi!")
-                            st.rerun()
-                            
-                    except Exception as e:
-                        st.error(f"PDF okunurken bir hata oluştu: {e}")
+                except Exception as e:
+                    st.error(f"PDF okunurken bir hata oluştu: {e}")
             
         st.divider()
         st.markdown("**3. Sistemi Yedekle / Geri Yükle**")
