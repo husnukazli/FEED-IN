@@ -5,7 +5,6 @@ import os
 # ==============================================================================
 # 0. OTOMATİK KÜTÜPHANE YÜKLEYİCİ (Kullanıcıyı Terminalden Kurtarır)
 # ==============================================================================
-# Metin okuma için
 try:
     import PyPDF2
 except ImportError:
@@ -15,7 +14,6 @@ except ImportError:
     except:
         pass
 
-# PDF'i fotoğrafa çevirmek için (Tarayıcı engellerini aşar)
 try:
     import fitz  # PyMuPDF
 except ImportError:
@@ -25,7 +23,6 @@ except ImportError:
     except:
         pass
 
-# Su İzi (Watermark) yapabilmek için Pillow
 try:
     from PIL import Image
 except ImportError:
@@ -1185,7 +1182,8 @@ if st.session_state.admin_mi and tab_dosya:
                         
                     st.warning("⚠️ **DİKKAT:** Orijinal sıralamayı sol taraftaki fotoğraftan kontrol ederek, her oyuncunun GERÇEK kura sırasını sağdaki açılır menüden seçiniz.")
                     
-                    col_pdf, col_list = st.columns([1, 1])
+                    # YAN YANA GÖRÜNÜM (SOL TARAFA DAHA ÇOK YER VERİLDİ - PDF BÜYÜTÜLDÜ)
+                    col_pdf, col_list = st.columns([1.6, 1])
                     
                     with col_pdf:
                         st.markdown("##### 📄 Orijinal PDF Görseli (Güvenli)")
@@ -1195,8 +1193,8 @@ if st.session_state.admin_mi and tab_dosya:
                                 uploaded_pdf.seek(0)
                                 doc = fitz.open(stream=uploaded_pdf.read(), filetype="pdf")
                                 page = doc.load_page(0)
-                                pix = page.get_pixmap(dpi=150)
-                                # Container genişliğine göre resmi ekrana sığdır (use_container_width)
+                                # DPI arttırıldı (Fotoğraf daha yüksek çözünürlüklü ve net oldu)
+                                pix = page.get_pixmap(dpi=200)
                                 st.image(pix.tobytes("png"), use_container_width=True)
                             else:
                                 st.warning("Görsel dönüştürücü (PyMuPDF) arka planda yüklenemedi. Lütfen PDF'i bilgisayarınızdan ayrıca açarak kontrol ediniz.")
@@ -1206,13 +1204,15 @@ if st.session_state.admin_mi and tab_dosya:
                     with col_list:
                         with st.form("pdf_sira_form"):
                             st.markdown("##### 🎾 Kura Sırası Eşleştirme")
-                            c_bas_1, c_bas_2 = st.columns([1.2, 3])
-                            c_bas_1.markdown("**Orijinal Sıra (Seç)**")
+                            # Sıra kutusu çok daraltıldı, isim kutusuna çok geniş alan verildi
+                            c_bas_1, c_bas_2 = st.columns([1, 4])
+                            c_bas_1.markdown("**Sıra**")
                             c_bas_2.markdown("**Oyuncu İsimleri**")
                             
                             yeni_liste_datalar = []
                             for i in range(16):
-                                c_sira, c_isim = st.columns([1.2, 3])
+                                # Burada da kutu daraltıldı (1 birime 4 birim)
+                                c_sira, c_isim = st.columns([1, 4])
                                 val_to_show = all_names[i] if i < len(all_names) else ""
                                 
                                 sira_secim = c_sira.selectbox(f"Sıra {i}", range(1, 17), index=i, key=f"pdf_pos_{active_cat}_{i}", label_visibility="collapsed")
