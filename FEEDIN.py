@@ -77,9 +77,9 @@ class TurnuvaFPDF(FPDF):
                 if not os.path.exists(wm_path):
                     from PIL import Image
                     img = Image.open("ttf_logo.png").convert("RGBA")
-                    # Logonun opaklığını %10'a düşürüyoruz
+                    # Logonun opaklığını %5'e düşürüyoruz (Siyah beyaz baskı için daha soluk)
                     alpha = img.split()[3]
-                    alpha = alpha.point(lambda p: p * 0.10)
+                    alpha = alpha.point(lambda p: p * 0.05)
                     img.putalpha(alpha)
                     img.save(wm_path, "PNG")
                 
@@ -374,7 +374,8 @@ def generate_pdf(df, baslik, col_widths=None, aligns=None):
         pdf.set_font("ArialTR", 'B', 11)
         
         for i, col in enumerate(df.columns):
-            pdf.cell(w[i], 10, to_pdf_text(col), border=1, align=aligns[i], fill=True)
+            # Başlık hücre yüksekliğini 10'dan 8'e düşürdük (Sıkıştırma)
+            pdf.cell(w[i], 8, to_pdf_text(col), border=1, align=aligns[i], fill=True)
         pdf.ln()
         
         pdf.set_text_color(0, 0, 0) # Yazı rengini normale (siyah) döndür
@@ -411,8 +412,8 @@ def generate_pdf(df, baslik, col_widths=None, aligns=None):
                         pdf_text = pdf_text[:-1]
                     pdf_text += ".."
                 
-                # fill=True sayesinde zebra renkleri hücrelere uygulanır
-                pdf.cell(w[i], 9, pdf_text, border=1, align=align, fill=True)
+                # Satır hücre yüksekliğini 9'dan 7.5'e düşürdük. Yazı fontu aynı ama aradaki boşluk azaldı (2. güne tam sığma garantisi)
+                pdf.cell(w[i], 7.5, pdf_text, border=1, align=align, fill=True)
             pdf.ln()
     return bytes(pdf.output())
 
@@ -1010,10 +1011,8 @@ with tab_program:
                         
                         combined_pdf_data.extend(temp_matches)
                         
-                        combined_pdf_data.append({
-                            "Kat.": "", "Tur": "", "Saat": "", "Kort": "",
-                            "Oyuncu 1": "", "Oyuncu 2": "", "Skor": ""
-                        })
+            # PDF TASARRUF VE SIKIŞTIRMA MÜDAHALESİ: 
+            # Eskiden Kadınlar ve Erkekler arasına eklenen o tamamen boş satırı sildik. (Sayfadan tasarruf)
             
             combined_pdf_df = pd.DataFrame(combined_pdf_data)
             if secilen_gun != "Tüm Günler":
@@ -1041,7 +1040,6 @@ with tab_siralama:
     rankings = [("1.", "FINAL_MAIN", "w"), ("2.", "FINAL_MAIN", "l"), ("3.", "FINAL_TESELLI", "w"), ("4.", "FINAL_TESELLI", "l"), 
                 ("5.", "MATCH_5_6", "w"), ("6.", "MATCH_5_6", "l"), ("7.", "MATCH_7_8", "w"), ("8.", "MATCH_7_8", "l")]
     
-    # MOBİL UYUMLU, ŞIK HTML LİSTE TASARIMI (Güvenli dize birleştirme)
     html_rankings = "<div style='max-width: 600px; margin: 0 auto;'>"
     
     for rank_idx, (rank, m_id, key) in enumerate(rankings):
@@ -1068,7 +1066,6 @@ with tab_siralama:
         bg_color = "#ffffff" if rank_idx % 2 == 0 else "#f8f9fa"
         rank_num = rank.replace(".", "")
         
-        # HTML kodlarını yan yana birleştirerek Markdown parser'ın kafasını karıştırmasını önledik
         html_rankings += (
             f"<div style='display: flex; align-items: center; justify-content: flex-start; padding: 10px; margin-bottom: 6px; background-color: {bg_color}; border: 1px solid #e0e0e0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>"
             f"<div style='width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; background-color: #1f77b4; color: white; font-weight: bold; font-size: 16px; border-radius: 50%; margin-right: 15px; flex-shrink: 0;'>{rank_num}</div>"
