@@ -127,12 +127,40 @@ if "active_cat" not in st.session_state:
     st.session_state.active_cat = "Erkekler"
 if "secilen_gun_tab2" not in st.session_state:
     st.session_state.secilen_gun_tab2 = "Tüm Günler"
+if "sort_by" not in st.session_state:
+    st.session_state.sort_by = "match_no"
 
 def get_base64_image(image_path):
     if os.path.exists(image_path):
         with open(image_path, "rb") as img_file:
             return base64.b64encode(img_file.read()).decode()
     return None
+
+# Akıllı Metin Avcısı Sıralama Algoritması
+def get_sorted_matches(matches_list, cat_d, filtre):
+    filtered = []
+    for idx, (m_id, label) in enumerate(matches_list):
+        is_cons = m_id.startswith("CR") or "TESELLI" in m_id or "5_6" in m_id or "7_8" in m_id
+        if filtre == "Sadece Ana Tablo" and is_cons: continue
+        if filtre == "Sadece FEED IN" and not is_cons: continue
+        
+        time_val = 999999 # Saati olmayanları en alta atmak için yüksek bir değer
+        if st.session_state.sort_by == "time":
+            saat_str = cat_d['schedule_data'].get(m_id, {}).get("saat", "")
+            # İçinde HH:MM veya HH.MM geçen kısmı bul (örn: Dinlendikten sonra NB 14.30)
+            m = re.search(r'(\d{1,2})[:.](\d{2})', saat_str)
+            if m:
+                time_val = int(m.group(1)) * 60 + int(m.group(2))
+        
+        filtered.append((m_id, label, idx, time_val))
+        
+    # Sıralama: Önce saate göre, saatleri aynıysa orijinal maç numarasına göre (idx)
+    if st.session_state.sort_by == "time":
+        filtered.sort(key=lambda x: (x[3], x[2]))
+    else:
+        filtered.sort(key=lambda x: x[2])
+        
+    return [(x[0], x[1]) for x in filtered]
 
 # ==============================================================================
 # 2. KARŞILAMA EKRANI (ANA SAYFA BUTONLARI)
@@ -671,6 +699,17 @@ with tab_program:
                 label = tarih_str if tarih_str else g
             gosterilecek_gunler.append({"key": g, "label": label})
 
+    # DİNAMİK SIRALAMA BUTONLARI BURADA!
+    st.markdown("##### ↕️ Sıralama Ölçütü")
+    c_sort1, c_sort2 = st.columns(2)
+    if c_sort1.button("🔢 Maç Numarasına Göre Sırala", type="primary" if st.session_state.sort_by == "match_no" else "secondary", use_container_width=True):
+        st.session_state.sort_by = "match_no"
+        st.rerun()
+    if c_sort2.button("🕒 Maç Saatine Göre Sırala", type="primary" if st.session_state.sort_by == "time" else "secondary", use_container_width=True):
+        st.session_state.sort_by = "time"
+        st.rerun()
+    st.markdown("<br>", unsafe_allow_html=True)
+
     if st.session_state.admin_mi:
         cols = st.columns(len(gosterilecek_gunler) + 1)
         b_type = "primary" if st.session_state.secilen_gun_tab2 == "Tüm Günler" else "secondary"
@@ -711,12 +750,8 @@ with tab_program:
         cat_d = st.session_state.data[cat_name]
         b_state = compute_bracket_state(cat_d)
         
-        filtered_matches = []
-        for m_id, label in matches:
-            is_consolation = m_id.startswith("CR") or "TESELLI" in m_id or "5_6" in m_id or "7_8" in m_id
-            if tablo_filtresi == "Sadece Ana Tablo" and is_consolation: continue
-            if tablo_filtresi == "Sadece FEED IN" and not is_consolation: continue
-            filtered_matches.append((m_id, label))
+        # Filtreleme ve Sıralama İşlemini Akıllı Fonksiyondan Alıyoruz
+        filtered_matches = get_sorted_matches(matches, cat_d, tablo_filtresi)
         
         if not filtered_matches: return
 
@@ -781,7 +816,6 @@ with tab_program:
 
             bg_style = ""
             bg_color_only = ""
-            # YENİ RENKLER BURADA: Belirgin Mavi, Net Gri, Krem/Somon, Soluk Yeşil
             if m_id.startswith("MQF_") or m_id.startswith("CR1_"):
                 try:
                     mac_index = int(m_id.split("_")[1])
@@ -893,12 +927,11 @@ with tab_program:
                     cat_d_local = st.session_state.data[cat_n]
                     b_state_local = compute_bracket_state(cat_d_local)
                     
+                    # PDF İÇİN DE AYNI AKILLI SIRALAMA ÇAĞRILIYOR
+                    sorted_m = get_sorted_matches(g_maclar[g_adi], cat_d_local, tablo_filtresi)
                     temp_matches = []
-                    for m_id, label in g_maclar[g_adi]:
-                        is_cons = m_id.startswith("CR") or "TESELLI" in m_id or "5_6" in m_id or "7_8" in m_id
-                        if tablo_filtresi == "Sadece Ana Tablo" and is_cons: continue
-                        if tablo_filtresi == "Sadece FEED IN" and not is_cons: continue
-                        
+                    
+                    for m_id, label in sorted_m:
                         m_data = b_state_local.get(m_id, {})
                         p1_raw = m_data.get("p1")
                         p2_raw = m_data.get("p2")
