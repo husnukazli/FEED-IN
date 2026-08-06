@@ -25,6 +25,15 @@ except ImportError:
             except:
                 PDF_LIB = None
 
+# Su İzi (Watermark) yapabilmek için Pillow garantisi
+try:
+    from PIL import Image
+except ImportError:
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "Pillow"])
+    except:
+        pass
+
 import streamlit as st
 import json
 import shutil
@@ -60,6 +69,28 @@ for fname in ["arialbd.ttf", "ArialBD.ttf", "ARIALBD.TTF", "arial bd.ttf", "Aria
 FONT_BOLD_YUKLENDI = BOLD_FONT_FILE is not None
 
 class TurnuvaFPDF(FPDF):
+    def header(self):
+        # Arka plana şık ve soluk Su İzi (Watermark) Logosu ekleme
+        try:
+            if os.path.exists("ttf_logo.png"):
+                wm_path = "ttf_logo_wm.png"
+                if not os.path.exists(wm_path):
+                    from PIL import Image
+                    img = Image.open("ttf_logo.png").convert("RGBA")
+                    # Logonun opaklığını %10'a düşürüyoruz
+                    alpha = img.split()[3]
+                    alpha = alpha.point(lambda p: p * 0.10)
+                    img.putalpha(alpha)
+                    img.save(wm_path, "PNG")
+                
+                # Logoyu sayfanın tam ortasına yerleştir
+                img_w = 110
+                x = (self.w - img_w) / 2
+                y = (self.h - img_w) / 2
+                self.image(wm_path, x=x, y=y, w=img_w)
+        except:
+            pass
+
     def set_font(self, family=None, style='', size=0):
         if not hasattr(self, '_fonts_injected'):
             self._fonts_injected = False
@@ -87,7 +118,6 @@ class TurnuvaFPDF(FPDF):
         
         super().set_font(family, style, size)
 
-# Şifreleri koda sabitledik (Streamlit Cloud güvenliğine takılmaması için)
 SIFRELER = {
     "12 Yaş": "hakem12",
     "14 Yaş": "hakem14",
@@ -135,7 +165,6 @@ def get_base64_image(image_path):
             return base64.b64encode(img_file.read()).decode()
     return None
 
-# Akıllı Metin Avcısı Sıralama Algoritması
 def get_sorted_matches(matches_list, cat_d, filtre):
     filtered = []
     sort_pref = st.session_state.data['publish'].get('sort_by', 'match_no')
@@ -336,17 +365,27 @@ def generate_pdf(df, baslik, col_widths=None, aligns=None):
     
     if not df.empty:
         w = col_widths if col_widths else [190 / len(df.columns)] * len(df.columns)
-        
         if not aligns:
             aligns = ['C'] * len(df.columns)
             
+        # Şık Kurumsal Tablo Başlığı (Mavi Arka Plan, Beyaz Yazı)
+        pdf.set_fill_color(31, 119, 180) 
+        pdf.set_text_color(255, 255, 255)
         pdf.set_font("ArialTR", 'B', 11)
         
         for i, col in enumerate(df.columns):
-            pdf.cell(w[i], 10, to_pdf_text(col), border=1, align=aligns[i])
+            pdf.cell(w[i], 10, to_pdf_text(col), border=1, align=aligns[i], fill=True)
         pdf.ln()
         
-        for _, row in df.iterrows():
+        pdf.set_text_color(0, 0, 0) # Yazı rengini normale (siyah) döndür
+        
+        # Zebra Deseni Satırları
+        for row_idx, row in df.iterrows():
+            if row_idx % 2 == 0:
+                pdf.set_fill_color(255, 255, 255) # Çift Satırlar: Beyaz
+            else:
+                pdf.set_fill_color(242, 246, 250) # Tek Satırlar: Çok Açık Buz Mavisi / Gri
+                
             for i, item in enumerate(row):
                 align = aligns[i]
                 text = str(item)
@@ -372,7 +411,8 @@ def generate_pdf(df, baslik, col_widths=None, aligns=None):
                         pdf_text = pdf_text[:-1]
                     pdf_text += ".."
                 
-                pdf.cell(w[i], 9, pdf_text, border=1, align=align)
+                # fill=True sayesinde zebra renkleri hücrelere uygulanır
+                pdf.cell(w[i], 9, pdf_text, border=1, align=align, fill=True)
             pdf.ln()
     return bytes(pdf.output())
 
@@ -675,14 +715,12 @@ with tab_program:
                     st.success("Tarihler başarıyla kaydedildi!")
                     st.rerun()
                     
-        # YÖNETİCİYE ÖZEL ŞIK VE SESSİZ AYAR MENÜLERİ (Tablo Filtresi ve Sıralama Ölçütü Yan Yana)
         c_ayar1, c_ayar2 = st.columns(2)
         tablo_filtresi = c_ayar1.selectbox("📊 Tablo Gösterimi:", ["İkisini de Göster", "Sadece Ana Tablo", "Sadece FEED IN"])
         
         mevcut_siralama = st.session_state.data['publish'].get('sort_by', 'match_no')
         sec_sir = c_ayar2.selectbox("↕️ Yayın Sıralaması (Herkese Uygulanır):", ["🔢 Maç Numarasına Göre", "🕒 Maç Saatine Göre"], index=0 if mevcut_siralama == 'match_no' else 1)
         
-        # Seçim yapıldığı an otomatik kaydedip sayfayı yenileyen tetikleyici
         yeni_sort_val = 'match_no' if "Numarasına" in sec_sir else 'time'
         if yeni_sort_val != mevcut_siralama:
             st.session_state.data['publish']['sort_by'] = yeni_sort_val
@@ -1003,7 +1041,10 @@ with tab_siralama:
     rankings = [("1.", "FINAL_MAIN", "w"), ("2.", "FINAL_MAIN", "l"), ("3.", "FINAL_TESELLI", "w"), ("4.", "FINAL_TESELLI", "l"), 
                 ("5.", "MATCH_5_6", "w"), ("6.", "MATCH_5_6", "l"), ("7.", "MATCH_7_8", "w"), ("8.", "MATCH_7_8", "l")]
     
-    for rank, m_id, key in rankings:
+    # MOBİL UYUMLU, ŞIK HTML LİSTE TASARIMI (Streamlit Kolonları Yerine)
+    html_rankings = "<div style='max-width: 600px; margin: 0 auto;'>"
+    
+    for rank_idx, (rank, m_id, key) in enumerate(rankings):
         player_name = "Belli Değil"
         
         if m_id in res and "w" in res[m_id]:
@@ -1024,9 +1065,23 @@ with tab_siralama:
         player_name = clean_html_text(player_name)
         pdf_siralama_data.append({"Sıra": rank, "Kategori": active_cat, "Oyuncu Adı": player_name})
         
-        c_no, c_isim = st.columns([0.5, 4])
-        c_no.markdown(f"<div style='font-size:16px; font-weight:bold; padding:5px; background:#e0e0e0; text-align:center; border-radius:5px;'>{rank}</div>", unsafe_allow_html=True)
-        c_isim.markdown(f"<div style='font-size:16px; padding:5px;'>{player_name}</div>", unsafe_allow_html=True)
+        # UI içi Zebra Deseni Arka Planı
+        bg_color = "#ffffff" if rank_idx % 2 == 0 else "#f8f9fa"
+        rank_num = rank.replace(".", "")
+        
+        html_rankings += f"""
+        <div style='display: flex; align-items: center; justify-content: flex-start; padding: 10px; margin-bottom: 6px; background-color: {bg_color}; border: 1px solid #e0e0e0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
+            <div style='width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; background-color: #1f77b4; color: white; font-weight: bold; font-size: 16px; border-radius: 50%; margin-right: 15px; flex-shrink: 0;'>
+                {rank_num}
+            </div>
+            <div style='font-size: 16px; font-weight: 500; color: #333; text-align: left;'>
+                {player_name}
+            </div>
+        </div>
+        """
+        
+    html_rankings += "</div>"
+    st.markdown(html_rankings, unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
         
     if st.session_state.admin_mi and pdf_siralama_data:
