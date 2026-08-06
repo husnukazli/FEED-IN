@@ -35,7 +35,7 @@ def render_main_bracket_svg(state, cat_name="Erkekler"):
 
     g = compute_main_bracket()
     
-    # Yeni genişliğe göre X koordinatları (Boşlukları güncelledik)
+    # Yeni genişliğe göre X koordinatları
     X_R1, X_QF, X_SF, X_F = 10, 230, 450, 670
     
     parts = []
@@ -68,7 +68,7 @@ def render_consolation_bracket_svg(state, cat_name="Erkekler"):
     main = compute_main_bracket()
     g = compute_consolation_bracket(main)
     
-    # Yeni genişliğe göre X koordinatları (Boşlukları güncelledik)
+    # Yeni genişliğe göre X koordinatları
     X_R1, X_CF, X_YF1, X_YF2, X_F = 10, 230, 450, 670, 890
     
     parts = []
@@ -91,20 +91,50 @@ def render_consolation_bracket_svg(state, cat_name="Erkekler"):
         yf1 = g["t_yf1"][k]
         parts.append(f'<line x1="{X_YF1+BOX_W}" y1="{yf1["center"]}" x2="{X_YF2}" y2="{m["center"]}" stroke="#b0b0b0" stroke-width="1.5"/>')
 
-    labels = [("FINAL_TESELLI", "FC-3/4", 28, g["final_teselli"]),
-              ("MATCH_5_6", "FC-5/6", 29, g["m56"]),
-              ("MATCH_7_8", "FC-7/8", 30, g["m78"])]
-    for mid, lbl, no, m in labels:
-        d = state.get(mid, {})
-        parts.append(_box_svg(X_F, m["top"], m["center"], lbl, no, d.get("p1"), d.get("p2"), d.get("winner"), d.get("score", ""), bg_color, line_color, text_color))
-
-    a, b = g["t_yf2"][0], g["t_yf2"][1]
-    parts.append(_connector(X_YF2+BOX_W, a["center"], X_YF2+BOX_W, b["center"], g["final_teselli"]["center"], X_F))
-    parts.append(_connector(X_YF2+BOX_W, a["center"], X_YF2+BOX_W, b["center"], g["m56"]["center"], X_F))
-    a1, b1 = g["t_yf1"][0], g["t_yf1"][1]
+    # --- 3/4, 5/6, 7/8 MAÇLARINI MERKEZE VE ALT ALTA HİZALAMA ---
     
-    # Çizgi kordinatını da yeni genişliğe göre güncelledik (xm=660 ortalaması)
-    parts.append(_connector(X_YF1+BOX_W, a1["center"], X_YF1+BOX_W, b1["center"], g["m78"]["center"], X_F, xm=X_YF1+BOX_W+15))
+    # Tüm FEED IN tablosunun toplam yüksekliği (Ortayı bulmak için)
+    toplam_yukseklik = main["height"]
+    
+    # 3 maçın toplam yüksekliği ve aralarındaki boşluklar
+    mac_sayisi = 3
+    ara_bosluk = 40
+    grup_yuksekligi = (mac_sayisi * BOX_H) + ((mac_sayisi - 1) * ara_bosluk)
+    
+    # İlk maçın başlayacağı Y koordinatı (Dikeyde tam ortalama)
+    baslangic_y = (toplam_yukseklik - grup_yuksekligi) / 2
+    
+    # Yeni sabit Y pozisyonları
+    pos_3_4 = baslangic_y
+    pos_5_6 = baslangic_y + BOX_H + ara_bosluk
+    pos_7_8 = baslangic_y + (2 * (BOX_H + ara_bosluk))
 
-    svg_h = max(main["height"], g["m78"]["top"] + BOX_H + 30) 
+    # X koordinatı olarak hepsi en sağ sütunda (X_F) alt alta duracak.
+    
+    d_34 = state.get("FINAL_TESELLI", {})
+    parts.append(_box_svg(X_F, pos_3_4, pos_3_4 + (BOX_H/2), "FC-3/4", 28, d_34.get("p1"), d_34.get("p2"), d_34.get("winner"), d_34.get("score", ""), bg_color, line_color, text_color))
+
+    d_56 = state.get("MATCH_5_6", {})
+    parts.append(_box_svg(X_F, pos_5_6, pos_5_6 + (BOX_H/2), "FC-5/6", 29, d_56.get("p1"), d_56.get("p2"), d_56.get("winner"), d_56.get("score", ""), bg_color, line_color, text_color))
+
+    d_78 = state.get("MATCH_7_8", {})
+    parts.append(_box_svg(X_F, pos_7_8, pos_7_8 + (BOX_H/2), "FC-7/8", 30, d_78.get("p1"), d_78.get("p2"), d_78.get("winner"), d_78.get("score", ""), bg_color, line_color, text_color))
+
+    # --- BAĞLANTI ÇİZGİLERİNİ GÜNCELLEME (Ortalanan yeni kutulara bağlanacaklar) ---
+    a, b = g["t_yf2"][0], g["t_yf2"][1]
+    # FC-3/4 maçına çizgi (M26 ve M27 kazananları)
+    parts.append(_connector(X_YF2+BOX_W, a["center"], X_YF2+BOX_W, b["center"], pos_3_4 + (BOX_H/2), X_F))
+    
+    # FC-5/6 maçına (M26 ve M27 kaybedenleri) giden kesik çizgi - Kafa karıştırmaması için
+    # X_YF2 kutularının biraz ilerisinden başlar
+    parts.append(f'<line x1="{X_YF2+BOX_W+20}" y1="{pos_5_6 + (BOX_H/2)}" x2="{X_F}" y2="{pos_5_6 + (BOX_H/2)}" stroke="#b0b0b0" stroke-width="1.5" stroke-dasharray="4"/>')
+    parts.append(f'<text x="{X_F-5}" y="{pos_5_6 + (BOX_H/2) - 5}" font-size="10" fill="#777" text-anchor="end">M26 & M27 Kaybedenleri</text>')
+
+    # FC-7/8 maçına çizgi (M24 ve M25 kaybedenleri)
+    a1, b1 = g["t_yf1"][0], g["t_yf1"][1]
+    # M24 ve M25 kaybedenleri oradan direkt buraya gelmez, mantıksal bir ok çıkarıyoruz.
+    parts.append(f'<line x1="{X_YF1+BOX_W+20}" y1="{pos_7_8 + (BOX_H/2)}" x2="{X_F}" y2="{pos_7_8 + (BOX_H/2)}" stroke="#b0b0b0" stroke-width="1.5" stroke-dasharray="4"/>')
+    parts.append(f'<text x="{X_F-5}" y="{pos_7_8 + (BOX_H/2) - 5}" font-size="10" fill="#777" text-anchor="end">M24 & M25 Kaybedenleri</text>')
+
+    svg_h = max(main["height"], pos_7_8 + BOX_H + 30) 
     return f'<div style="overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid #eee; border-radius:8px;"><svg viewBox="0 0 1100 {svg_h}" width="1100" height="{svg_h}">{"".join(parts)}</svg></div>'
