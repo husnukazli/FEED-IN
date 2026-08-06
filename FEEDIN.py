@@ -1002,7 +1002,13 @@ if st.session_state.admin_mi and tab_dosya:
         
         st.markdown(f"**2. Esame Listesini Güncelle ({active_cat})**")
         
-        giris_sekli = st.radio("Giriş Yöntemi Seçiniz:", ["📝 Tek Tek Numaralı Giriş", "📋 Excel'den Toplu Kopyala/Yapıştır", "📄 PDF'den Otomatik Çek (YENİ)"], horizontal=True)
+        # ŞIK AÇIKLAMA BALONU BURAYA EKLENDİ (help parametresi ile)
+        giris_sekli = st.radio(
+            "Giriş Yöntemi Seçiniz:", 
+            ["📝 Tek Tek Numaralı Giriş", "📋 Excel'den Toplu Kopyala/Yapıştır", "📄 PDF'den Otomatik Çek"], 
+            horizontal=True,
+            help="📄 PDF'den Çek: İlgili turnuvaya ait 32'lik ana tablo fikstürünü i-Kort'tan PDF formatında indirip buradan sisteme tanıtabilirsiniz."
+        )
         
         mevcut_isimler = [clean_html_text(x) for x in cat_data['players']]
         while len(mevcut_isimler) < 16:
@@ -1053,12 +1059,18 @@ if st.session_state.admin_mi and tab_dosya:
                 st.success("Toplu liste başarıyla kaydedildi!")
                 st.rerun()
                 
-        elif giris_sekli == "📄 PDF'den Otomatik Çek (YENİ)":
+        elif giris_sekli == "📄 PDF'den Otomatik Çek":
             if not PYPDF2_AVAILABLE:
                 st.error("⚠️ Bu özelliği kullanabilmek için PyPDF2 kütüphanesi gereklidir. Lütfen terminalinize `pip install PyPDF2` yazarak kurun ve uygulamayı yeniden başlatın.")
             else:
                 st.caption("i-Kort'tan indirdiğiniz 32'lik Ana Tablo PDF dosyasını yükleyin. Sistem, 2. tura geçen 16 kazananı tespit edip listeye dökecektir.")
-                uploaded_pdf = st.file_uploader("Ana Tablo Fikstür PDF'ini Yükle", type="pdf")
+                
+                # İKİNCİ ŞIK BALON DA BURAYA EKLENDİ
+                uploaded_pdf = st.file_uploader(
+                    "Ana Tablo Fikstür PDF'ini Yükle", 
+                    type="pdf",
+                    help="İlgili turnuvaya ait 32'lik ana tablo fikstürünü i-Kort'tan PDF formatında indirip buradan sisteme tanıtabilirsiniz."
+                )
                 
                 if uploaded_pdf:
                     try:
