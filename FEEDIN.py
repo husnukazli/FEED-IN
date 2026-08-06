@@ -6,16 +6,24 @@ import os
 # 0. OTOMATİK KÜTÜPHANE YÜKLEYİCİ (Kullanıcıyı Terminalden Kurtarır)
 # ==============================================================================
 try:
-    import PyPDF2
-    PYPDF2_AVAILABLE = True
+    import pdfplumber
+    PDF_LIB = "pdfplumber"
 except ImportError:
     try:
-        # Arka planda sessizce PyPDF2 kurmayı dener
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "PyPDF2"])
-        import PyPDF2
-        PYPDF2_AVAILABLE = True
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "pdfplumber"])
+        import pdfplumber
+        PDF_LIB = "pdfplumber"
     except:
-        PYPDF2_AVAILABLE = False
+        try:
+            import PyPDF2
+            PDF_LIB = "pypdf2"
+        except ImportError:
+            try:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "PyPDF2"])
+                import PyPDF2
+                PDF_LIB = "pypdf2"
+            except:
+                PDF_LIB = None
 
 import streamlit as st
 import json
@@ -999,7 +1007,6 @@ if st.session_state.admin_mi and tab_dosya:
     with tab_dosya:
         st.subheader("📥 Veri Yönetimi ve Turnuva Ayarları")
         
-        # --- i-Kort Link Giriş Alanı ---
         st.markdown("**1. i-Kort Turnuva Sayfası Linki**")
         mevcut_link = st.session_state.data['publish'].get('ikort_link', "")
         yeni_link = st.text_input("Resmi i-Kort URL'sini buraya yapıştırın:", value=mevcut_link, placeholder="Örn: https://i-kort.ttf.org.tr/...")
@@ -1013,11 +1020,12 @@ if st.session_state.admin_mi and tab_dosya:
         
         st.markdown(f"**2. Esame Listesini Güncelle ({active_cat})**")
         
+        # İLK BİLGİ BALONU BURAYA EKLENDİ
         giris_sekli = st.radio(
             "Giriş Yöntemi Seçiniz:", 
             ["📝 Tek Tek Numaralı Giriş", "📋 Excel'den Toplu Kopyala/Yapıştır", "📄 PDF'den Otomatik Çek"], 
             horizontal=True,
-            help="📄 PDF'den Çek: İlgili turnuvaya ait 32'lik ana tablo fikstürünü i-Kort'tan PDF formatında indirip buradan sisteme tanıtabilirsiniz."
+            help="İlgili turnuvaya ait 32'lik ana tablo fikstürünü i-Kort'tan PDF formatında indirip sisteme tanıtabilirsiniz."
         )
         
         mevcut_isimler = [clean_html_text(x) for x in cat_data['players']]
@@ -1070,11 +1078,12 @@ if st.session_state.admin_mi and tab_dosya:
                 st.rerun()
                 
         elif giris_sekli == "📄 PDF'den Otomatik Çek":
-            if not PYPDF2_AVAILABLE:
-                st.error("⚠️ Bu özelliği kullanabilmek için PyPDF2 kütüphanesi gereklidir. Sistem arka planda yüklemeyi denedi ancak başarısız oldu. Lütfen terminalinize `pip install PyPDF2` yazarak kurun ve uygulamayı yeniden başlatın.")
+            if PDF_LIB is None:
+                st.error("⚠️ Sistem arka planda kütüphane yüklemeyi denedi ancak başarısız oldu. Lütfen GitHub deponuzdaki requirements.txt dosyasına pdfplumber yazıp kaydedin.")
             else:
                 st.caption("i-Kort'tan indirdiğiniz 32'lik Ana Tablo PDF dosyasını yükleyin. Sistem, 2. tura geçen 16 kazananı tespit edip listeye dökecektir.")
                 
+                # İKİNCİ BİLGİ BALONU BURAYA EKLENDİ
                 uploaded_pdf = st.file_uploader(
                     "Ana Tablo Fikstür PDF'ini Yükle", 
                     type="pdf",
@@ -1083,31 +1092,89 @@ if st.session_state.admin_mi and tab_dosya:
                 
                 if uploaded_pdf:
                     try:
-                        reader = PyPDF2.PdfReader(uploaded_pdf)
-                        pdf_text = ""
-                        for page in reader.pages:
-                            pdf_text += page.extract_text() + "\n"
+                        if PDF_LIB == "pdfplumber":
+                            import pdfplumber
+                            with pdfplumber.open(uploaded_pdf) as pdf:
+                                page = pdf.pages[0]
+                                words = page.extract_words()
                             
-                        # Metni satır satır böl ve temizle
-                        lines = [l.strip() for l in pdf_text.split('\n') if l.strip()]
-                        
-                        # Kurallar: İsimler genellikle en az 2 kelime, büyük harftir ve altlarında skor bulunur.
-                        name_pattern = re.compile(r'^[A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜ\s]{3,}$')
-                        score_pattern = re.compile(r'\d/\d|WO|RET', re.IGNORECASE)
-                        
-                        extracted_names = []
-                        for i, line in enumerate(lines):
-                            if score_pattern.search(line):
-                                # Skorun hemen üstündeki (1-3 satır arası) ilk büyük harfli ismi kazanan kabul et
-                                for j in range(1, 4):
-                                    if i-j >= 0 and name_pattern.match(lines[i-j]):
-                                        found_name = lines[i-j].strip()
-                                        # Kulüp, turnuva adı gibi yanlış kelimeleri filtrele
-                                        if found_name not in extracted_names and "KULÜB" not in found_name and "TURNUVA" not in found_name and "TABLO" not in found_name:
-                                            extracted_names.append(found_name)
+                            lines_dict = {}
+                            for w in words:
+                                y = round(w['top'] / 4) * 4
+                                if y not in lines_dict: lines_dict[y] = []
+                                lines_dict[y].append(w)
+                                
+                            found_names = []
+                            for y in sorted(lines_dict.keys()):
+                                ws = sorted(lines_dict[y], key=lambda x: x['x0'])
+                                phrase = ""
+                                start_x = -1
+                                last_x1 = -1
+                                for w in ws:
+                                    if last_x1 == -1 or (w['x0'] - last_x1) < 15:
+                                        if start_x == -1: start_x = w['x0']
+                                        phrase += (" " if phrase else "") + w['text']
+                                        last_x1 = w['x1']
+                                    else:
+                                        if phrase: found_names.append({"text": phrase.strip(), "x0": start_x, "top": y})
+                                        start_x = w['x0']
+                                        phrase = w['text']
+                                        last_x1 = w['x1']
+                                if phrase:
+                                    found_names.append({"text": phrase.strip(), "x0": start_x, "top": y})
+                                    
+                            valid_names = []
+                            for n in found_names:
+                                t = n['text']
+                                t = re.sub(r'^(\d+|S\d*|E\d*|WCK?|LL|Q\d*)\s+', '', t)
+                                t = re.sub(r'^(\d+|S\d*|E\d*|WCK?|LL|Q\d*)\s+', '', t)
+                                t = t.strip()
+                                if re.match(r'^[A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜ\s\.\']+$', t) and len(t) > 4:
+                                    bad_words = ["KULÜB", "TURNUVA", "TABLO", "SEÇİMİ", "YAZDIR", "BAŞHAKEM", "MİLLİ", "TAKIM", "BELİRLEME", "KATEGORİ", "ERKEK", "KADIN", "KIZ", "YAŞ", "TEK", "ÇİFT"]
+                                    if not any(b in t for b in bad_words):
+                                        valid_names.append({"text": t, "x0": n['x0'], "top": n['top']})
+                            
+                            cols_dict = {}
+                            for n in valid_names:
+                                found_col = None
+                                for c_x in cols_dict.keys():
+                                    if abs(c_x - n['x0']) < 50:
+                                        found_col = c_x
                                         break
-                        
-                        # İkinci tura kalan sadece ilk 16 kişiyi al (çünkü PDF'te çeyrek/yarı finallerin de kazananları var)
+                                if found_col is None:
+                                    cols_dict[n['x0']] = [n]
+                                else:
+                                    cols_dict[found_col].append(n)
+                                    
+                            sorted_col_keys = sorted(cols_dict.keys())
+                            if len(sorted_col_keys) > 1:
+                                col2_names = cols_dict[sorted_col_keys[1]]
+                                col2_names = sorted(col2_names, key=lambda x: x['top'])
+                                extracted_names = [n['text'] for n in col2_names]
+                            else:
+                                extracted_names = [n['text'] for n in valid_names]
+                                
+                        else:
+                            import PyPDF2
+                            reader = PyPDF2.PdfReader(uploaded_pdf)
+                            pdf_text = ""
+                            for page in reader.pages:
+                                pdf_text += page.extract_text() + "\n"
+                                
+                            lines = [l.strip() for l in pdf_text.split('\n') if l.strip()]
+                            name_pattern = re.compile(r'^[A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜ\s]{3,}$')
+                            score_pattern = re.compile(r'\d/\d|WO|RET', re.IGNORECASE)
+                            
+                            extracted_names = []
+                            for i, line in enumerate(lines):
+                                if score_pattern.search(line):
+                                    for j in range(1, 4):
+                                        if i-j >= 0 and name_pattern.match(lines[i-j]):
+                                            found_name = lines[i-j].strip()
+                                            if found_name not in extracted_names and "KULÜB" not in found_name and "TURNUVA" not in found_name and "TABLO" not in found_name:
+                                                extracted_names.append(found_name)
+                                            break
+
                         while len(extracted_names) < 16:
                             extracted_names.append("")
                         extracted_names = extracted_names[:16]
