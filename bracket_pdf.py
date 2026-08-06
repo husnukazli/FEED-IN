@@ -1,4 +1,7 @@
-from geometry import compute_main_bracket, compute_consolation_bracket, BOX_W, BOX_H
+from geometry import compute_main_bracket, compute_consolation_bracket, BOX_H
+
+# PDF'te de A4 yatay alanını doldurmak için kutu genişliğini 195 yapıyoruz
+BOX_W = 195
 
 def _set_font(pdf, font_family, bold, size):
     pdf.set_font(font_family, 'B' if bold else "", size)
@@ -51,7 +54,6 @@ def draw_bracket_page(pdf, state, section, cat_name, to_pdf_text, font_family, p
     _set_font(pdf, font_family, True, 13)
     pdf.set_xy(10, 8)
     
-    # PDF Başlığı FEED IN Olarak Değiştirildi
     baslik = "Ana Tablo" if section == "main" else "FEED IN Tablosu"
     pdf.cell(0, 8, to_pdf_text(f"{cat_name} - {baslik}"), ln=True)
 
@@ -59,9 +61,9 @@ def draw_bracket_page(pdf, state, section, cat_name, to_pdf_text, font_family, p
     avail_w, avail_h = page_w - 20, page_h - 30
 
     if section == "main":
-        svg_w, svg_h = 760, main["height"]
+        svg_w, svg_h = 880, main["height"] # Genişliği 880'e çıkardık
         scale = min(avail_w / svg_w, avail_h / svg_h)
-        X_R1, X_QF, X_SF, X_F = 10, 200, 390, 580
+        X_R1, X_QF, X_SF, X_F = 10, 230, 450, 670
 
         for i, m in enumerate(main["r1"]):
             d = state.get(m["id"], {})
@@ -82,10 +84,10 @@ def draw_bracket_page(pdf, state, section, cat_name, to_pdf_text, font_family, p
 
     else:
         g = compute_consolation_bracket(main)
-        svg_w = 940
+        svg_w = 1100 # Genişliği 1100'e çıkardık
         svg_h = max(main["height"], g["m78"]["top"] + BOX_H + 20)
         scale = min(avail_w / svg_w, avail_h / svg_h)
-        X_R1, X_CF, X_YF1, X_YF2, X_F = 10, 200, 390, 580, 770
+        X_R1, X_CF, X_YF1, X_YF2, X_F = 10, 230, 450, 670, 890
 
         for j, m in enumerate(g["t_r1"]):
             d = state.get(m["id"], {})
@@ -119,15 +121,3 @@ def draw_bracket_page(pdf, state, section, cat_name, to_pdf_text, font_family, p
         _draw_connector(pdf, scale, ox, oy, X_YF2+BOX_W, a["center"], b["center"], g["m56"]["center"], X_F)
         a1, b1 = g["t_yf1"][0], g["t_yf1"][1]
         _draw_connector(pdf, scale, ox, oy, X_YF1+BOX_W, a1["center"], b1["center"], g["m78"]["center"], X_F, xm=X_YF1+BOX_W+15)
-
-def generate_bracket_pdf(cat_data, cat_name, FPDF, to_pdf_text, font_yuklendi):
-    from bracket_engine import compute_bracket_state
-    state = compute_bracket_state(cat_data)
-    font_family = "ArialTR" if font_yuklendi else "Arial"
-    pdf = FPDF(orientation='L', unit='mm', format='A4')
-    pdf.set_auto_page_break(False)
-    pdf.add_page()
-    draw_bracket_page(pdf, state, "main", cat_name, to_pdf_text, font_family)
-    pdf.add_page()
-    draw_bracket_page(pdf, state, "consolation", cat_name, to_pdf_text, font_family)
-    return bytes(pdf.output())
