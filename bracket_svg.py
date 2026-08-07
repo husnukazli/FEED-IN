@@ -7,8 +7,8 @@ def _esc(s): return _html.escape(str(s)) if s else ""
 
 def _box_svg(x, top, mid, label, match_no, p1, p2, winner, score, bg_color, line_color, text_color, p2_kaynak=None):
     # Çift WO Hayalet Oyuncu Eşleştirmesi
-    if p1 == "Hepsi WO": p1 = "❌ Çift W/O"
-    if p2 == "Hepsi WO": p2 = "❌ Çift W/O"
+    if p1 == "Hepsi WO": p1 = "Çift W/O"
+    if p2 == "Hepsi WO": p2 = "Çift W/O"
     
     p1n = _esc(p1) if p1 else "Bekleniyor..."
     p2n = _esc(p2) if p2 else (_esc(f"Bekleniyor... ({p2_kaynak})") if p2_kaynak else "Bekleniyor...")
