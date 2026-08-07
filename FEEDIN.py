@@ -462,8 +462,8 @@ with tab_program:
             p2_clean = clean_html_text(p2_disp)
             
             # Hayalet Oyuncu Ekranda Gösterimi
-            if p1_clean == "Hepsi WO": p1_clean = "❌ Çift W/O"
-            if p2_clean == "Hepsi WO": p2_clean = "❌ Çift W/O"
+            if p1_clean == "Hepsi WO": p1_clean = "Çift W/O"
+            if p2_clean == "Hepsi WO": p2_clean = "Çift W/O"
             
             is_p1_winner = (winner and p1_raw == winner and winner != "Hepsi WO")
             is_p2_winner = (winner and p2_raw == winner and winner != "Hepsi WO")
