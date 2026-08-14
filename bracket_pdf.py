@@ -78,11 +78,19 @@ def _draw_connector(pdf, scale, ox, oy, x1, y1, y2, y3, x4, xm=None, dashed=Fals
     else:
         pdf.line(*a, *b); pdf.line(*d, *c); pdf.line(*b, *c); pdf.line(*e, *f)
 
-def draw_bracket_page(pdf, state, section, cat_name, to_pdf_text, font_family, page_w=297, page_h=210):
+def draw_bracket_page(pdf, state, section, cat_name, to_pdf_text, font_family, turnuva_adi="", page_w=297, page_h=210):
     main = compute_main_bracket()
     _set_font(pdf, font_family, True, 13)
     pdf.set_xy(10, 8)
-    pdf.cell(0, 8, to_pdf_text(f"{cat_name} - {'Ana Tablo' if section == 'main' else 'FEED IN Tablosu'}"), ln=True)
+    
+    # Başlık oluşturma mantığı: Turnuva adı varsa başa ekle, yoksa sadece kategori adını yaz
+    tablo_tipi = "Ana Tablo" if section == "main" else "FEED IN Tablosu"
+    if turnuva_adi:
+        baslik = f"{turnuva_adi} - {cat_name} {tablo_tipi}"
+    else:
+        baslik = f"{cat_name} - {tablo_tipi}"
+        
+    pdf.cell(0, 8, to_pdf_text(baslik), ln=True)
 
     ox, oy = 10, 20
     avail_w, avail_h = page_w - 20, page_h - 30
@@ -140,12 +148,12 @@ def draw_bracket_page(pdf, state, section, cat_name, to_pdf_text, font_family, p
         a1, b1 = g["t_yf1"][0], g["t_yf1"][1]
         _draw_connector(pdf, scale, ox, oy, X_YF1+BOX_W, a1["center"], b1["center"], pos_7_8 + (BOX_H/2), X_F, xm=X_YF1+BOX_W+10, dashed=True)
 
-def generate_bracket_pdf(cat_data, cat_name, FPDF, to_pdf_text, font_yuklendi):
+def generate_bracket_pdf(cat_data, cat_name, FPDF, to_pdf_text, font_yuklendi, turnuva_adi=""):
     from bracket_engine import compute_bracket_state
     state = compute_bracket_state(cat_data)
     font_family = "ArialTR" if font_yuklendi else "Arial"
     pdf = FPDF(orientation='L', unit='mm', format='A4')
     pdf.set_auto_page_break(False)
-    pdf.add_page(); draw_bracket_page(pdf, state, "main", cat_name, to_pdf_text, font_family)
-    pdf.add_page(); draw_bracket_page(pdf, state, "consolation", cat_name, to_pdf_text, font_family)
+    pdf.add_page(); draw_bracket_page(pdf, state, "main", cat_name, to_pdf_text, font_family, turnuva_adi)
+    pdf.add_page(); draw_bracket_page(pdf, state, "consolation", cat_name, to_pdf_text, font_family, turnuva_adi)
     return bytes(pdf.output())
