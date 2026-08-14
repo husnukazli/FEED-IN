@@ -112,13 +112,39 @@ class TurnuvaFPDF(FPDF):
         
         super().set_font(family, style, size)
 
-SIFRELER = {
-    "12 Yaş": "hakem12",
-    "14 Yaş": "hakem14",
-    "16 Yaş": "hakem16",
-    "18 Yaş": "hakem18",
-    "Büyükler": "hakembuyukler"
-}
+# --- SİSTEM AYARLARI VE ŞİFRE YÖNETİMİ ---
+SYS_CONFIG_FILE = "sistem_ayarlari.json"
+
+def load_sys_config():
+    default_config = {
+        "master_password": "superadmin",
+        "passwords": {
+            "12 Yaş": "hakem12",
+            "14 Yaş": "hakem14",
+            "16 Yaş": "hakem16",
+            "18 Yaş": "hakem18",
+            "Büyükler": "hakembuyukler"
+        }
+    }
+    if os.path.exists(SYS_CONFIG_FILE):
+        try:
+            with open(SYS_CONFIG_FILE, "r", encoding="utf-8") as f:
+                loaded = json.load(f)
+                # Yeni eklenen anahtarlar eksikse tamamla
+                for k in default_config:
+                    if k not in loaded: loaded[k] = default_config[k]
+                for cat in default_config["passwords"]:
+                    if cat not in loaded["passwords"]: loaded["passwords"][cat] = default_config["passwords"][cat]
+                return loaded
+        except:
+            return default_config
+    return default_config
+
+def save_sys_config(config):
+    with open(SYS_CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=4)
+
+SYS_CONFIG = load_sys_config()
 
 SRC_MAP = {
     "MQF_0_p1": "M1 Kazananı", "MQF_0_p2": "M2 Kazananı",
@@ -149,6 +175,8 @@ if 'aktif_yas' not in st.session_state:
     st.session_state.aktif_yas = "Seçilmedi"
 if "admin_mi" not in st.session_state:
     st.session_state.admin_mi = False
+if "super_admin_mi" not in st.session_state:
+    st.session_state.super_admin_mi = False
 if "active_cat" not in st.session_state:
     st.session_state.active_cat = "Erkekler"
 if "secilen_gun_tab2" not in st.session_state:
@@ -193,7 +221,97 @@ def get_sorted_matches(matches_list, cat_d, filtre):
     return [(x[0], x[1]) for x in filtered]
 
 # ==============================================================================
-# 2. KARŞILAMA EKRANI (ANA SAYFA BUTONLARI)
+# 2. SOL MENÜ (SİSTEM AYARLARI VE HAKEM GİRİŞİ HER ZAMAN GÖRÜNÜR)
+# ==============================================================================
+with st.sidebar:
+    st.markdown("### 👨‍⚖️ Hakem Yönetim Paneli")
+    if st.session_state.aktif_yas != "Seçilmedi":
+        if not st.session_state.admin_mi:
+            st.info(f"👁️ Şu an **{st.session_state.aktif_yas}** verilerini İzleyici Modunda görüyorsunuz.")
+            girilen_sifre = st.text_input("Başhakem Şifresi:", type="password")
+            if st.button("🔒 Giriş Yap"):
+                beklenen_sifre = SYS_CONFIG["passwords"].get(st.session_state.aktif_yas)
+                if girilen_sifre == beklenen_sifre:
+                    st.session_state.admin_mi = True
+                    st.success(f"✅ {st.session_state.aktif_yas} Başhakem Yetkisi Aktif!")
+                    st.rerun()
+                else:
+                    st.error("❌ Hatalı Şifre!")
+        else:
+            st.success(f"🟢 **Aktif Mod:** {st.session_state.aktif_yas} Başhakem")
+            if st.button("🔓 Çıkış Yap (İzleyici Modu)"):
+                st.session_state.admin_mi = False
+                st.rerun()
+    else:
+        st.info("👈 Önce ana ekrandan yaş grubu seçiniz.")
+        
+    st.divider()
+    st.markdown("### ⚙️ Sistem Ayarları")
+    if not st.session_state.super_admin_mi:
+        sys_sifre = st.text_input("Sistem Yetkilisi Şifresi:", type="password")
+        if st.button("🔧 Sisteme Giriş"):
+            if sys_sifre == SYS_CONFIG["master_password"]:
+                st.session_state.super_admin_mi = True
+                st.session_state.admin_mi = False # Hakem girisini resetle
+                st.rerun()
+            else:
+                st.error("❌ Hatalı Şifre!")
+    else:
+        st.success("🟢 Sistem Yöneticisi Aktif")
+        if st.button("🔓 Çıkış Yap (Sistem)"):
+            st.session_state.super_admin_mi = False
+            st.rerun()
+
+# ==============================================================================
+# 2.5 SÜPER ADMİN (SİSTEM AYARLARI) EKRANI OVERRIDE
+# ==============================================================================
+if st.session_state.super_admin_mi:
+    st.title("⚙️ Turnuva Sistem Ayarları")
+    st.info("Bu alandan tüm yaş gruplarının şifrelerini değiştirebilir ve veritabanı yedeklerini bilgisayarınıza indirebilirsiniz.")
+    
+    col_pwd, col_backup = st.columns(2)
+    
+    with col_pwd:
+        st.subheader("🔑 Kategori Şifrelerini Yönet")
+        with st.form("sys_password_form"):
+            yeni_sifreler = {}
+            for cat in ["12 Yaş", "14 Yaş", "16 Yaş", "18 Yaş", "Büyükler"]:
+                eski_sifre = SYS_CONFIG["passwords"].get(cat, "")
+                yeni_sifreler[cat] = st.text_input(f"{cat} Başhakem Şifresi:", value=eski_sifre)
+            
+            st.markdown("---")
+            yeni_master = st.text_input("Sistem Yöneticisi Ana Şifresi (Menüye Giriş İçin):", value=SYS_CONFIG["master_password"], type="password")
+            
+            if st.form_submit_button("💾 Şifreleri Kaydet ve Güncelle", use_container_width=True):
+                SYS_CONFIG["passwords"] = yeni_sifreler
+                if yeni_master: 
+                    SYS_CONFIG["master_password"] = yeni_master
+                save_sys_config(SYS_CONFIG)
+                st.success("Şifreler başarıyla güncellendi!")
+                st.rerun()
+                
+    with col_backup:
+        st.subheader("📥 Veritabanı Yedeklerini İndir")
+        st.markdown("Her bir yaş grubunun güncel verilerini (skorlar, oyuncular, ayarlar) tek tıklamayla JSON formatında yedekleyebilirsiniz.")
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        for cat in ["12 Yaş", "14 Yaş", "16 Yaş", "18 Yaş", "Büyükler"]:
+            cat_prefix = get_db_prefix(cat)
+            db_name = f"turnuva_db_{cat_prefix}.json"
+            if os.path.exists(db_name):
+                try:
+                    with open(db_name, "r", encoding="utf-8") as f:
+                        file_data = f.read()
+                    st.download_button(label=f"📥 {cat} Verilerini Yedekle", data=file_data, file_name=db_name, key=f"dl_sys_{cat_prefix}", use_container_width=True)
+                except:
+                    st.button(f"⚠️ {cat} Dosyası Okunamadı", disabled=True, use_container_width=True)
+            else:
+                st.button(f"⏳ {cat} (Henüz Veri Yok)", disabled=True, use_container_width=True)
+                
+    st.stop() # Sistem ayarlari acikken turnuva arayuzunu gizler
+
+# ==============================================================================
+# 3. KARŞILAMA EKRANI (ANA SAYFA BUTONLARI)
 # ==============================================================================
 if st.session_state.aktif_yas == "Seçilmedi":
     
@@ -233,13 +351,10 @@ if st.session_state.aktif_yas == "Seçilmedi":
         st.session_state.aktif_yas = "Büyükler"
         st.rerun()
         
-    with st.sidebar:
-        st.info("👈 Turnuva detaylarını görmek için ekranın ortasındaki butonlara tıklayınız.")
-        
     st.stop()
 
 # ==============================================================================
-# 3. VERİ YÜKLEME VE GÜVENLİ KAYIT FONKSİYONLARI (SAFE SAVE & BACKUP)
+# 4. VERİ YÜKLEME VE GÜVENLİ KAYIT FONKSİYONLARI (SAFE SAVE & BACKUP)
 # ==============================================================================
 def clean_html_text(text):
     if not isinstance(text, str): return str(text)
@@ -362,12 +477,22 @@ def to_pdf_text(text):
                   .replace("Ö", "O").replace("ö", "o").replace("Ü", "U").replace("ü", "u")
     return t.encode('latin-1', 'replace').decode('latin-1')
 
-def generate_pdf(df, baslik, col_widths=None, aligns=None):
+# --- ALT BAŞLIK (SUBTITLE) DESTEKLİ YENİ PDF OLUŞTURUCU ---
+def generate_pdf(df, baslik, alt_baslik="", col_widths=None, aligns=None):
     pdf = TurnuvaFPDF(orientation='P', unit='mm', format='A4')
     pdf.add_page()
     
+    # ANA BAŞLIK
     pdf.set_font("ArialTR", 'B', 16)
     pdf.cell(0, 10, to_pdf_text(baslik), ln=True, align='C')
+    
+    # ALT BAŞLIK (Eğer varsa, biraz daha küçük ve gri renkte basılır)
+    if alt_baslik:
+        pdf.set_font("ArialTR", 'B', 11)
+        pdf.set_text_color(80, 80, 80)
+        pdf.cell(0, 6, to_pdf_text(alt_baslik), ln=True, align='C')
+        pdf.set_text_color(0, 0, 0) # Rengi normale döndür
+        
     pdf.ln(5)
     
     if not df.empty:
@@ -420,27 +545,6 @@ def generate_pdf(df, baslik, col_widths=None, aligns=None):
             pdf.ln()
     return bytes(pdf.output())
 
-# ==============================================================================
-# 4. SOL MENÜ YÖNETİMİ (Sadece Hakem Girişi İçin)
-# ==============================================================================
-with st.sidebar:
-    st.markdown("### 👨‍⚖️ Hakem Yönetim Paneli")
-    if not st.session_state.admin_mi:
-        st.info(f"👁️ Şu an **{st.session_state.aktif_yas}** verilerini İzleyici Modunda görüyorsunuz.")
-        girilen_sifre = st.text_input("Başhakem Şifresi:", type="password")
-        if st.button("🔒 Giriş Yap"):
-            beklenen_sifre = SIFRELER.get(st.session_state.aktif_yas)
-            if girilen_sifre == beklenen_sifre:
-                st.session_state.admin_mi = True
-                st.success(f"✅ {st.session_state.aktif_yas} Başhakem Yetkisi Aktif!")
-                st.rerun()
-            else:
-                st.error("❌ Hatalı Şifre!")
-    else:
-        st.success(f"🟢 **Aktif Mod:** {st.session_state.aktif_yas} Başhakem")
-        if st.button("🔓 Çıkış Yap (İzleyici Modu)"):
-            st.session_state.admin_mi = False
-            st.rerun()
 
 # ==============================================================================
 # 5. ÖZEL CSS
@@ -980,6 +1084,9 @@ with tab_program:
             turnuva_adi_icin = st.session_state.data['publish'].get('turnuva_adi', "").strip()
             if not turnuva_adi_icin: turnuva_adi_icin = f"{st.session_state.aktif_yas}"
             
+            # ANA BAŞLIK VE ALT BAŞLIK AYRIMI İÇİN YENİ SİSTEM
+            pdf_ana_baslik = turnuva_adi_icin
+            
             if secilen_gun != "Tüm Günler":
                 gercek_tarih = ""
                 d_info = st.session_state.data['publish']['dates'].get(secilen_gun, {})
@@ -989,11 +1096,11 @@ with tab_program:
                     gercek_tarih = format_date_tr(d_info.get("tarih", ""))
                     
                 baslik_tarih = gercek_tarih if gercek_tarih else secilen_gun
-                pdf_baslik = f"{turnuva_adi_icin} ({active_cat}) - {baslik_tarih} Maç Programı"
+                pdf_alt_baslik = f"{active_cat} - {baslik_tarih} Maç Programı"
             else:
-                pdf_baslik = f"{turnuva_adi_icin} ({active_cat}) Tüm Maçların Programı"
+                pdf_alt_baslik = f"{active_cat} - Tüm Maçların Programı"
 
-            btn_pdf_prog = generate_pdf(pdf_prog_df, pdf_baslik, col_widths=prog_col_widths, aligns=prog_aligns)
+            btn_pdf_prog = generate_pdf(pdf_prog_df, pdf_ana_baslik, alt_baslik=pdf_alt_baslik, col_widths=prog_col_widths, aligns=prog_aligns)
             
             combined_pdf_data = []
             for g_adi in gunler_to_show:
@@ -1046,12 +1153,13 @@ with tab_program:
                         combined_pdf_data.extend(temp_matches)
             
             combined_pdf_df = pd.DataFrame(combined_pdf_data)
+            
             if secilen_gun != "Tüm Günler":
-                pdf_baslik_comb = f"{turnuva_adi_icin} (Kadınlar & Erkekler) - {baslik_tarih} Maç Programı"
+                pdf_alt_baslik_comb = f"Kadınlar & Erkekler - {baslik_tarih} Maç Programı"
             else:
-                pdf_baslik_comb = f"{turnuva_adi_icin} (Kadınlar & Erkekler) Tüm Maçların Programı"
+                pdf_alt_baslik_comb = f"Kadınlar & Erkekler - Tüm Maçların Programı"
                 
-            btn_pdf_prog_comb = generate_pdf(combined_pdf_df, pdf_baslik_comb, col_widths=prog_col_widths, aligns=prog_aligns)
+            btn_pdf_prog_comb = generate_pdf(combined_pdf_df, pdf_ana_baslik, alt_baslik=pdf_alt_baslik_comb, col_widths=prog_col_widths, aligns=prog_aligns)
             
             c_pdf1, c_pdf2 = st.columns(2)
             c_pdf1.download_button(f"📥 {active_cat} Programını PDF İndir", data=btn_pdf_prog, file_name=f"{get_db_prefix(st.session_state.aktif_yas)}_{active_cat}_program.pdf", mime="application/pdf", use_container_width=True)
@@ -1124,7 +1232,12 @@ with tab_siralama:
         pdf_sir_df = pd.DataFrame(pdf_siralama_data)
         sir_col_widths = [15, 30, 145]
         sir_aligns = ['C', 'C', 'L']
-        btn_pdf_sir = generate_pdf(pdf_sir_df, f"{turnuva_adi_icin} Sıralaması ({active_cat})", col_widths=sir_col_widths, aligns=sir_aligns)
+        
+        # Çift Satır Sıralama Başlığı
+        sir_ana_baslik = turnuva_adi_icin
+        sir_alt_baslik = f"{active_cat} Kesin Sıralama"
+        
+        btn_pdf_sir = generate_pdf(pdf_sir_df, sir_ana_baslik, alt_baslik=sir_alt_baslik, col_widths=sir_col_widths, aligns=sir_aligns)
         st.download_button("📥 Sıralamayı PDF Olarak İndir", data=btn_pdf_sir, file_name=f"{get_db_prefix(st.session_state.aktif_yas)}_{active_cat}_siralama.pdf", mime="application/pdf")
 
 # ==========================================
@@ -1309,14 +1422,11 @@ if st.session_state.admin_mi and tab_dosya:
                     st.error(f"Dosya okunurken bir hata oluştu: {e}")
             
         st.divider()
-        st.markdown("**3. Sistemi Yedekle / Geri Yükle**")
-        c_sv, c_ld = st.columns(2)
+        st.markdown("**3. Sistemden Geri Yükle**")
+        st.info("💡 Veri yedeklemek (indirmek) için sol menüden 'Sistem Ayarları' paneline giriş yapınız.")
         
-        data_to_save = json.dumps(st.session_state.data, ensure_ascii=False)
-        c_sv.download_button(f"📥 {st.session_state.aktif_yas} Verisini Yedekle (.json)", data=data_to_save, file_name=DB_FILE)
-        
-        uploaded_file = c_ld.file_uploader(f"📤 {st.session_state.aktif_yas} Dosyasını Geri Yükle", type="json")
-        if uploaded_file and c_ld.button("Yüklenen Veriyi Uygula"):
+        uploaded_file = st.file_uploader(f"📤 {st.session_state.aktif_yas} Dosyasını Geri Yükle", type="json")
+        if uploaded_file and st.button("Yüklenen Veriyi Uygula"):
             try:
                 yeni_veri = json.load(uploaded_file)
             except Exception:
