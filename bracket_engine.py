@@ -31,6 +31,14 @@ def compute_bracket_state(cat_data):
             "winner": w, "loser": l,
             "score": cat_data['scores'].get(m_id, ""),
         }
+        
+        # ÇİFT WO (Hepsi WO) DURUMU İÇİN ÖZEL KONTROL:
+        # Eğer iki oyuncu da gelmemişse, bu maçın hem kazananı hem kaybedeni "Hepsi WO" olarak
+        # alt tablolara (Teselli ve sonraki turlara) iletilmeli.
+        if w == "Hepsi WO":
+            return ("Hepsi WO", "Hepsi WO")
+            
+        # Normal şartlarda kazanan w ise, kaybedeni p1 ve p2 arasından bul
         return (w, p2 if w == p1 else (p1 if w == p2 else None)) if w else (None, None)
 
     # --- Ana tablo ---
