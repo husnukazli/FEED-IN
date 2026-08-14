@@ -319,7 +319,7 @@ if st.session_state.aktif_yas == "Seçilmedi":
     if ttf_b64:
         st.markdown(f'<div style="text-align: center; margin-bottom: 10px;"><img src="data:image/png;base64,{ttf_b64}" width="150"></div>', unsafe_allow_html=True)
         
-    st.markdown("<h1 style='text-align: center; color: #1f77b4;'>Milli Takım Belirleme Turnuvaları</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #1f77b4;'>Türkiye Şampiyonası Turnuvaları</h1>", unsafe_allow_html=True)
     st.markdown("<h4 style='text-align: center; color: #555;'>Lütfen takip etmek istediğiniz grubu seçiniz</h4><br><br>", unsafe_allow_html=True)
     
     c1, c2, c3, c4, c5 = st.columns(5)
@@ -629,7 +629,7 @@ with c_title:
     if turnuva_adi:
         st.title(turnuva_adi)
     else:
-        st.title(f"{st.session_state.aktif_yas} Milli Takım Belirleme Turnuvası")
+        st.title(f"{st.session_state.aktif_yas} Türkiye Şampiyonası Turnuvası")
     
     ikort_url = st.session_state.data['publish'].get('ikort_link', '')
     if ikort_url:
@@ -691,7 +691,7 @@ with tab_fikstur:
                     
                 turnuva_adi_icin = st.session_state.data['publish'].get('turnuva_adi', "").strip()
                 if not turnuva_adi_icin:
-                    turnuva_adi_icin = f"{st.session_state.aktif_yas} Milli Takım Belirleme Turnuvası"
+                    turnuva_adi_icin = f"{st.session_state.aktif_yas} Türkiye Şampiyonası Turnuvası"
                 
                 try:
                     pdf_bytes = generate_bracket_pdf(cat_data, active_cat, TurnuvaFPDF, to_pdf_text, FONT_YUKLENDI, turnuva_adi_icin)
