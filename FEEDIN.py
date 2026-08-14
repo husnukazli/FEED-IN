@@ -496,7 +496,7 @@ def generate_pdf(df, baslik, alt_baslik="", col_widths=None, aligns=None):
     if not df.empty:
         w = col_widths if col_widths else [190 / len(df.columns)] * len(df.columns)
         if not aligns:
-            aligns = ['C'] * len(df.columns)
+            aligns = ['C'] * len(df.columns) # Varsayılan ortalı
             
         pdf.set_fill_color(31, 119, 180) 
         pdf.set_text_color(255, 255, 255)
@@ -941,7 +941,6 @@ with tab_program:
         html_rows = ""
 
         if st.session_state.admin_mi:
-            # HTML ekran tablosu için yeni, estetik genişlikler ve sıralama (Saat | Kort | Tür | O1 | O2 | Skor)
             h1, h2, h3, h4, h5, h6 = st.columns([1, 1, 1.5, 2, 2, 1])
             h1.markdown("**Saat**"); h2.markdown("**Kort**"); h3.markdown("**Maç Türü**"); h4.markdown("**Oyuncu 1**"); h5.markdown("**Oyuncu 2**"); h6.markdown("**Skor**")
             st.markdown("<div style='margin-top:-10px; margin-bottom:10px; border-bottom:1px solid #ddd;'></div>", unsafe_allow_html=True)
@@ -982,7 +981,6 @@ with tab_program:
             
             ptur = label 
             
-            # PDF Verisi Yeni Sıralamada: Saat | Kort | Tur | Oyuncu 1 | Oyuncu 2 | Skor
             pdf_program_data.append({
                 "Saat": saat_val, "Kort": kort_val, "Tur": ptur,
                 "Oyuncu 1": pdf_p1, "Oyuncu 2": pdf_p2, "Skor": skor_val
@@ -1082,14 +1080,14 @@ with tab_program:
             
             pdf_prog_df = pd.DataFrame(pdf_program_data)
             
-            # Kullanıcının seçimine göre "Skor" sütununu ayarla ve genişlikleri belirle
+            # Tüm sütun hizalamaları ('C' - Center) olarak değiştirildi
             if not pdf_skor_goster and "Skor" in pdf_prog_df.columns:
                 pdf_prog_df = pdf_prog_df.drop(columns=["Skor"])
                 prog_col_widths = [16, 16, 28, 65, 65] 
-                prog_aligns = ['C', 'C', 'C', 'L', 'L']
+                prog_aligns = ['C', 'C', 'C', 'C', 'C'] 
             else:
                 prog_col_widths = [16, 16, 28, 52, 52, 26] 
-                prog_aligns = ['C', 'C', 'C', 'L', 'L', 'C']
+                prog_aligns = ['C', 'C', 'C', 'C', 'C', 'C'] 
             
             turnuva_adi_icin = st.session_state.data['publish'].get('turnuva_adi', "").strip()
             if not turnuva_adi_icin: turnuva_adi_icin = f"{st.session_state.aktif_yas}"
@@ -1242,7 +1240,9 @@ with tab_siralama:
         
         pdf_sir_df = pd.DataFrame(pdf_siralama_data)
         sir_col_widths = [15, 30, 145]
-        sir_aligns = ['C', 'C', 'L']
+        
+        # Sıralama PDF'i için de her şey ortalandı
+        sir_aligns = ['C', 'C', 'C']
         
         sir_ana_baslik = turnuva_adi_icin
         sir_alt_baslik = f"{active_cat} Kesin Sıralama"
