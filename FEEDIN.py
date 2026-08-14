@@ -244,7 +244,6 @@ with st.sidebar:
     else:
         st.info("👈 Önce ana ekrandan yaş grubu seçiniz.")
         
-    # Sistem yöneticisini aşağı itmek için görünmez boşluk
     st.markdown("<div style='height: 450px;'></div>", unsafe_allow_html=True)
     
     st.divider()
@@ -254,7 +253,7 @@ with st.sidebar:
         if st.button("🔧 Sisteme Giriş"):
             if sys_sifre == SYS_CONFIG["master_password"]:
                 st.session_state.super_admin_mi = True
-                st.session_state.admin_mi = False # Hakem girisini resetle
+                st.session_state.admin_mi = False
                 st.rerun()
             else:
                 st.error("❌ Hatalı Şifre!")
@@ -310,18 +309,17 @@ if st.session_state.super_admin_mi:
             else:
                 st.button(f"⏳ {cat} (Henüz Veri Yok)", disabled=True, use_container_width=True)
                 
-    st.stop() # Sistem ayarlari acikken turnuva arayuzunu gizler
+    st.stop()
 
 # ==============================================================================
 # 3. KARŞILAMA EKRANI (ANA SAYFA BUTONLARI)
 # ==============================================================================
 if st.session_state.aktif_yas == "Seçilmedi":
-    
     ttf_b64 = get_base64_image("ttf_logo.png")
     if ttf_b64:
         st.markdown(f'<div style="text-align: center; margin-bottom: 10px;"><img src="data:image/png;base64,{ttf_b64}" width="150"></div>', unsafe_allow_html=True)
         
-    st.markdown("<h1 style='text-align: center; color: #1f77b4;'>Türkiye Şampiyonası Turnuvaları</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #1f77b4;'>Milli Takım Belirleme Turnuvaları</h1>", unsafe_allow_html=True)
     st.markdown("<h4 style='text-align: center; color: #555;'>Lütfen takip etmek istediğiniz grubu seçiniz</h4><br><br>", unsafe_allow_html=True)
     
     c1, c2, c3, c4, c5 = st.columns(5)
@@ -484,16 +482,14 @@ def generate_pdf(df, baslik, alt_baslik="", col_widths=None, aligns=None):
     pdf = TurnuvaFPDF(orientation='P', unit='mm', format='A4')
     pdf.add_page()
     
-    # ANA BAŞLIK
     pdf.set_font("ArialTR", 'B', 16)
     pdf.cell(0, 10, to_pdf_text(baslik), ln=True, align='C')
     
-    # ALT BAŞLIK (Eğer varsa, biraz daha küçük ve gri renkte basılır)
     if alt_baslik:
         pdf.set_font("ArialTR", 'B', 11)
         pdf.set_text_color(80, 80, 80)
         pdf.cell(0, 6, to_pdf_text(alt_baslik), ln=True, align='C')
-        pdf.set_text_color(0, 0, 0) # Rengi normale döndür
+        pdf.set_text_color(0, 0, 0)
         
     pdf.ln(5)
     
@@ -937,7 +933,6 @@ with tab_program:
         else:
             gercek_tarih_str = format_date_tr(d_info.get("tarih", ""))
         
-        pdf_kategori = "E" if cat_name == "Erkekler" else "K"
         baslik_gun = f"{gercek_tarih_str} ({day_name})" if gercek_tarih_str else day_name
         
         st.markdown(f"<h5 style='color:#1f77b4; margin-top:10px;'>🎾 {cat_name} - {baslik_gun}</h5>", unsafe_allow_html=True)
@@ -946,8 +941,9 @@ with tab_program:
         html_rows = ""
 
         if st.session_state.admin_mi:
-            h1, h2, h3, h4, h5, h6 = st.columns([1.5, 2, 2, 1, 1, 1])
-            h1.markdown("**Maç Türü**"); h2.markdown("**Oyuncu 1**"); h3.markdown("**Oyuncu 2**"); h4.markdown("**Saat**"); h5.markdown("**Kort**"); h6.markdown("**Skor**")
+            # HTML ekran tablosu için yeni, estetik genişlikler ve sıralama (Saat | Kort | Tür | O1 | O2 | Skor)
+            h1, h2, h3, h4, h5, h6 = st.columns([1, 1, 1.5, 2, 2, 1])
+            h1.markdown("**Saat**"); h2.markdown("**Kort**"); h3.markdown("**Maç Türü**"); h4.markdown("**Oyuncu 1**"); h5.markdown("**Oyuncu 2**"); h6.markdown("**Skor**")
             st.markdown("<div style='margin-top:-10px; margin-bottom:10px; border-bottom:1px solid #ddd;'></div>", unsafe_allow_html=True)
 
         for m_id, label in filtered_matches:
@@ -986,15 +982,15 @@ with tab_program:
             
             ptur = label 
             
+            # PDF Verisi Yeni Sıralamada: Saat | Kort | Tur | Oyuncu 1 | Oyuncu 2 | Skor
             pdf_program_data.append({
-                "Kat.": pdf_kategori, "Tur": ptur, "Saat": saat_val, "Kort": kort_val,
+                "Saat": saat_val, "Kort": kort_val, "Tur": ptur,
                 "Oyuncu 1": pdf_p1, "Oyuncu 2": pdf_p2, "Skor": skor_val
             })
 
             bg_style = ""
             bg_color_only = ""
             
-            # --- SADECE BAŞHAKEMLER İÇİN RENKLENDİRME ---
             if st.session_state.admin_mi:
                 if m_id.startswith("MQF_") or m_id.startswith("CR1_"):
                     try:
@@ -1017,22 +1013,21 @@ with tab_program:
                             bg_color_only = f"background-color: {bg_renk}; color: #000;"
                     except:
                         pass
-            # ---------------------------------------------
 
             if st.session_state.admin_mi:
-                c1, c2, c3, c4, c5, c6 = st.columns([1.5, 2, 2, 1, 1, 1])
+                c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1.5, 2, 2, 1])
+                
+                new_saat = c1.text_input("Saat", value=g_saat, key=f"t_{cat_name}_{m_id}_{day_key_safe}", label_visibility="collapsed")
+                new_kort = c2.text_input("Kort", value=g_kort, key=f"c_{cat_name}_{m_id}_{day_key_safe}", label_visibility="collapsed")
                 
                 if bg_style:
-                    c1.markdown(f"<div style='{bg_style}'><b>{label}</b></div>", unsafe_allow_html=True)
-                    c2.markdown(f"<div style='{bg_style}'>{ui_p1}</div>", unsafe_allow_html=True)
-                    c3.markdown(f"<div style='{bg_style}'>{ui_p2}</div>", unsafe_allow_html=True)
+                    c3.markdown(f"<div style='{bg_style}'><b>{label}</b></div>", unsafe_allow_html=True)
+                    c4.markdown(f"<div style='{bg_style}'>{ui_p1}</div>", unsafe_allow_html=True)
+                    c5.markdown(f"<div style='{bg_style}'>{ui_p2}</div>", unsafe_allow_html=True)
                 else:
-                    c1.markdown(label, unsafe_allow_html=True)
-                    c2.markdown(ui_p1, unsafe_allow_html=True)
-                    c3.markdown(ui_p2, unsafe_allow_html=True)
-                
-                new_saat = c4.text_input("Saat", value=g_saat, key=f"t_{cat_name}_{m_id}_{day_key_safe}", label_visibility="collapsed")
-                new_kort = c5.text_input("Kort", value=g_kort, key=f"c_{cat_name}_{m_id}_{day_key_safe}", label_visibility="collapsed")
+                    c3.markdown(label, unsafe_allow_html=True)
+                    c4.markdown(ui_p1, unsafe_allow_html=True)
+                    c5.markdown(ui_p2, unsafe_allow_html=True)
                 
                 c6.markdown(f"<div style='padding-top: 8px; font-weight: bold; text-align: center;'>{skor_val}</div>", unsafe_allow_html=True)
                 
@@ -1040,18 +1035,18 @@ with tab_program:
                     cat_d['schedule_data'][m_id] = {"saat": new_saat, "kort": new_kort}
             else:
                 tr_style = f" style='{bg_color_only}'" if bg_color_only else ""
-                html_rows += f"<tr{tr_style}><td><b>{label}</b></td><td>{ui_p1}</td><td>{ui_p2}</td><td style='text-align:center;'>{saat_val}</td><td style='text-align:center;'>{kort_val}</td><td style='text-align:center;'>{skor_val}</td></tr>"
+                html_rows += f"<tr{tr_style}><td style='text-align:center;'>{saat_val}</td><td style='text-align:center;'>{kort_val}</td><td><b>{label}</b></td><td>{ui_p1}</td><td>{ui_p2}</td><td style='text-align:center;'>{skor_val}</td></tr>"
 
         if not st.session_state.admin_mi and html_rows:
             html_table = f"""<div class="mobile-table-container">
 <table class="mobile-table">
 <thead>
 <tr>
-<th style="width:18%; text-align:center;">Maç Türü</th>
-<th style="width:23%; text-align:left;">Oyuncu 1</th>
-<th style="width:23%; text-align:left;">Oyuncu 2</th>
 <th style="width:10%; text-align:center;">Saat</th>
 <th style="width:10%; text-align:center;">Kort</th>
+<th style="width:18%; text-align:left;">Maç Türü</th>
+<th style="width:23%; text-align:left;">Oyuncu 1</th>
+<th style="width:23%; text-align:left;">Oyuncu 2</th>
 <th style="width:16%; text-align:center;">Skor</th>
 </tr>
 </thead>
@@ -1082,10 +1077,19 @@ with tab_program:
 
         if pdf_program_data:
             st.divider()
+            st.markdown("#### 📄 PDF Çıktı Ayarları")
+            pdf_skor_goster = st.checkbox("PDF Çıktılarında 'Skor' Sütununu Göster (Sabah programları için kapalı tutabilirsiniz)", value=False)
+            
             pdf_prog_df = pd.DataFrame(pdf_program_data)
             
-            prog_col_widths = [10, 22, 28, 16, 44, 44, 26] 
-            prog_aligns = ['C', 'C', 'C', 'C', 'L', 'L', 'C']
+            # Kullanıcının seçimine göre "Skor" sütununu ayarla ve genişlikleri belirle
+            if not pdf_skor_goster and "Skor" in pdf_prog_df.columns:
+                pdf_prog_df = pdf_prog_df.drop(columns=["Skor"])
+                prog_col_widths = [16, 16, 28, 65, 65] 
+                prog_aligns = ['C', 'C', 'C', 'L', 'L']
+            else:
+                prog_col_widths = [16, 16, 28, 52, 52, 26] 
+                prog_aligns = ['C', 'C', 'C', 'L', 'L', 'C']
             
             turnuva_adi_icin = st.session_state.data['publish'].get('turnuva_adi', "").strip()
             if not turnuva_adi_icin: turnuva_adi_icin = f"{st.session_state.aktif_yas}"
@@ -1142,22 +1146,24 @@ with tab_program:
                         scv = br_sc if br_sc else "-"
                         
                         ptur = label 
-                        pkat = "E" if cat_n == "Erkekler" else "K"
                         
                         temp_matches.append({
-                            "Kat.": pkat, "Tur": ptur, "Saat": sv, "Kort": kv,
+                            "Saat": sv, "Kort": kv, "Tur": ptur,
                             "Oyuncu 1": p1_pdf, "Oyuncu 2": p2_pdf, "Skor": scv
                         })
                         
                     if temp_matches:
-                        combined_pdf_data.append({
-                            "Kat.": "-", "Tur": "-", "Saat": "-", "Kort": "-",
+                        dummy_row = {
+                            "Saat": "-", "Kort": "-", "Tur": "-",
                             "Oyuncu 1": f"**--- {cat_n.upper()} MAÇLARI ---**", "Oyuncu 2": "-", "Skor": "-"
-                        })
-                        
+                        }
+                        combined_pdf_data.append(dummy_row)
                         combined_pdf_data.extend(temp_matches)
             
             combined_pdf_df = pd.DataFrame(combined_pdf_data)
+            
+            if not pdf_skor_goster and "Skor" in combined_pdf_df.columns:
+                combined_pdf_df = combined_pdf_df.drop(columns=["Skor"])
             
             if secilen_gun != "Tüm Günler":
                 pdf_alt_baslik_comb = f"Kadınlar & Erkekler - {baslik_tarih} Maç Programı"
