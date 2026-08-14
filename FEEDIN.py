@@ -130,7 +130,6 @@ def load_sys_config():
         try:
             with open(SYS_CONFIG_FILE, "r", encoding="utf-8") as f:
                 loaded = json.load(f)
-                # Yeni eklenen anahtarlar eksikse tamamla
                 for k in default_config:
                     if k not in loaded: loaded[k] = default_config[k]
                 for cat in default_config["passwords"]:
@@ -221,7 +220,7 @@ def get_sorted_matches(matches_list, cat_d, filtre):
     return [(x[0], x[1]) for x in filtered]
 
 # ==============================================================================
-# 2. SOL MENÜ (SİSTEM AYARLARI VE HAKEM GİRİŞİ HER ZAMAN GÖRÜNÜR)
+# 2. SOL MENÜ (SİSTEM AYARLARI GİZLENDİ)
 # ==============================================================================
 with st.sidebar:
     st.markdown("### 👨‍⚖️ Hakem Yönetim Paneli")
@@ -245,10 +244,13 @@ with st.sidebar:
     else:
         st.info("👈 Önce ana ekrandan yaş grubu seçiniz.")
         
+    # Sistem yöneticisini aşağı itmek için görünmez boşluk
+    st.markdown("<div style='height: 450px;'></div>", unsafe_allow_html=True)
+    
     st.divider()
-    st.markdown("### ⚙️ Sistem Ayarları")
+    st.markdown("### ⚙️ Sistem Yöneticisi")
     if not st.session_state.super_admin_mi:
-        sys_sifre = st.text_input("Sistem Yetkilisi Şifresi:", type="password")
+        sys_sifre = st.text_input("Yönetici Şifresi:", type="password", help="Sadece şifreleri yönetmek içindir.")
         if st.button("🔧 Sisteme Giriş"):
             if sys_sifre == SYS_CONFIG["master_password"]:
                 st.session_state.super_admin_mi = True
@@ -258,7 +260,7 @@ with st.sidebar:
                 st.error("❌ Hatalı Şifre!")
     else:
         st.success("🟢 Sistem Yöneticisi Aktif")
-        if st.button("🔓 Çıkış Yap (Sistem)"):
+        if st.button("🔓 Çıkış Yap (Yönetici)"):
             st.session_state.super_admin_mi = False
             st.rerun()
 
@@ -291,8 +293,8 @@ if st.session_state.super_admin_mi:
                 st.rerun()
                 
     with col_backup:
-        st.subheader("📥 Veritabanı Yedeklerini İndir")
-        st.markdown("Her bir yaş grubunun güncel verilerini (skorlar, oyuncular, ayarlar) tek tıklamayla JSON formatında yedekleyebilirsiniz.")
+        st.subheader("📥 Tüm Veritabanı Yedekleri")
+        st.markdown("Acil durumlar için tüm yaş gruplarının güncel verilerini buradan da indirebilirsiniz.")
         st.markdown("<br>", unsafe_allow_html=True)
         
         for cat in ["12 Yaş", "14 Yaş", "16 Yaş", "18 Yaş", "Büyükler"]:
@@ -991,27 +993,31 @@ with tab_program:
 
             bg_style = ""
             bg_color_only = ""
-            if m_id.startswith("MQF_") or m_id.startswith("CR1_"):
-                try:
-                    mac_index = int(m_id.split("_")[1])
-                    color_idx = 3 - mac_index if m_id.startswith("MQF_") else mac_index
-                    renkler = {0: "#cce3f6", 1: "#e0e0e0", 2: "#fce4d6", 3: "#d5ebd9"}
-                    bg_renk = renkler.get(color_idx, "")
-                    if bg_renk:
-                        bg_style = f"background-color: {bg_renk}; color: #000; padding: 4px; border-radius: 4px; margin-bottom: 2px;"
-                        bg_color_only = f"background-color: {bg_renk}; color: #000;"
-                except:
-                    pass
-            elif m_id.startswith("MSF_") or m_id.startswith("CR3_"):
-                try:
-                    mac_index = int(m_id.split("_")[1])
-                    renkler = {0: "#cce3f6", 1: "#e0e0e0"}
-                    bg_renk = renkler.get(mac_index, "")
-                    if bg_renk:
-                        bg_style = f"background-color: {bg_renk}; color: #000; padding: 4px; border-radius: 4px; margin-bottom: 2px;"
-                        bg_color_only = f"background-color: {bg_renk}; color: #000;"
-                except:
-                    pass
+            
+            # --- SADECE BAŞHAKEMLER İÇİN RENKLENDİRME ---
+            if st.session_state.admin_mi:
+                if m_id.startswith("MQF_") or m_id.startswith("CR1_"):
+                    try:
+                        mac_index = int(m_id.split("_")[1])
+                        color_idx = 3 - mac_index if m_id.startswith("MQF_") else mac_index
+                        renkler = {0: "#cce3f6", 1: "#e0e0e0", 2: "#fce4d6", 3: "#d5ebd9"}
+                        bg_renk = renkler.get(color_idx, "")
+                        if bg_renk:
+                            bg_style = f"background-color: {bg_renk}; color: #000; padding: 4px; border-radius: 4px; margin-bottom: 2px;"
+                            bg_color_only = f"background-color: {bg_renk}; color: #000;"
+                    except:
+                        pass
+                elif m_id.startswith("MSF_") or m_id.startswith("CR3_"):
+                    try:
+                        mac_index = int(m_id.split("_")[1])
+                        renkler = {0: "#cce3f6", 1: "#e0e0e0"}
+                        bg_renk = renkler.get(mac_index, "")
+                        if bg_renk:
+                            bg_style = f"background-color: {bg_renk}; color: #000; padding: 4px; border-radius: 4px; margin-bottom: 2px;"
+                            bg_color_only = f"background-color: {bg_renk}; color: #000;"
+                    except:
+                        pass
+            # ---------------------------------------------
 
             if st.session_state.admin_mi:
                 c1, c2, c3, c4, c5, c6 = st.columns([1.5, 2, 2, 1, 1, 1])
@@ -1084,7 +1090,6 @@ with tab_program:
             turnuva_adi_icin = st.session_state.data['publish'].get('turnuva_adi', "").strip()
             if not turnuva_adi_icin: turnuva_adi_icin = f"{st.session_state.aktif_yas}"
             
-            # ANA BAŞLIK VE ALT BAŞLIK AYRIMI İÇİN YENİ SİSTEM
             pdf_ana_baslik = turnuva_adi_icin
             
             if secilen_gun != "Tüm Günler":
@@ -1233,7 +1238,6 @@ with tab_siralama:
         sir_col_widths = [15, 30, 145]
         sir_aligns = ['C', 'C', 'L']
         
-        # Çift Satır Sıralama Başlığı
         sir_ana_baslik = turnuva_adi_icin
         sir_alt_baslik = f"{active_cat} Kesin Sıralama"
         
@@ -1422,11 +1426,19 @@ if st.session_state.admin_mi and tab_dosya:
                     st.error(f"Dosya okunurken bir hata oluştu: {e}")
             
         st.divider()
-        st.markdown("**3. Sistemden Geri Yükle**")
-        st.info("💡 Veri yedeklemek (indirmek) için sol menüden 'Sistem Ayarları' paneline giriş yapınız.")
+        st.markdown("**3. Sistemi Yedekle / Geri Yükle**")
+        c_sv, c_ld = st.columns(2)
         
-        uploaded_file = st.file_uploader(f"📤 {st.session_state.aktif_yas} Dosyasını Geri Yükle", type="json")
-        if uploaded_file and st.button("Yüklenen Veriyi Uygula"):
+        data_to_save = json.dumps(st.session_state.data, ensure_ascii=False)
+        c_sv.download_button(
+            f"📥 {st.session_state.aktif_yas} Verisini Yedekle (.json)", 
+            data=data_to_save, 
+            file_name=DB_FILE,
+            use_container_width=True
+        )
+        
+        uploaded_file = c_ld.file_uploader(f"📤 {st.session_state.aktif_yas} Geri Yükle", type="json")
+        if uploaded_file and c_ld.button("Yüklenen Veriyi Uygula"):
             try:
                 yeni_veri = json.load(uploaded_file)
             except Exception:
