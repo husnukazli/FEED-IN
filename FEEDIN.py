@@ -321,7 +321,7 @@ if st.session_state.aktif_yas == "Seçilmedi":
     if ttf_b64:
         st.markdown(f'<div style="text-align: center; margin-bottom: 10px;"><img src="data:image/png;base64,{ttf_b64}" width="150"></div>', unsafe_allow_html=True)
         
-    st.markdown("<h1 style='text-align: center; color: #1f77b4;'>Milli Takım Belirleme Turnuvaları</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #1f77b4;'>Türkiye Şampiyonası Turnuvaları</h1>", unsafe_allow_html=True)
     st.markdown("<h4 style='text-align: center; color: #555;'>Lütfen takip etmek istediğiniz grubu seçiniz</h4><br><br>", unsafe_allow_html=True)
     
     c1, c2, c3, c4, c5 = st.columns(5)
