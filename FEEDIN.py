@@ -50,7 +50,7 @@ import bracket_pdf
 from bracket_svg import render_main_bracket_svg, render_consolation_bracket_svg
 from bracket_pdf import generate_bracket_pdf
 
-st.set_page_config(layout="wide", page_title="Milli Takım Belirleme Turnuvaları", initial_sidebar_state="collapsed")
+st.set_page_config(layout="wide", page_title="Türkiye Şampiyonası Turnuvaları", initial_sidebar_state="collapsed")
 
 # ==============================================================================
 # 1. DOSYA, ŞİFRE, FPDF VE ALGORİTMA YARDIMCI FONKSİYONLARI
