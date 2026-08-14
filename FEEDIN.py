@@ -116,7 +116,8 @@ SIFRELER = {
     "12 Yaş": "hakem12",
     "14 Yaş": "hakem14",
     "16 Yaş": "hakem16",
-    "18 Yaş": "hakem18"
+    "18 Yaş": "hakem18",
+    "Büyükler": "hakembuyukler"
 }
 
 SRC_MAP = {
@@ -152,6 +153,13 @@ if "active_cat" not in st.session_state:
     st.session_state.active_cat = "Erkekler"
 if "secilen_gun_tab2" not in st.session_state:
     st.session_state.secilen_gun_tab2 = "Tüm Günler"
+
+def get_db_prefix(yas):
+    if yas == "Büyükler": return "buyukler"
+    if yas == "Seçilmedi": return "secilmedi"
+    return yas[:2]
+
+DB_FILE = f"turnuva_db_{get_db_prefix(st.session_state.aktif_yas)}.json"
 
 def get_base64_image(image_path):
     if os.path.exists(image_path):
@@ -194,15 +202,15 @@ if st.session_state.aktif_yas == "Seçilmedi":
         st.markdown(f'<div style="text-align: center; margin-bottom: 10px;"><img src="data:image/png;base64,{ttf_b64}" width="150"></div>', unsafe_allow_html=True)
         
     st.markdown("<h1 style='text-align: center; color: #1f77b4;'>Milli Takım Belirleme Turnuvaları</h1>", unsafe_allow_html=True)
-    st.markdown("<h4 style='text-align: center; color: #555;'>Lütfen takip etmek istediğiniz yaş grubunu seçiniz</h4><br><br>", unsafe_allow_html=True)
+    st.markdown("<h4 style='text-align: center; color: #555;'>Lütfen takip etmek istediğiniz grubu seçiniz</h4><br><br>", unsafe_allow_html=True)
     
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
     
     st.markdown("""
     <style>
     div[data-testid="column"] button {
         height: 80px;
-        font-size: 20px !important;
+        font-size: 18px !important;
         font-weight: bold;
         border-radius: 10px;
     }
@@ -221,17 +229,18 @@ if st.session_state.aktif_yas == "Seçilmedi":
     if c4.button("🎾 18 YAŞ", use_container_width=True):
         st.session_state.aktif_yas = "18 Yaş"
         st.rerun()
+    if c5.button("🎾 BÜYÜKLER", use_container_width=True):
+        st.session_state.aktif_yas = "Büyükler"
+        st.rerun()
         
     with st.sidebar:
-        st.info("👈 Turnuva detaylarını görmek için ekranın ortasındaki yaş grubu butonlarına tıklayınız.")
+        st.info("👈 Turnuva detaylarını görmek için ekranın ortasındaki butonlara tıklayınız.")
         
     st.stop()
 
 # ==============================================================================
 # 3. VERİ YÜKLEME VE GÜVENLİ KAYIT FONKSİYONLARI (SAFE SAVE & BACKUP)
 # ==============================================================================
-DB_FILE = f"turnuva_db_{st.session_state.aktif_yas[:2]}.json"
-
 def clean_html_text(text):
     if not isinstance(text, str): return str(text)
     t = html.unescape(text)
@@ -242,7 +251,7 @@ def load_data():
     default_data = {
         'Erkekler': {'players': [f"Oyuncu {i}" for i in range(1, 17)], 'res': {}, 'scores': {}, 'schedule_data': {}},
         'Kadınlar': {'players': [f"Oyuncu {i}" for i in range(1, 17)], 'res': {}, 'scores': {}, 'schedule_data': {}},
-        'publish': {'gun': 'Tüm Günler', 'filtre': 'Tümü', 'kategori': 'Tümü', 'dates': {}, 'ikort_link': '', 'sort_by': 'match_no'}
+        'publish': {'gun': 'Tüm Günler', 'filtre': 'Tümü', 'kategori': 'Tümü', 'dates': {}, 'ikort_link': '', 'turnuva_adi': '', 'sort_by': 'match_no'}
     }
     
     if os.path.exists(DB_FILE):
@@ -250,11 +259,13 @@ def load_data():
             with open(DB_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 if 'publish' not in data:
-                    data['publish'] = {'gun': 'Tüm Günler', 'filtre': 'Tümü', 'kategori': 'Tümü', 'dates': {}, 'ikort_link': '', 'sort_by': 'match_no'}
+                    data['publish'] = {'gun': 'Tüm Günler', 'filtre': 'Tümü', 'kategori': 'Tümü', 'dates': {}, 'ikort_link': '', 'turnuva_adi': '', 'sort_by': 'match_no'}
                 if 'dates' not in data['publish']:
                     data['publish']['dates'] = {}
                 if 'ikort_link' not in data['publish']:
                     data['publish']['ikort_link'] = ""
+                if 'turnuva_adi' not in data['publish']:
+                    data['publish']['turnuva_adi'] = ""
                 if 'sort_by' not in data['publish']:
                     data['publish']['sort_by'] = "match_no"
                 return data
@@ -265,11 +276,13 @@ def load_data():
                     with open(bak_file, "r", encoding="utf-8") as f:
                         data = json.load(f)
                         if 'publish' not in data:
-                            data['publish'] = {'gun': 'Tüm Günler', 'filtre': 'Tümü', 'kategori': 'Tümü', 'dates': {}, 'ikort_link': '', 'sort_by': 'match_no'}
+                            data['publish'] = {'gun': 'Tüm Günler', 'filtre': 'Tümü', 'kategori': 'Tümü', 'dates': {}, 'ikort_link': '', 'turnuva_adi': '', 'sort_by': 'match_no'}
                         if 'dates' not in data['publish']:
                             data['publish']['dates'] = {}
                         if 'ikort_link' not in data['publish']:
                             data['publish']['ikort_link'] = ""
+                        if 'turnuva_adi' not in data['publish']:
+                            data['publish']['turnuva_adi'] = ""
                         if 'sort_by' not in data['publish']:
                             data['publish']['sort_by'] = "match_no"
                         return data
@@ -510,7 +523,11 @@ with c_logo:
     if ttf_b64:
         st.markdown(f'<img src="data:image/png;base64,{ttf_b64}" style="max-width:100%; height:auto;">', unsafe_allow_html=True)
 with c_title:
-    st.title(f"{st.session_state.aktif_yas} Milli Takım Belirleme Turnuvası")
+    turnuva_adi = st.session_state.data['publish'].get('turnuva_adi', "").strip()
+    if turnuva_adi:
+        st.title(turnuva_adi)
+    else:
+        st.title(f"{st.session_state.aktif_yas} Milli Takım Belirleme Turnuvası")
     
     ikort_url = st.session_state.data['publish'].get('ikort_link', '')
     if ikort_url:
@@ -570,7 +587,14 @@ with tab_fikstur:
                 if hasattr(bracket_pdf, 'compute_bracket_state'):
                     bracket_pdf.compute_bracket_state = display_compute
                     
-                pdf_bytes = generate_bracket_pdf(cat_data, active_cat, TurnuvaFPDF, to_pdf_text, FONT_YUKLENDI)
+                turnuva_adi_icin = st.session_state.data['publish'].get('turnuva_adi', "").strip()
+                if not turnuva_adi_icin:
+                    turnuva_adi_icin = f"{st.session_state.aktif_yas} Milli Takım Belirleme Turnuvası"
+                
+                try:
+                    pdf_bytes = generate_bracket_pdf(cat_data, active_cat, TurnuvaFPDF, to_pdf_text, FONT_YUKLENDI, turnuva_adi_icin)
+                except TypeError:
+                    pdf_bytes = generate_bracket_pdf(cat_data, active_cat, TurnuvaFPDF, to_pdf_text, FONT_YUKLENDI)
             except Exception as e:
                 st.caption(f"PDF oluşturulamadı: {e}")
             finally:
@@ -579,7 +603,7 @@ with tab_fikstur:
                     bracket_pdf.compute_bracket_state = compute_bracket_state
             
             if pdf_bytes:
-                st.download_button("📄 Fikstürü PDF İndir", data=pdf_bytes, file_name=f"{st.session_state.aktif_yas[:2]}_yas_{active_cat}_fikstur.pdf", mime="application/pdf", key="dl_bracket_pdf")
+                st.download_button("📄 Fikstürü PDF İndir", data=pdf_bytes, file_name=f"{get_db_prefix(st.session_state.aktif_yas)}_{active_cat}_fikstur.pdf", mime="application/pdf", key="dl_bracket_pdf")
 
     st.divider()
 
@@ -953,6 +977,9 @@ with tab_program:
             prog_col_widths = [10, 22, 28, 16, 44, 44, 26] 
             prog_aligns = ['C', 'C', 'C', 'C', 'L', 'L', 'C']
             
+            turnuva_adi_icin = st.session_state.data['publish'].get('turnuva_adi', "").strip()
+            if not turnuva_adi_icin: turnuva_adi_icin = f"{st.session_state.aktif_yas}"
+            
             if secilen_gun != "Tüm Günler":
                 gercek_tarih = ""
                 d_info = st.session_state.data['publish']['dates'].get(secilen_gun, {})
@@ -962,9 +989,9 @@ with tab_program:
                     gercek_tarih = format_date_tr(d_info.get("tarih", ""))
                     
                 baslik_tarih = gercek_tarih if gercek_tarih else secilen_gun
-                pdf_baslik = f"{st.session_state.aktif_yas} ({active_cat}) - {baslik_tarih} Maç Programı"
+                pdf_baslik = f"{turnuva_adi_icin} ({active_cat}) - {baslik_tarih} Maç Programı"
             else:
-                pdf_baslik = f"{st.session_state.aktif_yas} ({active_cat}) Tüm Maçların Programı"
+                pdf_baslik = f"{turnuva_adi_icin} ({active_cat}) Tüm Maçların Programı"
 
             btn_pdf_prog = generate_pdf(pdf_prog_df, pdf_baslik, col_widths=prog_col_widths, aligns=prog_aligns)
             
@@ -1020,15 +1047,15 @@ with tab_program:
             
             combined_pdf_df = pd.DataFrame(combined_pdf_data)
             if secilen_gun != "Tüm Günler":
-                pdf_baslik_comb = f"{st.session_state.aktif_yas} (Kadınlar & Erkekler) - {baslik_tarih} Maç Programı"
+                pdf_baslik_comb = f"{turnuva_adi_icin} (Kadınlar & Erkekler) - {baslik_tarih} Maç Programı"
             else:
-                pdf_baslik_comb = f"{st.session_state.aktif_yas} (Kadınlar & Erkekler) Tüm Maçların Programı"
+                pdf_baslik_comb = f"{turnuva_adi_icin} (Kadınlar & Erkekler) Tüm Maçların Programı"
                 
             btn_pdf_prog_comb = generate_pdf(combined_pdf_df, pdf_baslik_comb, col_widths=prog_col_widths, aligns=prog_aligns)
             
             c_pdf1, c_pdf2 = st.columns(2)
-            c_pdf1.download_button(f"📥 {active_cat} Programını PDF İndir", data=btn_pdf_prog, file_name=f"{st.session_state.aktif_yas[:2]}_yas_{active_cat}_program.pdf", mime="application/pdf", use_container_width=True)
-            c_pdf2.download_button("📥 Erkekler & Kadınlar Ortak PDF İndir", data=btn_pdf_prog_comb, file_name=f"{st.session_state.aktif_yas[:2]}_yas_ortak_program.pdf", mime="application/pdf", use_container_width=True)
+            c_pdf1.download_button(f"📥 {active_cat} Programını PDF İndir", data=btn_pdf_prog, file_name=f"{get_db_prefix(st.session_state.aktif_yas)}_{active_cat}_program.pdf", mime="application/pdf", use_container_width=True)
+            c_pdf2.download_button("📥 Erkekler & Kadınlar Ortak PDF İndir", data=btn_pdf_prog_comb, file_name=f"{get_db_prefix(st.session_state.aktif_yas)}_ortak_program.pdf", mime="application/pdf", use_container_width=True)
 
 # ==========================================
 # TAB 3: SIRALAMA
@@ -1091,11 +1118,14 @@ with tab_siralama:
         
     if st.session_state.admin_mi and pdf_siralama_data:
         st.divider()
+        turnuva_adi_icin = st.session_state.data['publish'].get('turnuva_adi', "").strip()
+        if not turnuva_adi_icin: turnuva_adi_icin = f"{st.session_state.aktif_yas}"
+        
         pdf_sir_df = pd.DataFrame(pdf_siralama_data)
         sir_col_widths = [15, 30, 145]
         sir_aligns = ['C', 'C', 'L']
-        btn_pdf_sir = generate_pdf(pdf_sir_df, f"{st.session_state.aktif_yas} Siralamasi ({active_cat})", col_widths=sir_col_widths, aligns=sir_aligns)
-        st.download_button("📥 Sıralamayı PDF Olarak İndir", data=btn_pdf_sir, file_name=f"{st.session_state.aktif_yas[:2]}_yas_{active_cat}_siralama.pdf", mime="application/pdf")
+        btn_pdf_sir = generate_pdf(pdf_sir_df, f"{turnuva_adi_icin} Sıralaması ({active_cat})", col_widths=sir_col_widths, aligns=sir_aligns)
+        st.download_button("📥 Sıralamayı PDF Olarak İndir", data=btn_pdf_sir, file_name=f"{get_db_prefix(st.session_state.aktif_yas)}_{active_cat}_siralama.pdf", mime="application/pdf")
 
 # ==========================================
 # TAB 4: YEDEKLEME VE DOSYA (Sadece Admin)
@@ -1104,13 +1134,18 @@ if st.session_state.admin_mi and tab_dosya:
     with tab_dosya:
         st.subheader("📥 Veri Yönetimi ve Turnuva Ayarları")
         
-        st.markdown("**1. i-Kort Turnuva Sayfası Linki**")
+        st.markdown("**1. Turnuva Adı ve i-Kort Linki**")
+        mevcut_adi = st.session_state.data['publish'].get('turnuva_adi', "")
+        yeni_adi = st.text_input("Turnuva Başlığı (Eğer boş bırakılırsa standart yaş grubu yazar):", value=mevcut_adi, placeholder="Örn: 12 Yaş Türkiye Şampiyonası")
+        
         mevcut_link = st.session_state.data['publish'].get('ikort_link', "")
         yeni_link = st.text_input("Resmi i-Kort URL'sini buraya yapıştırın:", value=mevcut_link, placeholder="Örn: https://i-kort.ttf.org.tr/...")
-        if st.button("🔗 Linki Kaydet"):
+        
+        if st.button("💾 Bilgileri Kaydet"):
+            st.session_state.data['publish']['turnuva_adi'] = yeni_adi
             st.session_state.data['publish']['ikort_link'] = yeni_link
             save_data()
-            st.success("i-Kort linki başarıyla kaydedildi!")
+            st.success("Turnuva bilgileri başarıyla kaydedildi!")
             st.rerun()
 
         st.divider()
@@ -1303,6 +1338,8 @@ if st.session_state.admin_mi and tab_dosya:
                 yeni_veri["publish"]["dates"] = {}
             if "ikort_link" not in yeni_veri["publish"]:
                 yeni_veri["publish"]["ikort_link"] = ""
+            if "turnuva_adi" not in yeni_veri["publish"]:
+                yeni_veri["publish"]["turnuva_adi"] = ""
 
             st.session_state.data = yeni_veri
             save_data()
