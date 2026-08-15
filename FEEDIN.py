@@ -50,7 +50,7 @@ import bracket_pdf
 from bracket_svg import render_main_bracket_svg, render_consolation_bracket_svg
 from bracket_pdf import generate_bracket_pdf
 
-st.set_page_config(layout="wide", page_title="Türkiye Şampiyonası Turnuvaları", initial_sidebar_state="collapsed")
+st.set_page_config(layout="wide", page_title="Milli Takım Belirleme Turnuvaları", initial_sidebar_state="collapsed")
 
 # ==============================================================================
 # 1. DOSYA, ŞİFRE, FPDF VE ALGORİTMA YARDIMCI FONKSİYONLARI
@@ -319,7 +319,7 @@ if st.session_state.aktif_yas == "Seçilmedi":
     if ttf_b64:
         st.markdown(f'<div style="text-align: center; margin-bottom: 10px;"><img src="data:image/png;base64,{ttf_b64}" width="150"></div>', unsafe_allow_html=True)
         
-    st.markdown("<h1 style='text-align: center; color: #1f77b4;'>Türkiye Şampiyonası Turnuvaları</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #1f77b4;'>Milli Takım Belirleme Turnuvaları</h1>", unsafe_allow_html=True)
     st.markdown("<h4 style='text-align: center; color: #555;'>Lütfen takip etmek istediğiniz grubu seçiniz</h4><br><br>", unsafe_allow_html=True)
     
     c1, c2, c3, c4, c5 = st.columns(5)
@@ -477,7 +477,7 @@ def to_pdf_text(text):
                   .replace("Ö", "O").replace("ö", "o").replace("Ü", "U").replace("ü", "u")
     return t.encode('latin-1', 'replace').decode('latin-1')
 
-# --- ALT BAŞLIK (SUBTITLE) DESTEKLİ YENİ PDF OLUŞTURUCU ---
+# --- ALT BAŞLIK VE ORTALI AYRAÇ DESTEKLİ YENİ PDF OLUŞTURUCU ---
 def generate_pdf(df, baslik, alt_baslik="", col_widths=None, aligns=None):
     pdf = TurnuvaFPDF(orientation='P', unit='mm', format='A4')
     pdf.add_page()
@@ -496,7 +496,7 @@ def generate_pdf(df, baslik, alt_baslik="", col_widths=None, aligns=None):
     if not df.empty:
         w = col_widths if col_widths else [190 / len(df.columns)] * len(df.columns)
         if not aligns:
-            aligns = ['C'] * len(df.columns) # Varsayılan ortalı
+            aligns = ['C'] * len(df.columns)
             
         pdf.set_fill_color(31, 119, 180) 
         pdf.set_text_color(255, 255, 255)
@@ -509,6 +509,27 @@ def generate_pdf(df, baslik, alt_baslik="", col_widths=None, aligns=None):
         pdf.set_text_color(0, 0, 0)
         
         for row_idx, row in df.iterrows():
+            # --- ÖZEL AYRAÇ SATIRI (ERKEKLER / KADINLAR MAÇLARI) KONTROLÜ ---
+            if str(row.iloc[0]) == "___SEP___":
+                cat_type = str(row.iloc[1])
+                total_w = sum(w)
+                
+                # Siyah beyaz çıktıda harika görünecek çok açık pastel renkler
+                if cat_type == "E":
+                    pdf.set_fill_color(230, 245, 255) # Çok açık pastel mavi
+                    text = "ERKEKLER MAÇLARI"
+                else:
+                    pdf.set_fill_color(255, 235, 245) # Çok açık pastel pembe
+                    text = "KADINLAR MAÇLARI"
+                
+                pdf.set_font("ArialTR", 'B', 13) # Normalden bir tık büyük punto
+                pdf.set_text_color(0, 0, 0)
+                # Tüm tabloyu kaplayan (colspan) tek parça ayraç çizimi
+                pdf.cell(total_w, 9.5, to_pdf_text(text), border=1, align='C', fill=True)
+                pdf.ln()
+                continue
+            
+            # --- NORMAL TABLO SATIRLARI ---
             if row_idx % 2 == 0:
                 pdf.set_fill_color(255, 255, 255)
             else:
@@ -629,7 +650,7 @@ with c_title:
     if turnuva_adi:
         st.title(turnuva_adi)
     else:
-        st.title(f"{st.session_state.aktif_yas} Türkiye Şampiyonası Turnuvası")
+        st.title(f"{st.session_state.aktif_yas} Milli Takım Belirleme Turnuvası")
     
     ikort_url = st.session_state.data['publish'].get('ikort_link', '')
     if ikort_url:
@@ -691,7 +712,7 @@ with tab_fikstur:
                     
                 turnuva_adi_icin = st.session_state.data['publish'].get('turnuva_adi', "").strip()
                 if not turnuva_adi_icin:
-                    turnuva_adi_icin = f"{st.session_state.aktif_yas} Türkiye Şampiyonası Turnuvası"
+                    turnuva_adi_icin = f"{st.session_state.aktif_yas} Milli Takım Belirleme Turnuvası"
                 
                 try:
                     pdf_bytes = generate_bracket_pdf(cat_data, active_cat, TurnuvaFPDF, to_pdf_text, FONT_YUKLENDI, turnuva_adi_icin)
@@ -1080,7 +1101,7 @@ with tab_program:
             
             pdf_prog_df = pd.DataFrame(pdf_program_data)
             
-            # Tüm sütun hizalamaları ('C' - Center) olarak değiştirildi
+            # Tüm sütunlar ortalı (C) olarak ayarlandı
             if not pdf_skor_goster and "Skor" in pdf_prog_df.columns:
                 pdf_prog_df = pdf_prog_df.drop(columns=["Skor"])
                 prog_col_widths = [16, 16, 28, 65, 65] 
@@ -1151,9 +1172,10 @@ with tab_program:
                         })
                         
                     if temp_matches:
+                        # --- AYRAÇ SATIRI İŞARETÇİSİ EKLENİYOR ---
                         dummy_row = {
-                            "Saat": "-", "Kort": "-", "Tur": "-",
-                            "Oyuncu 1": f"**--- {cat_n.upper()} MAÇLARI ---**", "Oyuncu 2": "-", "Skor": "-"
+                            "Saat": "___SEP___", "Kort": "E" if cat_n == "Erkekler" else "K", "Tur": "",
+                            "Oyuncu 1": "", "Oyuncu 2": "", "Skor": ""
                         }
                         combined_pdf_data.append(dummy_row)
                         combined_pdf_data.extend(temp_matches)
@@ -1241,7 +1263,6 @@ with tab_siralama:
         pdf_sir_df = pd.DataFrame(pdf_siralama_data)
         sir_col_widths = [15, 30, 145]
         
-        # Sıralama PDF'i için de her şey ortalandı
         sir_aligns = ['C', 'C', 'C']
         
         sir_ana_baslik = turnuva_adi_icin
